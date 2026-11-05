@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { serverClient, requireMember } from "../server/supabase.js";
+import { serverClient, requireMember, serverKeyHeaders } from "../server/supabase.js";
 
 const maxBytes = 10 * 1024 * 1024;
 export function signTicket(payload, secret) {
@@ -114,8 +114,7 @@ export default async function handler(req, res) {
       process.env.SUPABASE_URL + "/storage/v1/object/hoora-docs/" + ticket.path,
       {
         headers: {
-          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
+          ...serverKeyHeaders(process.env.SUPABASE_SERVICE_ROLE_KEY),
         },
         signal: AbortSignal.timeout(15000),
       },

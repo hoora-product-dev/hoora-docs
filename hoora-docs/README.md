@@ -56,7 +56,7 @@ Set Supabase's Site URL to the production deployment. OAuth account creation mus
 
 ## Microsoft Teams account sign-in
 
-The application uses the Microsoft Entra work account behind Teams, through Supabase's Azure OAuth provider. The Entra app is single-tenant, with Supabase's callback `https://<NEW_SUPABASE_PROJECT_ID>.supabase.co/auth/v1/callback`. Azure provider configuration uses the tenant-specific URL `https://login.microsoftonline.com/e990c26c-1489-4803-b7f2-dc1cf4cac0bf`.
+The application uses the Microsoft Entra work account behind Teams, through Supabase's Azure OAuth provider. The Entra app is single-tenant, with Supabase's callback `https://jrjkxddjwcphdmjeqyfq.supabase.co/auth/v1/callback`. Azure provider configuration uses the tenant-specific URL `https://login.microsoftonline.com/e990c26c-1489-4803-b7f2-dc1cf4cac0bf`.
 
 The callback uses PKCE. `/api/sso` checks the Supabase identity, validates the Microsoft access token through Microsoft Graph, compares the immutable Microsoft subject, checks the tenant, and rejects guest accounts. A verified new employee receives **viewer** access. Existing roles are preserved. Roles are controlled in Hoora Docs rather than synchronized from Entra groups. `rahul@hoora.me` is the verified setup owner's administrator account; the original password administrator is retained.
 

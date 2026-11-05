@@ -124,8 +124,9 @@ function saveSession(session) {
   else localStorage.removeItem("hoora-session");
 }
 let refreshing;
+const authHeaders = token => token ? { Authorization: 'Bearer ' + token } : {};
 async function getToken() {
-  if (!state.session) return config.key;
+  if (!state.session) return config.key.startsWith('sb_publishable_') ? null : config.key;
   if ((state.session.expires_at || 0) > Date.now() / 1000 + 60)
     return state.session.access_token;
   if (!refreshing)
@@ -156,7 +157,7 @@ async function api(path, { method = "GET", body, headers = {}, authRetry = 0 } =
     method,
     headers: {
       apikey: config.key,
-      Authorization: "Bearer " + token,
+      ...authHeaders(token),
       "Content-Type": "application/json",
       ...headers,
     },
@@ -189,7 +190,7 @@ async function admin(body) {
   const r = await fetch("/api/admin", {
     method: body ? "POST" : "GET",
     headers: {
-      Authorization: "Bearer " + token,
+      ...authHeaders(token),
       "Content-Type": "application/json",
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -577,7 +578,7 @@ async function uploadFile(file, releaseId = null) {
     method: "POST",
     headers: {
       apikey: config.key,
-      Authorization: "Bearer " + token,
+      ...authHeaders(token),
       "Content-Type": file.type || "application/octet-stream",
     },
     body: file,
@@ -613,7 +614,7 @@ async function appApi(path, body) {
   const r = await fetch(path, {
     method: "POST",
     headers: {
-      Authorization: "Bearer " + token,
+      ...authHeaders(token),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -739,7 +740,7 @@ async function uploadHtml(file) {
     method: "POST",
     headers: {
       apikey: config.key,
-      Authorization: "Bearer " + token,
+      ...authHeaders(token),
       "Content-Type": "text/html",
     },
     body: file,
@@ -1242,7 +1243,7 @@ async function resolveEditorImage(src) {
   const path=src.slice('attachment:'.length);
   if(!src.startsWith('attachment:')||!/^[a-zA-Z0-9/_.-]+$/.test(path))throw new Error('Invalid image attachment');
   const token=await getToken();
-  const response=await fetch(config.url+'/storage/v1/object/authenticated/hoora-docs/'+path,{headers:{apikey:config.key,Authorization:'Bearer '+token}});
+  const response=await fetch(config.url+'/storage/v1/object/authenticated/hoora-docs/'+path,{headers:{apikey:config.key,...authHeaders(token)}});
   if(!response.ok)throw new Error('Image unavailable');
   const blob=await response.blob();
   if(!['image/webp','image/png','image/jpeg'].includes(blob.type))throw new Error('Invalid image');
@@ -1518,7 +1519,7 @@ document.addEventListener("click", async (ev) => {
       const token = await getToken();
       const r = await fetch(
         config.url + "/storage/v1/object/authenticated/hoora-docs/" + p,
-        { headers: { apikey: config.key, Authorization: "Bearer " + token } },
+        { headers: { apikey: config.key, ...authHeaders(token) } },
       );
       if (!r.ok)
         throw new Error(

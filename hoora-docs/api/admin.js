@@ -1,3 +1,4 @@
+import { serverKeyHeaders } from '../server/supabase.js';
 const allowedRoles = ["admin", "publisher", "viewer"];
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -16,8 +17,7 @@ export default async function handler(req, res) {
     const r = await fetch(url + route, {
       ...options,
       headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
+        ...serverKeyHeaders(key),
         "Content-Type": "application/json",
         ...options.headers,
       },

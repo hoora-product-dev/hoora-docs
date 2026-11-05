@@ -1,3 +1,9 @@
+export function serverKeyHeaders(key) {
+  return {
+    apikey: key,
+    ...(!key.startsWith('sb_secret_') ? { Authorization: `Bearer ${key}` } : {}),
+  };
+}
 export function serverClient() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -10,8 +16,7 @@ export function serverClient() {
       ...options,
       signal: AbortSignal.timeout(15000),
       headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
+        ...serverKeyHeaders(key),
         "Content-Type": "application/json",
         ...options.headers,
       },
