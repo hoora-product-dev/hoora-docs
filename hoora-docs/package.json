@@ -1,0 +1,41 @@
+{
+  "name": "hoora-docs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/prepare.mjs && node --import ./tests/dom-setup.mjs --test tests/*.test.mjs",
+    "check": "node --check public/app.js && node --check public/lib.js && node --check api/admin.js && node --check api/sso.js && node --check api/artifact.js && node --check api/onboarding.js && node --check api/notifications.js",
+    "test:browser": "node tests/browser-smoke.mjs",
+    "test:releases": "node tests/live-releases.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "@tiptap/core": "^3.32.3",
+    "@tiptap/extension-image": "3.32.3",
+    "@tiptap/extension-link": "^3.32.3",
+    "@tiptap/extension-table": "^3.32.3",
+    "@tiptap/extension-table-cell": "^3.32.3",
+    "@tiptap/extension-table-header": "^3.32.3",
+    "@tiptap/extension-table-row": "^3.32.3",
+    "@tiptap/markdown": "^3.32.3",
+    "@tiptap/pm": "^3.32.3",
+    "@tiptap/starter-kit": "^3.32.3",
+    "dompurify": "^3.4.17",
+    "marked": "^18.1.3",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.5.438"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.3",
+    "playwright": "^1.64.1",
+    "prettier": "^3.9.10"
+  }
+}

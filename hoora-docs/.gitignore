@@ -1,0 +1,13 @@
+.env*
+!.env.example
+dist/
+.vercel/
+node_modules/
+*.log
+.credentials*
+.deploy-upload/
+.remote-pack.b64
+research/
+public/vendor/
+public/fonts/
+test-results/
