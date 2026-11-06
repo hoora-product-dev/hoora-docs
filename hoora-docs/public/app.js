@@ -307,9 +307,9 @@ function enhanceRail(){
 
 function footer(){return '';}
 function siteFooter(className='site-footer'){
- return `<footer class="${className}"><span>Hoora Docs · Maintained by <a href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Rahul Tripathi</a></span></footer>`;
+ return `<footer class="${className}"><a href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
 }
-function installPrompt(){return isStandaloneApp()?'':`<section class="install-prompt"><p>Install Hoora Docs on your phone or desktop for quick access.</p><a class="btn outline" href="#/install">${icon('download')}Install Hoora Docs</a></section>`;}
+function installPrompt(){return isStandaloneApp()?'':`<section class="install-prompt"><a class="btn outline" href="#/install">${icon('download')}Install Hoora Docs</a></section>`;}
 
 function sidebar(workspace=false){
  const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
