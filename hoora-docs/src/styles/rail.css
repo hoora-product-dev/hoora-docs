@@ -101,3 +101,24 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover{width:var(--ra
 /* Match document-library density while keeping release dates grouped and scannable. */
 .timeline-reader{max-width:none;padding-inline:clamp(24px,4vw,64px)}.timeline-day{grid-template-columns:124px minmax(0,1fr);column-gap:28px;margin:0;padding:0 0 8px;border-bottom:1px solid var(--line)}.timeline-day>h2{position:static;top:auto;margin:0;padding:17px 0 0;font-size:12px;font-weight:560;color:var(--muted)}.timeline-day-items{display:flex;flex-direction:column;gap:0}.timeline-item{min-height:66px;padding:11px 10px;margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;gap:12px;transition:background .14s ease}.timeline-day-items>.timeline-item:last-child{border-bottom:0}.timeline-item:hover{background:var(--raised)}.timeline-item>.tone-icon{width:36px;height:36px;border-radius:7px;background:var(--raised)}.timeline-item h3{display:block;font-size:16px;font-weight:590;line-height:1.4;letter-spacing:-.015em}.timeline-item h3 span{font-size:14px;font-weight:450;color:var(--muted)}.release-row-meta{margin-top:3px;min-height:0;font-size:11px}.release-row-meta:empty{display:none}.release-row-meta .access-label{gap:4px;font-size:10px}.release-row-open{width:28px;height:28px;margin-left:10px;border-radius:5px}.timeline-day+.timeline-day{margin-top:4px}
 @media(max-width:760px){.timeline-reader{padding-inline:20px}.timeline-day{grid-template-columns:minmax(0,1fr);gap:0;padding-bottom:6px}.timeline-day>h2{padding:12px 10px 3px}.timeline-item{min-height:60px;padding:9px 10px}.timeline-item>.tone-icon{width:32px;height:32px}.timeline-item h3{font-size:15px}.timeline-item h3 span{font-size:13px}.release-row-open{width:26px;height:26px;margin-left:4px}}
+
+/* In compact mode, keep just the workspace menu control; reveal the profile on expansion. */
+.rail-collapsed .rail-person{display:none}
+.rail-collapsed .rail-account{justify-content:center;flex-wrap:nowrap;padding-top:10px}
+.rail-collapsed .rail-more summary{width:38px;height:38px}
+@media(hover:hover) and (min-width:761px){.rail-collapsed .sidebar:hover .rail-person{display:flex}}
+@media(max-width:700px){.rail-collapsed .rail-person{display:flex}}
+body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{display:none!important}
+
+/* Keep the update stream quiet; the open affordance responds without tinting the whole row. */
+.timeline-day{border:0!important;margin-bottom:20px!important;padding:0!important}
+.timeline-day>h2{border:0!important;margin:0 0 7px!important;padding:0 12px!important}
+.timeline-day-items{gap:2px!important}
+.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:68px!important;padding:10px 12px!important;border:0!important;border-radius:8px!important;background:transparent!important;transition:none!important}
+.timeline-item:hover,.timeline-item:focus-within{background:transparent!important}
+.timeline-item h3 a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:4px}
+.release-row-open{opacity:.55;transition:opacity .14s ease,background-color .14s ease,color .14s ease,transform .14s ease}
+.timeline-item:hover .release-row-open,.timeline-item:focus-within .release-row-open{opacity:1;background:var(--raised);color:var(--ink);transform:translateX(2px)}
+.release-row-open:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
+@media(max-width:760px){.timeline-day{margin-bottom:15px!important}.timeline-day>h2{padding-inline:8px!important}.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:60px!important;padding:8px!important}}
+@media(prefers-reduced-motion:reduce){.release-row-open{transition:none}}
