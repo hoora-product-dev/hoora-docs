@@ -1,1 +1,1 @@
-try{document.documentElement.dataset.theme=localStorage.getItem('hoora-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch{document.documentElement.dataset.theme='light';}
+try{document.documentElement.dataset.theme=localStorage.getItem('hoora-theme')||'dark';}catch{document.documentElement.dataset.theme='dark';}
