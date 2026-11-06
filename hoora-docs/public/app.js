@@ -34,9 +34,9 @@ let vehicleLoaderTasks=0,vehicleLoaderDelay=null,vehicleLoaderVisibleAt=0,vehicl
 function showVehicleLoader(){
  const loader=document.querySelector("#vehicle-loader");if(!loader||vehicleLoaderVisibleAt)return;
  const word=loader.querySelector(".vehicle-loader-word");
- word.replaceChildren(...Array.from("Vehicle 360",(letter,index)=>{
+ word.replaceChildren(...Array.from("Smart Vehicle 360",(letter,index)=>{
   if(letter===" "){const gap=document.createElement("span");gap.className="vehicle-loader-gap";gap.setAttribute("aria-hidden","true");return gap;}
-  const span=document.createElement("span");span.className="vehicle-loader-letter";span.textContent=letter;span.style.setProperty("--letter",index>7?index-1:index);return span;
+  const span=document.createElement("span");span.className="vehicle-loader-letter";span.textContent=letter;span.style.setProperty("--letter",index);return span;
  }));
  loader.hidden=false;loader.setAttribute("aria-hidden","false");vehicleLoaderVisibleAt=Date.now();document.body.classList.add("vehicle-loading");app?.setAttribute("aria-busy","true");
 }

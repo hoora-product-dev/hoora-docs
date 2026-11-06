@@ -50,6 +50,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/home",
+      "destination": "/index.html"
+    },
+    {
       "source": "/release-notes/:version/:application",
       "destination": "/api/release-preview?version=:version&application=:application"
     },
