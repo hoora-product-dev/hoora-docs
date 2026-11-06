@@ -45,6 +45,7 @@ npm run test:browser
 npm run test:release-browser
 npm run test:uploads
 npm run test:attachments
+npm run test:production
 npm run knip
 npm run build
 ```

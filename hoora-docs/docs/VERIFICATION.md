@@ -42,4 +42,10 @@ Google/Microsoft source permissions remain with their providers. The fallback ca
 
 ## Deployment
 
-Pending final GitHub/Vercel synchronization and production URL verification for this delivery.
+Application delivery commit: `f036a60`, pushed to `hoora-product-dev/hoora-docs` main and automatically deployed to https://hoora-docs.vercel.app.
+
+Production checks passed for application/section/version navigation, clean document paths, keyboard search, anonymous private-link gates, manifest/icons/service worker, protected API denial and removal of the legacy stylesheet. Continue with Microsoft reached the real Microsoft Entra sign-in service; no employee credentials/MFA were entered.
+
+The full authenticated browser workflow suite and all 24 live API/database checks also passed against the production URL. Production push configuration returns the expected public signing key to authenticated employees, while viewers are denied notice sending and deletion management. No actual email or third-party browser push was sent by the tests.
+
+A subsequent verification-only commit records these results and the production smoke command.

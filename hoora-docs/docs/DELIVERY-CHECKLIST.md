@@ -15,4 +15,4 @@ This file tracks the agreed product workflows. Completion requires implementatio
 - [x] Responsive light/dark UI with supplied Hoora logos; accessible forms, loading and error states.
 - [x] Live tests for all roles, sharing transitions, direct links, storage and publication snapshots.
 - [x] Knip review, removal of unused prototypes/assets/source and clean build output.
-- [ ] Production deployment and verification, with accurate remaining limitations documented.
+- [x] Production deployment and verification, with accurate remaining limitations documented.

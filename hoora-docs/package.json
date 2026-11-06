@@ -16,7 +16,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "test:uploads": "node tests/uploads-browser.mjs",
     "test:attachments": "node tests/editor-attachment-live.mjs",
-    "test:release-browser": "node tests/release-browser.mjs"
+    "test:release-browser": "node tests/release-browser.mjs",
+    "test:production": "node tests/production-smoke.mjs"
   },
   "engines": {
     "node": ">=22"
