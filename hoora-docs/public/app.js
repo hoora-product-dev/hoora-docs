@@ -631,6 +631,8 @@ async function render() {
     if (rid !== renderId) return;
     app.innerHTML = header() + view + footer() + assistantUI();
     enhanceRail();
+    updateReleaseSectionTabs();
+    if(route==='doc'&&state.section)requestAnimationFrame(()=>document.getElementById('section-'+state.section)?.scrollIntoView({block:'start'}));
     canonicalizeRoute();
     markSamplePages();
     bind();
@@ -1701,27 +1703,41 @@ function releaseTimeline(){
   return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(platformName(current)):'All updates'}</h1></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2><div class="timeline-day-items">${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects),access=pageAccess({...r.page,project_id:r.project.id}),accessLabel=access==='public'?'':`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`;return `<article class="timeline-item">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(platformName(r.project))} <span>· ${e(version)}</span></a></h3>${accessLabel?`<div class="release-row-meta">${accessLabel}</div>`:''}</div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('chevron')}</a></article>`;}).join('')}</div></section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
 }
 
+function updateReleaseSectionTabs(){
+ const nav=document.querySelector('.version-section-tabs');
+ if(!nav)return;
+ const sections=[...document.querySelectorAll('.native-release-body .release-section')];
+ const tabs=[...nav.querySelectorAll('[data-scroll-top],[data-scroll-section]')];
+ if(!sections.length)return;
+ const navRect=nav.getBoundingClientRect(),stickyTop=parseFloat(getComputedStyle(nav).top)||0;
+ const threshold=navRect.bottom+48;
+ let current='';
+ if(navRect.top<=stickyTop+1)for(const section of sections)if(section.getBoundingClientRect().top<=threshold)current=section.id.slice('section-'.length);
+ if(window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-2)current=sections.at(-1).id.slice('section-'.length);
+ tabs.forEach(tab=>{const active=tab.hasAttribute('data-scroll-section')?tab.dataset.scrollSection===current:!current;tab.classList.toggle('active',active);if(active)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});
+}
+window.addEventListener('scroll',updateReleaseSectionTabs,{passive:true});
+
 function releaseDocumentNew(p){
  const records=releaseRecords(true),record=records.find(r=>r.page.id===p.id);
  const project=record?.project||{id:p.project_id||'',name:p.release_snapshot?.project||'Release notes',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'slate'};
  const allNotes=record?.notes||p.release_snapshot?.entries||[];
  const selectedSection=allNotes.some(note=>slugify(note.vertical||'General')===state.section)?state.section:'';
- const notes=selectedSection?allNotes.filter(note=>slugify(note.vertical||'General')===selectedSection):allNotes;
  const versions=records.filter(r=>r.project.id===project.id).sort((a,b)=>compareVersions(a.version,b.version));
  const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}<span>All updates</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="${publishedRoute(r.page,state.projects)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span></a>`).join('')}</nav></aside>`;
- const releaseLink=publishedRoute(p,state.projects);
- const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><a class="${!selectedSection?'active':''}" href="${releaseLink}">All</a>${[...new Set(allNotes.map(n=>n.vertical||'General'))].map(name=>`<a class="${selectedSection===slugify(name)?'active':''}" href="${releaseLink}?section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`;
+ const sections=[...new Map(allNotes.map(note=>[note.vertical||'General',note])).entries()];
+ const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><button type="button" class="${!selectedSection?'active':''}" data-scroll-top>${icon('grid')}<span>All</span></button>${sections.map(([name,note])=>{const slug=slugify(name),vertical=state.verticals.find(item=>item.name===name);return `<button type="button" class="${selectedSection===slug?'active':''}" data-scroll-section="${e(slug)}">${toneIcon(note.vertical_icon||vertical?.icon||'grid',note.vertical_color||vertical?.color||'slate')}<span>${e(name)}</span></button>`;}).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${allNotes.length?contributionGroups(allNotes,false,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record){
  const {page,project,notes,draft,published}=record,editable=draft&&canEdit(state.member?.role),adminRole=state.member?.role==='admin';
  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon,project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({...page,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...page,project_id:project.id}))}${draft?`<span class="badge ${published?'published':'draft'}">${published?(published.revision===page.revision?'Published':'Changes pending'):'Draft'}</span>`:''}</span></div>${editable?`<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>`:''}</div>${page.summary?`<p class="release-description">${e(page.summary)}</p>`:''}${customFieldList(page)}${editable?`<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published?'Publish changes':'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${published?`<a class="btn outline" href="${publishedRoute(published,state.projects)}">View published</a>`:''}<button class="btn text" data-action="release-details" data-id="${page.id}">Edit details</button>${adminRole&&published?`<button class="btn text" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>`:''}${published?`<button class="btn text" data-action="unpublish-release" data-id="${page.id}">Unpublish</button>`:''}${adminRole?`<button class="btn text danger" data-action="delete-release" data-id="${page.id}">Delete</button>`:''}</div><p class="release-help">Only notes marked ready are included when you publish.</p>`:''}${notes.length?contributionGroups(notes,editable):empty('Add the first contribution','Group the work by vertical and mark it ready when it can be published.')}</section>`;
 }
-function contributionGroups(notes,editable=false){
+function contributionGroups(notes,editable=false,showSectionHeading=true){
  const groups=new Map();for(const note of notes){const name=note.vertical||'General';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(note);}
- return [...groups].map(([name,entries])=>`<section class="release-section" id="section-${slugify(name)}"><div class="release-section-heading">${toneIcon(entries[0].vertical_icon||'grid',entries[0].vertical_color||'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length===1?'contribution':'contributions'}</span></div>${entries.map(n=>`<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${editable?`<span class="badge ${n.submitted?'published':'draft'}">${n.submitted?'Ready':'In progress'}</span>`:''}</div>${n.tickets?`<p class="ticket-refs">${e(n.tickets)}</p>`:''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.author||'Team').slice(0,2).toUpperCase())}</span><span>Added by <strong>${e(n.author||'Team member')}</strong></span><span>Edited by ${e(n.edited_by||n.author||'Team member')} · ${date(n.updated_at)}</span>${editable?`<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role==='admin'?`<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>`:''}`:''}</div></article>`).join('')}</section>`).join('');
+ return [...groups].map(([name,entries])=>`<section class="release-section" id="section-${slugify(name)}">${showSectionHeading?`<div class="release-section-heading">${toneIcon(entries[0].vertical_icon||'grid',entries[0].vertical_color||'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length===1?'contribution':'contributions'}</span></div>`:''}${entries.map(n=>`<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${editable?`<span class="badge ${n.submitted?'published':'draft'}">${n.submitted?'Ready':'In progress'}</span>`:''}</div>${n.tickets?`<p class="ticket-refs">${e(n.tickets)}</p>`:''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by||n.author||'Team').slice(0,2).toUpperCase())}</span><span>${n.edited_by?`Updated by <strong>${e(n.edited_by)}</strong>`:`Added by <strong>${e(n.author||'Team member')}</strong>`}</span>${editable?`<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role==='admin'?`<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>`:''}`:''}</div></article>`).join('')}</section>`).join('');
 }
 
 function nativeArtifact(page,draft){state.nativeTitle=page.title;state.nativeBack=draft?'#/edit/'+page.id:'#/doc/'+page.slug;state.nativeDraft=draft;return `<main id="main" class="native-artifact">${artifactFrame(page,draft,true)}</main>`;}
@@ -1970,6 +1986,8 @@ window.addEventListener("keydown", (ev) => {
   }
 });
 document.addEventListener('click',event=>{
+  const topButton=event.target.closest('[data-scroll-top]');
+  if(topButton){document.querySelector('.native-release-header')?.scrollIntoView({block:'start',behavior:'smooth'});return;}
   const button=event.target.closest('[data-scroll-section]');
   if(!button)return;
   const target=document.getElementById('section-'+button.dataset.scrollSection);
