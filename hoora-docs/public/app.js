@@ -1717,14 +1717,15 @@ function updateReleaseSectionTabs(){
  const nav=document.querySelector('.version-section-tabs');
  if(!nav)return;
  const sections=[...document.querySelectorAll('.native-release-body .release-section')];
- const tabs=[...nav.querySelectorAll('[data-scroll-top],[data-scroll-section]')];
+ const tabs=[...nav.querySelectorAll('[data-section-key]')];
  if(!sections.length)return;
+ if(nav.dataset.filtered==='true')return;
  const navRect=nav.getBoundingClientRect(),stickyTop=parseFloat(getComputedStyle(nav).top)||0;
  const threshold=navRect.bottom+48;
  let current='';
  if(navRect.top<=stickyTop+1)for(const section of sections)if(section.getBoundingClientRect().top<=threshold)current=section.id.slice('section-'.length);
  if(window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-2)current=sections.at(-1).id.slice('section-'.length);
- tabs.forEach(tab=>{const active=tab.hasAttribute('data-scroll-section')?tab.dataset.scrollSection===current:!current;tab.classList.toggle('active',active);if(active)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});
+ tabs.forEach(tab=>{const active=tab.dataset.sectionKey===current;tab.classList.toggle('active',active);if(active)tab.setAttribute('aria-current','location');else tab.removeAttribute('aria-current');});
 }
 window.addEventListener('scroll',updateReleaseSectionTabs,{passive:true});
 
@@ -1733,12 +1734,14 @@ function releaseDocumentNew(p){
  const project=record?.project||{id:p.project_id||'',name:p.release_snapshot?.project||'Release notes',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'slate'};
  const allNotes=record?.notes||p.release_snapshot?.entries||[];
  const selectedSection=allNotes.some(note=>slugify(note.vertical||'General')===state.section)?state.section:'';
+ const notes=selectedSection?allNotes.filter(note=>slugify(note.vertical||'General')===selectedSection):allNotes;
  const versions=records.filter(r=>r.project.id===project.id).sort((a,b)=>compareVersions(a.version,b.version));
  const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}<span>All updates</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="${publishedRoute(r.page,state.projects)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span></a>`).join('')}</nav></aside>`;
+ const releaseLink=publishedRoute(p,state.projects);
  const sections=[...new Map(allNotes.map(note=>[note.vertical||'General',note])).entries()];
- const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><button type="button" class="${!selectedSection?'active':''}" data-scroll-top>${icon('grid')}<span>All</span></button>${sections.map(([name,note])=>{const slug=slugify(name),vertical=state.verticals.find(item=>item.name===name);return `<button type="button" class="${selectedSection===slug?'active':''}" data-scroll-section="${e(slug)}">${toneIcon(note.vertical_icon||vertical?.icon||'grid',note.vertical_color||vertical?.color||'slate')}<span>${e(name)}</span></button>`;}).join('')}</nav>`;
+ const tabs=`<nav class="version-section-tabs" data-filtered="${selectedSection?'true':'false'}" aria-label="Release sections"><a class="${!selectedSection?'active':''}" data-section-key="" href="${releaseLink}">${icon('grid')}<span>All</span></a>${sections.map(([name,note])=>{const slug=slugify(name),vertical=state.verticals.find(item=>item.name===name);return `<a class="${selectedSection===slug?'active':''}" data-section-key="${e(slug)}" href="${releaseLink}?section=${encodeURIComponent(slug)}">${toneIcon(note.vertical_icon||vertical?.icon||'grid',note.vertical_color||vertical?.color||'slate')}<span>${e(name)}</span></a>`;}).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${allNotes.length?contributionGroups(allNotes,false,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${installPrompt()}${siteFooter('native-site-footer')}</div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false,!selectedSection):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${installPrompt()}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record){

@@ -67,12 +67,12 @@ input::placeholder,textarea::placeholder{color:var(--subtle)}
 .native-release-meta{font-size:12px;gap:24px;padding-bottom:24px;margin-bottom:0;border-bottom:0;flex-wrap:wrap}
 .native-release-meta small{font-size:11px}.native-release-meta .btn{min-height:34px;font-size:12px}
 .version-section-tabs{display:flex;gap:24px;overflow-x:auto;white-space:nowrap;border-bottom:1px solid var(--line);position:sticky;top:var(--header);z-index:15;background:var(--surface);padding:0;margin:0 0 30px;scrollbar-width:thin}
-.version-section-tabs button{display:inline-flex;align-items:center;gap:8px;flex:none;padding:10px 4px 9px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
-.version-section-tabs button:hover{color:var(--ink)}
-.version-section-tabs button.active{border-bottom-color:var(--ink);font-weight:600;color:var(--ink)}
-.version-section-tabs button:focus-visible{outline:2px solid var(--muted);outline-offset:-2px;border-radius:5px}
+.version-section-tabs a{display:inline-flex;align-items:center;gap:8px;flex:none;padding:10px 4px 9px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:12px;cursor:pointer}
+.version-section-tabs a:hover{color:var(--ink)}
+.version-section-tabs a.active{border-bottom-color:var(--ink);font-weight:600;color:var(--ink)}
+.version-section-tabs a:focus-visible{outline:2px solid var(--muted);outline-offset:-2px;border-radius:5px}
 .version-section-tabs .tone-icon{width:23px;height:23px;border-radius:6px;flex:none}
-.version-section-tabs .tone-icon svg,.version-section-tabs button>.icon svg{width:14px;height:14px}
+.version-section-tabs .tone-icon svg,.version-section-tabs a>.icon svg{width:14px;height:14px}
 .version-section-tabs .icon{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:6px;background:var(--raised)}
 .native-release-body .prose{font-size:15px;line-height:1.85;max-width:76ch;overflow-wrap:anywhere}
 .native-release-body .release-section{scroll-margin-top:120px;margin-top:34px}.native-release-body .release-section-heading{padding-bottom:12px;gap:10px}
