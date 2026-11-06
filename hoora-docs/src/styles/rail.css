@@ -68,6 +68,15 @@ body.rail-collapsed{--rail-current:var(--rail-compact)}
 .site-footer.home-footer{margin:10px 0 88px;padding:8px 0 0}
 .native-site-footer{margin:10px auto 0}
 @media(max-width:700px){.install-prompt{margin-top:32px}.site-footer,.site-footer.home-footer{align-items:center;flex-direction:row;justify-content:center;margin-bottom:40px;padding-top:14px}.native-site-footer{margin-top:6px}}
+
+/* Keep the install action and portfolio credit together at the page end. */
+.site-footer{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin-inline:auto;padding:20px 0 0;text-align:center}
+.site-footer>.footer-install{min-height:38px;justify-content:center;padding:8px 15px;font-size:12px;text-decoration:none}
+.site-footer>.site-footer-credit{display:block;width:100%;padding:3px 8px;color:var(--muted);font-size:11px;line-height:1.5;text-align:center;text-decoration:none}
+.site-footer>.site-footer-credit:hover{color:var(--ink)}
+.site-footer.home-footer{margin-top:10px;padding-top:16px}
+.native-site-footer{margin-top:16px}
+@media(max-width:700px){.site-footer,.site-footer.home-footer{width:100%;align-items:center;flex-direction:column;justify-content:center;gap:11px;margin-bottom:40px;padding:16px 0 0}.site-footer>.site-footer-credit{width:100%;text-align:center}.native-site-footer{margin-top:14px}}
 :root .rail-brand img.logo-dark{display:none}:root[data-theme=dark] .rail-brand img.logo-light{display:none}:root[data-theme=dark] .rail-brand img.logo-dark{display:block}
 :root[data-theme=dark] body.rail-collapsed .rail-brand img.logo-dark{display:none}
 .timeline-day{margin-bottom:14px}.timeline-item{min-height:56px;padding-block:5px}

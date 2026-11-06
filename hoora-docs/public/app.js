@@ -307,10 +307,8 @@ function enhanceRail(){
 
 function footer(){return '';}
 function siteFooter(className='site-footer'){
- return `<footer class="${className}"><a href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
+ return `<footer class="${className}">${isStandaloneApp()?'':`<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="site-footer-credit" href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
 }
-function installPrompt(){return isStandaloneApp()?'':`<section class="install-prompt"><a class="btn outline" href="#/install">${icon('download')}Install Hoora Docs</a></section>`;}
-
 function sidebar(workspace=false){
  const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
  const folderLinks=(parent=null,depth=0)=>state.folders.filter(f=>f.parent_id===parent).map(f=>`<a class="sidelink ${state.folder===f.id?'active':''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug||f.id)}">${toneIcon(f.icon,f.color)}<span>${e(f.name)}</span>${f.visibility==='private'?icon('lock'):''}</a>${depth<12?folderLinks(f.id,depth+1):''}`).join('');
@@ -352,12 +350,13 @@ function homeLegacy(){
 }
 
 function home(){
- const html=homeLegacy();
+ let html=homeLegacy();
+ if(!state.member)html=html.replace(/<button class="home-search"[\s\S]*?<\/button>/,'').replace(/<div class="home-cards">[\s\S]*?<\/div>/,'');
  const section=name=>html.match(new RegExp(`<section class="home-list"><div><h2>${name}<\\/h2>[\\s\\S]*?<\\/section>`))?.[0]||'';
  const documents=section('Public documentation'),releases=section('Latest releases');
  const content=html.replace(documents,'').replace(releases,'').replace(/<footer class="home-footer">[\s\S]*?<\/footer>/,'');
  const end=content.lastIndexOf('</main>');
- return `${content.slice(0,end)}${documents}${releases}${installPrompt()}${siteFooter('home-footer')}${content.slice(end)}`;
+ return `${content.slice(0,end)}${documents}${releases}${siteFooter('home-footer')}${content.slice(end)}`;
 }
 
 function artifactFrame(page, draft = false, full = false) {
@@ -1741,7 +1740,7 @@ function releaseDocumentNew(p){
  const sections=[...new Map(allNotes.map(note=>[note.vertical||'General',note])).entries()];
  const tabs=`<nav class="version-section-tabs" data-filtered="${selectedSection?'true':'false'}" aria-label="Release sections"><a class="${!selectedSection?'active':''}" data-section-key="" href="${releaseLink}">${icon('grid')}<span>All</span></a>${sections.map(([name,note])=>{const slug=slugify(name),vertical=state.verticals.find(item=>item.name===name);return `<a class="${selectedSection===slug?'active':''}" data-section-key="${e(slug)}" href="${releaseLink}?section=${encodeURIComponent(slug)}">${toneIcon(note.vertical_icon||vertical?.icon||'grid',note.vertical_color||vertical?.color||'slate')}<span>${e(name)}</span></a>`;}).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false,!selectedSection):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${installPrompt()}${siteFooter('native-site-footer')}</div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false,!selectedSection):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record){
