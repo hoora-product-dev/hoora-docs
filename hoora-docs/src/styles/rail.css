@@ -138,3 +138,16 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{d
 .release-row-open:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
 @media(max-width:760px){.timeline-day{margin-bottom:14px!important;padding-bottom:12px!important}.timeline-day>h2{padding:8px 8px 3px!important}.timeline-day-items{gap:7px!important}.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:60px!important;padding:8px!important}}
 @media(prefers-reduced-motion:reduce){.timeline-item,.release-row-open{transition:none!important}.timeline-item:hover,.timeline-item:focus-within{transform:none}}
+
+/* Release page identity, publication details and actions share one compact header card. */
+.native-release-header{display:block;margin:0 0 22px;padding:22px 24px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.native-release-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;min-width:0;margin-bottom:15px}
+.native-release-platform{font-size:clamp(25px,3vw,34px);font-weight:680;letter-spacing:-.04em;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+.native-release-version{font-size:clamp(21px,2.5vw,30px);font-weight:430;letter-spacing:-.035em;color:var(--muted)}
+.native-release-meta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0;padding:0!important;border:0!important;font-size:12px}
+.native-release-facts,.native-release-actions{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.native-release-facts time{color:var(--muted);white-space:nowrap}
+.native-release-facts .access-label{margin:0;color:var(--muted)}
+.native-release-actions .btn{min-height:32px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;color:var(--ink)}
+.native-release-actions .btn:hover{background:var(--raised)}
+@media(max-width:700px){.native-release-header{padding:17px 16px 13px;margin-bottom:17px}.native-release-title{gap:7px;margin-bottom:11px}.native-release-meta{align-items:flex-start}.native-release-facts,.native-release-actions{gap:9px}.native-release-actions{width:100%;padding-top:8px;border-top:1px solid var(--line)}}
