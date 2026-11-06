@@ -15,12 +15,15 @@ const types = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".mjs": "text/javascript",
+  ".wasm": "application/wasm",
+  ".webmanifest": "application/manifest+json",
 };
 const root = path.resolve("public");
 http
   .createServer(async (req, res) => {
     try {
-      if (/^\/api\/(admin|sso|artifact|onboarding|notifications)(\?|$)/.test(req.url)) {
+      if (/^\/api\/(admin|sso|artifact|onboarding|notifications|push|content)(\?|$)/.test(req.url)) {
         const endpoint = new URL(req.url, "http://localhost").pathname
           .split("/")
           .at(-1);
@@ -50,9 +53,10 @@ http
       const name = decodeURIComponent(
         new URL(req.url, "http://localhost").pathname,
       );
+      const routeName = !path.extname(name) && name !== "/config.js" ? "/index.html" : name;
       const target = path.resolve(
         root,
-        "." + (name === "/" ? "/index.html" : name),
+        "." + (routeName === "/" ? "/index.html" : routeName),
       );
       if (!target.startsWith(root + path.sep)) {
         res.statusCode = 403;

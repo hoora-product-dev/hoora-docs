@@ -15,9 +15,6 @@ export const slugify = (s) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 120);
-export function safeUrl(s) {
-  return /^(https?:\/\/|mailto:)/i.test(s) ? s : "#";
-}
 export function markdown(input) {
   return renderMarkdown(input);
 }

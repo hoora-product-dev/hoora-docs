@@ -30,7 +30,7 @@ test("Announcement template escapes contributor content and includes the public 
   assert.match(mail.html, /&lt;img/);
   assert.match(
     mail.html,
-    /https:\/\/hoora-docs.vercel.app\/#\/doc\/demo-release/,
+    /https:\/\/hoora-docs.vercel.app\/docs\/demo-release/,
   );
   assert.match(mail.html, /Workspace maintained by Rahul Tripathi/);
 });

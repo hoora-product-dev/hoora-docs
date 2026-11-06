@@ -1,0 +1,45 @@
+# Delivery verification · 6 November 2026
+
+## Implemented and checked
+
+- Four company roles, with manager-owned teams and separate per-team viewer/publisher access. Administrator ownership transfer and manager removal preserve team documents.
+- Public, company, team and named-email sharing. Database policies restrict both published pages and drafts. Owners/administrators and the document’s team manager retain appropriate access.
+- Stable readable document URLs, clean application/version slugs, preserved old links and native release pages. A release editor focuses on one application/version rather than repeating application tabs.
+- Reusable application sections and multiple attributed contributions. Work-in-progress notes stay out of the published snapshot; draft edits do not change published content.
+- Markdown visual/source/split/saved preview, HTML upload/paste and full-page isolated interactive rendering.
+- Link/provider detection, intentional original-resource fallback and secure embedded PDF navigation/zoom/fullscreen/download.
+- Indexed PostgreSQL full-text/prefix/fuzzy search, command overlay keyboard navigation, results filters, related knowledge, personal contributions, recently viewed pages and administrator activity.
+- Notification inbox/read state and sender attribution, opt-in browser push, installable app and an atomic three-hour notice cooldown. Private content is not cached offline.
+- Administrator archive/restore and permanent deletion including file cleanup. Author removal preserves published attribution.
+- Supplied Hoora theme logos, desktop/mobile checks and image conversion/video rejection checks.
+- Unused prototypes, legacy source/styles and obsolete test scripts removed. Knip reports no unused files, exports or dependencies in the configured graph.
+
+## Evidence
+
+`npm test`: 22 passing unit tests, including Microsoft token/domain/guest rejection, administrator authorization, announcement restrictions, Markdown sanitization, preview-ticket integrity, provider detection and push endpoint validation.
+
+`npm run test:workflows`: 24 live database/API checks using temporary accounts. Covers cross-team denial, membership/selected-person access, scoped publishing, direct slug queries, public/private storage transitions, archive/restore, preview-ticket revocation, author attribution, draft/publication separation, concurrent cooldown enforcement, and author/manager removal. Temporary content/accounts are cleaned up.
+
+`npm run test:browser`: real browser workflows for manager team creation, people access, Markdown preview/publication, sharing, viewer/anonymous access, keyboard search, link/PDF submission, related knowledge, inbox navigation, manifest/service-worker registration, full-page interactive HTML, administrator archive/restore, permanent file deletion and mobile/dark layouts.
+
+`npm run test:release-browser`: configured application → independent version creation → individual contribution → full-page saved preview → publish → native page. Administrator email template opens with Rahul as the only test recipient; no send action is executed.
+
+`npm run test:uploads`: oversized-dimension PNG becomes compressed WebP at a maximum 1920-pixel edge; video uploads are rejected.
+
+`npm run test:attachments`: visual editor preserves uploaded image and attachment references when serializing Markdown.
+
+`npm run check`, `npm run knip`, `npm run build`: pass. PDF resources are bundled locally and loaded only by PDF views. Listing requests omit full document/contribution bodies; current page content loads on demand. Deployment build clears stale static output.
+
+## External-service boundaries
+
+The existing Microsoft Entra configuration is retained. Automated SSO tests check tenant/domain validation, real-provider-token verification logic and guest rejection. Employee Microsoft login can require that employee’s password/MFA; tests do not bypass it.
+
+No company email was sent during this work. Outlook recipient enforcement remains fixed to Rahul. Email preview is safe to open; actual delivery requires the administrator’s Microsoft Mail.Send consent.
+
+Browser push requires each recipient’s explicit browser permission and a live subscription. Signing keys are configured in protected server storage. Manifest/service-worker readiness and recipient authorization are tested; actual third-party push-service delivery depends on the employee’s browser/network subscription.
+
+Google/Microsoft source permissions remain with their providers. The fallback card is intentional when Hoora cannot safely determine that a private provider document is embeddable.
+
+## Deployment
+
+Pending final GitHub/Vercel synchronization and production URL verification for this delivery.

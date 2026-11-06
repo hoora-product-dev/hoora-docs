@@ -1,0 +1,28 @@
+{
+  "entry": [
+    "public/app.js",
+    "public/theme-init.js",
+    "public/sw.js",
+    "api/*.js",
+    "src/*.js",
+    "scripts/{build,dev,prepare,seed-demo}.mjs",
+    "tests/*.{mjs,js}"
+  ],
+  "project": [
+    "public/*.js",
+    "api/**/*.js",
+    "server/**/*.js",
+    "src/**/*.js",
+    "scripts/**/*.{mjs,cjs}",
+    "tests/**/*.{mjs,js}"
+  ],
+  "ignoreDependencies": [
+    "@fontsource-variable/geist"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreUnresolved": [
+    "./config.js",
+    "/vendor/rich-editor.js",
+    "/vendor/uploads.js"
+  ]
+}

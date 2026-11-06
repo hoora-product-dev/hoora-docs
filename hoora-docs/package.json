@@ -7,10 +7,16 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "test": "node scripts/prepare.mjs && node --import ./tests/dom-setup.mjs --test tests/*.test.mjs",
-    "check": "node --check public/app.js && node --check public/lib.js && node --check api/admin.js && node --check api/sso.js && node --check api/artifact.js && node --check api/onboarding.js && node --check api/notifications.js",
-    "test:browser": "node tests/browser-smoke.mjs",
-    "test:releases": "node tests/live-releases.mjs",
-    "seed:demo": "node scripts/seed-demo.mjs"
+    "check": "node --check public/app.js && node --check public/teams.js && node --check public/sources.js && node --check public/search.js && node --check public/workspace-features.js && node --check public/pwa.js && node --check public/router.js && node --check public/sw.js && node --check api/push.js && node --check public/lib.js && node --check api/admin.js && node --check api/sso.js && node --check api/artifact.js && node --check api/onboarding.js && node --check api/notifications.js && node --check api/content.js && node --check src/pdf-viewer.js",
+    "test:browser": "node tests/browser-hub.mjs",
+    "test:releases": "node tests/live-hub.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "test:workflows": "node tests/live-hub.mjs",
+    "knip": "knip",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:uploads": "node tests/uploads-browser.mjs",
+    "test:attachments": "node tests/editor-attachment-live.mjs",
+    "test:release-browser": "node tests/release-browser.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -22,22 +28,20 @@
     "@tiptap/extension-image": "3.32.3",
     "@tiptap/extension-link": "^3.32.3",
     "@tiptap/extension-table": "^3.32.3",
-    "@tiptap/extension-table-cell": "^3.32.3",
-    "@tiptap/extension-table-header": "^3.32.3",
-    "@tiptap/extension-table-row": "^3.32.3",
     "@tiptap/markdown": "^3.32.3",
     "@tiptap/pm": "^3.32.3",
     "@tiptap/starter-kit": "^3.32.3",
     "dompurify": "^3.4.17",
     "marked": "^18.1.3",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.5.438"
+    "pdfjs-dist": "^6.5.438",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
     "jsdom": "^30.1.3",
+    "knip": "^6.44.1",
     "pg": "^8.23.1",
-    "playwright": "^1.64.1",
-    "prettier": "^3.9.10"
+    "playwright": "^1.64.1"
   }
 }

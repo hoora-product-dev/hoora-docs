@@ -56,14 +56,15 @@ export default async function handler(req, res) {
     if (!b || !["create", "update", "delete", "password"].includes(b.action))
       return res.status(400).json({ error: "Invalid action" });
     if (b.action === "create") {
+      b.email=String(b.email||'').trim().toLowerCase();
       if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email || "") ||
+        !/^[^\s@]+@hoora\.me$/.test(b.email || "") ||
         (b.password || "").length < 12 ||
         !allowedRoles.includes(b.role)
       )
         return res.status(400).json({
           error:
-            "Enter a valid email, a password of at least 12 characters, and a valid role.",
+            "Enter a Hoora work email, a password of at least 12 characters, and a valid role.",
         });
       const user = await call("/auth/v1/admin/users", {
         method: "POST",

@@ -46,8 +46,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid document" });
       let userId = null;
       if (body.draft === true) {
-        const { user, member } = await requireMember(req, call);
-        if(!['admin','publisher'].includes(member.role))return res.status(403).json({error:'Publisher access is required to preview a draft.'});
+        const { user } = await requireMember(req, call);
+        const allowed=await call('/rest/v1/rpc/docs_can_write_page_for',{method:'POST',body:JSON.stringify({document_id:body.id,viewer_id:user.id})});
+        if(!allowed)return res.status(403).json({error:'Publisher access to this document is required to preview its draft.'});
         userId = user.id;
       }
       const scope = body.draft === true ? 'draft' : 'published';
@@ -94,8 +95,10 @@ export default async function handler(req, res) {
         return res
           .status(403)
           .json({ error: "Team access is no longer active." });
-      if(ticket.scope==='draft'&&!['admin','publisher'].includes(members[0].role))
-        return res.status(403).json({error:'Draft preview access was removed.'});
+      if(ticket.scope==='draft'){
+        const allowed=await call('/rest/v1/rpc/docs_can_write_page_for',{method:'POST',body:JSON.stringify({document_id:ticket.id,viewer_id:ticket.userId})});
+        if(!allowed)return res.status(403).json({error:'Draft preview access was removed.'});
+      }
       if(ticket.scope==='published'){
         const allowed=await call('/rest/v1/rpc/docs_can_read_published_for',{method:'POST',body:JSON.stringify({document_id:ticket.id,viewer_id:ticket.userId})});
         if(!allowed)return res.status(403).json({error:'This artifact is no longer shared with your account.'});

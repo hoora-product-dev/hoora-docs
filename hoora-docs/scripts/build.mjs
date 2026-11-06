@@ -1,4 +1,4 @@
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, writeFile, rm } from "node:fs/promises";
 import { loadEnvFile } from "node:process";
 import "./prepare.mjs";
 try {
@@ -12,7 +12,10 @@ if (!url || !key)
   throw new Error("Set SUPABASE_URL and SUPABASE_ANON_KEY before building.");
 if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url))
   throw new Error("Invalid Supabase URL");
-await mkdir("dist", { recursive: true });
+// Use the fixed project output directory so stale assets cannot survive a build.
+const output = new URL('../dist/', import.meta.url);
+await rm(output, { recursive: true, force: true });
+await mkdir(output, { recursive: true });
 await cp("public", "dist", { recursive: true });
 await writeFile(
   "dist/config.js",
