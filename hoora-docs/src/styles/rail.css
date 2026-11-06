@@ -172,3 +172,15 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{d
 .notification-settings>.toolbar-actions{margin-top:14px}
 .notification-settings>.small{margin-top:10px}
 @media(max-width:700px){.notice-actions{width:100%}.notice-actions .btn{flex:1}.notice-item{gap:10px}.notice-item>span:last-child{margin-top:1px}.notification-count{right:-3px}}
+
+/* Installed-app first run: sign in, choose notifications, then enter the release home. */
+.app-welcome-page{min-height:calc(100dvh - var(--header));padding:28px 18px;background:var(--canvas)}
+.app-welcome-card{width:min(100%,420px);padding:30px 24px;text-align:center;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.app-welcome-icon{display:grid;place-items:center;width:42px;height:42px;margin:0 auto 18px;border-radius:50%;background:var(--raised);color:var(--ink)}
+.app-welcome-icon .icon svg{width:20px;height:20px}
+.app-welcome-card h1{margin:0 0 8px;font-size:23px;letter-spacing:-.03em}
+.app-welcome-card>p{max-width:34ch;margin:0 auto 22px;color:var(--muted);font-size:13px;line-height:1.6}
+.app-welcome-primary{width:100%;min-height:44px;justify-content:center}
+.app-welcome-dismiss{margin-top:12px;padding:7px 10px;color:var(--muted);font-size:11px}
+.app-welcome-dismiss:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+@media(max-width:560px){.app-welcome-card{padding:26px 20px}.app-welcome-card h1{font-size:21px}}

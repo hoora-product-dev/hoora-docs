@@ -283,8 +283,8 @@ async function hydrateRoute(route,id){
 }
 function header(){
  if((routeHash().startsWith('#/artifact/')||routeHash().startsWith('#/preview/'))&&state.nativeTitle&&document.body.dataset.route!=="edit")return `<header class="topbar artifact-app-header"><a class="btn text" href="${e(state.nativeBack)}">${icon('back')}Back</a><strong>${e(state.nativeTitle)}</strong>${state.nativeDraft?'<span class="badge draft">Draft preview</span>':''}<div><button class="iconbtn" data-action="native-fullscreen" aria-label="Enter fullscreen">${icon('expand')}</button><button class="iconbtn" data-action="download-artifact" aria-label="Download original HTML">${icon('download')}</button></div></header>`;
- const route=routeHash().split('?')[0];const auth=route==='#/login';const native=route.startsWith('#/artifact/')||route.startsWith('#/preview/');
- return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount?`, ${state.unreadNoticeCount} unread`:''}">${icon("bell")}${state.unreadNoticeCount?`<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount>99?'99+':state.unreadNoticeCount}</span>`:''}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${memberAvatar()}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
+ const route=routeHash().split('?')[0];const auth=route==='#/login'||route==='#/app-welcome';const native=route.startsWith('#/artifact/')||route.startsWith('#/preview/');
+ return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member&&!auth?`<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount?`, ${state.unreadNoticeCount} unread`:''}">${icon("bell")}${state.unreadNoticeCount?`<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount>99?'99+':state.unreadNoticeCount}</span>`:''}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${memberAvatar()}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!state.member&&!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
 }
 function enhanceRail(){
  const rail=app.querySelector('.layout>.sidebar');
@@ -328,6 +328,9 @@ function workspace(){
 }
 
 function login(){return '<main id="main" class="signin-page"><div class="signin-card"><section id="login-methods"><h1>Continue to Hoora Docs</h1><button class="btn microsoft" type="button" data-action="microsoft-login">'+icon('microsoft')+'Continue with Microsoft</button><div class="signin-divider">OR</div><button class="btn email-choice" type="button" data-action="email-login">Continue with Email</button><p class="signin-note">Use your Hoora Microsoft account if this is your first time here.</p></section><form id="login-form" hidden><button class="btn text login-back" type="button" data-action="login-methods">'+icon('back')+'Back to sign-in options</button><h1>Continue with Email</h1><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue with Email</button><p class="signin-note">First time here? Use your Hoora Microsoft account to create your access.</p></form></div></main>';}
+function appWelcome(){const available='Notification'in window&&'PushManager'in window&&'serviceWorker'in navigator,denied=available&&Notification.permission==='denied';return `<main id="main" class="signin-page app-welcome-page"><section class="signin-card app-welcome-card"><span class="app-welcome-icon">${icon('bell')}</span><h1>${denied?'Notifications are off':'Stay in the loop'}</h1><p>${denied?'Notifications are blocked in this browser. You can enable them later in browser settings.':'Get a small alert when your team shares a release or document update.'}</p><button type="button" class="btn dark app-welcome-primary" data-action="${available&&!denied?'app-enable-notifications':'app-continue'}">${available&&!denied?'Turn on notifications':'Continue to releases'}</button>${available&&!denied?'<button type="button" class="app-welcome-dismiss" data-action="app-continue">Not now</button>':''}</section></main>`;}
+function isStandaloneApp(){return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;}
+function finishAppWelcome(){if(state.member){localStorage.setItem(`hoora-pwa-onboarding:${state.member.id}`,'complete');localStorage.setItem('hoora-pwa-onboarding-complete','true');}sessionStorage.removeItem('hoora-return-to');location.hash='#/releases';}
 function installPage(){
  const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
  const signedIn=!!state.member;
@@ -516,6 +519,18 @@ async function render() {
   state.section = params.get("section") || "";
   state.project=params.get("project")||"";state.project=state.projects.find(p=>p.slug===state.project)?.id||state.published.find(p=>p.project_id&&slugify(p.release_snapshot?.project||"")===state.project)?.project_id||state.project;state.version=params.get("version")||"";state.view=params.get("view")||"";
   document.body.dataset.route=route||"releases";
+  if(isStandaloneApp()){
+    const setupDone=state.member&&localStorage.getItem(`hoora-pwa-onboarding:${state.member.id}`)==='complete';
+    if(!state.member){
+      if(route!=='login'){
+        sessionStorage.setItem('hoora-return-to',localStorage.getItem('hoora-pwa-onboarding-complete')==='true'?'#/releases':'#/app-welcome');
+        location.hash='#/login';return render();
+      }
+      if(!sessionStorage.getItem('hoora-return-to'))sessionStorage.setItem('hoora-return-to',localStorage.getItem('hoora-pwa-onboarding-complete')==='true'?'#/releases':'#/app-welcome');
+    }else if(route==='login'||(!setupDone&&route!=='app-welcome')||(setupDone&&(route==='app-welcome'||route==='install'))){
+      location.hash=setupDone?'#/releases':'#/app-welcome';return render();
+    }
+  }
   const internal = [
     "workspace",
     "new",
@@ -523,7 +538,7 @@ async function render() {
     "users",
     "folders",
     "account",
-    "requests", "preview", "teams", "notifications", "contributions", "archive", "activity",
+    "requests", "preview", "teams", "notifications", "contributions", "archive", "activity", "app-welcome",
   ].includes(route);
   if (state.member && !state.member.password_setup_complete && route!=='install') {
     app.innerHTML = header() + onboarding() + footer();
@@ -554,6 +569,9 @@ async function render() {
         break;
       case "install":
         view = installPage();
+        break;
+      case "app-welcome":
+        view=appWelcome();
         break;
       case "releases":
         view = releaseHub();
@@ -617,13 +635,6 @@ async function render() {
     hydrateImages();
     sources.hydrate();
     features.hydrate();
-    if((matchMedia('(display-mode: standalone)').matches||navigator.standalone===true)&&state.member&&'Notification'in window&&Notification.permission==='default'){
-      const promptKey=`hoora-push-opt-in:${state.member.id}`;
-      if(!localStorage.getItem(promptKey)){
-        localStorage.setItem(promptKey,'shown');
-        dialog(`<h2>Stay up to date</h2><p class="small">Enable notifications for documents shared with you.</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Not now</button><button class="btn dark" type="submit">Enable notifications</button></div></form>`,async()=>{await pwa.enable();});
-      }
-    }
     if(route==="workspace"){const recent=await features.recent().catch(()=>"");if(rid===renderId&&document.querySelector(".library-content"))document.querySelector(".library-content").insertAdjacentHTML("beforeend",recent);}
     const viewed=route==='doc'?state.published.find(p=>p.slug===id):null;
     if(viewed&&state.member)db("rpc/docs_track","",{method:"POST",body:{document_id:viewed.id,event:"asset_viewed"}}).catch(()=>{});
@@ -1110,6 +1121,8 @@ document.addEventListener("click", (ev) => {
   if (action === "install-app") busy(b, async()=>{const accepted=await pwa.install();if(accepted){toast('Hoora Docs is being installed. Enable notifications next to receive updates.');setTimeout(()=>{if(routeHash().split('?')[0]==='#/install')render();},600);}});
   if (action === "enable-install-notifications") busy(b, async()=>{await pwa.enable();render();});
   if (action === "install-notifications-login") { sessionStorage.setItem('hoora-return-to','#/install');location.hash='#/login'; }
+  if (action === "app-continue") finishAppWelcome();
+  if (action === "app-enable-notifications") busy(b,async()=>{try{await pwa.enable();}catch(error){toast(error.message||'Notifications could not be enabled. You can turn them on later.',true);}finishAppWelcome();});
   if (action === "search") {
     const field =
       document.querySelector("#public-search") ||
