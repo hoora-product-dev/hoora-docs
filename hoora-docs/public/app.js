@@ -35,6 +35,7 @@ const names = {
   sop: "SOPs",
   documentation: "Documentation",
 };
+const displayPlatformName=name=>({"Admin Panel":"Panels","Admin Panels":"Panels","Hoora Web":"Hoora on Web","Partner":"Partner App"})[name]||String(name||'').replace(/\s*\(Sample\)$/i,'');
 const descriptions = {
   release: "What’s new, what’s improved, and what’s next across Hoora.",
   sop: "Clear, repeatable processes. Everything you need to get it right.",
@@ -65,6 +66,14 @@ const state = {
 };
 let renderId = 0,
   toastTimer;
+const assistantMessages=[];
+let assistantOpen=false;
+function assistantUI(){
+ const route=routeHash();
+ if(route.startsWith('#/login')||route.startsWith('#/artifact/')||route.startsWith('#/preview/'))return '';
+ return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Ask Hoora Docs" aria-expanded="${assistantOpen}">${icon(assistantOpen?'close':'chat')}<span>Ask Hoora Docs</span></button><section class="assistant-panel" aria-label="Hoora Docs assistant" ${assistantOpen?'':'hidden'}><div class="assistant-header"><div><strong>Ask Hoora Docs</strong><small>Find answers in accessible documents</small></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${assistantMessages.length?assistantMessages.map(m=>`<div class="assistant-message ${m.role}"><div>${e(m.text)}</div>${m.sources?.length?`<nav aria-label="Sources">${m.sources.map(s=>`<a href="${e(s.url)}">[${s.number}] ${e(s.title)}</a>`).join('')}</nav>`:''}</div>`).join(''):'<div class="assistant-empty">Ask about a release, SOP, or the document you are reading. Answers link back to their source.</div>'}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about Hoora knowledge…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
+}
+function renderAssistant(){const old=document.querySelector('.assistant-shell');if(old)old.outerHTML=assistantUI();}
 const canEdit = role => canEditRole(role) || role === 'manager' || (role === 'viewer' && state.teamMembers.some(m => m.email === state.member?.email?.toLowerCase() && m.role === 'publisher'));
 const canPublish = role => canPublishRole(role) || canEdit(role);
 const teams = teamsFeature({state,db:(...args)=>db(...args),e,dialog:(...args)=>dialog(...args),toast,load,render,icon,row});
@@ -97,8 +106,9 @@ function toast(message, error = false) {
 function saveSession(session) {
   state.session = session;
   if (session) localStorage.setItem("hoora-session", JSON.stringify(session));
-  else localStorage.removeItem("hoora-session");
+  else {localStorage.removeItem("hoora-session");sessionStorage.removeItem('hoora-avatar');}
 }
+function memberAvatar(){const photo=sessionStorage.getItem('hoora-avatar');return photo&&/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(photo)?`<img src="${photo}" alt="" class="member-photo">`:e((state.member?.name||state.member?.email||'HO').slice(0,2).toUpperCase());}
 let refreshing;
 const authHeaders = token => token ? { Authorization: 'Bearer ' + token } : {};
 async function getToken() {
@@ -245,7 +255,17 @@ async function hydrateRoute(route,id){
 function header(){
  if((routeHash().startsWith('#/artifact/')||routeHash().startsWith('#/preview/'))&&state.nativeTitle&&document.body.dataset.route!=="edit")return `<header class="topbar artifact-app-header"><a class="btn text" href="${e(state.nativeBack)}">${icon('back')}Back</a><strong>${e(state.nativeTitle)}</strong>${state.nativeDraft?'<span class="badge draft">Draft preview</span>':''}<div><button class="iconbtn" data-action="native-fullscreen" aria-label="Enter fullscreen">${icon('expand')}</button><button class="iconbtn" data-action="download-artifact" aria-label="Download original HTML">${icon('download')}</button></div></header>`;
  const route=routeHash().split('?')[0];const auth=route==='#/login';const native=route.startsWith('#/artifact/')||route.startsWith('#/preview/');
- return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/releases"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/workspace">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("bell")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${e((state.member.name||state.member.email).slice(0,2).toUpperCase())}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
+ return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("bell")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${memberAvatar()}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
+}
+function enhanceRail(){
+ const rail=app.querySelector('.layout>.sidebar');
+ document.body.classList.toggle('has-rail',!!rail);
+ if(!rail)return;
+ const collapsed=localStorage.getItem('hoora-rail-collapsed')==='true';
+ document.body.classList.toggle('rail-collapsed',collapsed);
+ rail.insertAdjacentHTML('afterbegin',`<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"><img class="logo-mark" src="/hoora-mark.png" alt=""><span>Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-collapse" aria-label="${collapsed?'Expand sidebar':'Collapse sidebar'}" title="${collapsed?'Expand sidebar':'Collapse sidebar'}">${icon(collapsed?'panelOpen':'panelClose')}</button></div>`);
+ const more=state.member?`<details class="rail-more"><summary aria-label="Workspace options" title="Workspace options">${icon('more')}</summary><div class="rail-menu"><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/folders">Manage structure</a><a href="#/users">Manage people</a><a href="#/requests">Requests</a><a href="#/archive">Archive</a><a href="#/activity">Activity</a><button type="button" data-action="reindex-knowledge">Refresh AI index</button>':''}<button type="button" data-action="logout">Sign out</button></div></details>`:'';
+ rail.insertAdjacentHTML('beforeend',`<div class="rail-account">${state.member?`<a href="#/account" class="rail-person"><span class="user-avatar">${memberAvatar()}</span><span><strong>${e(state.member.name||state.member.email)}</strong><small>${e(state.member.email)}</small></span></a>${more}`:`<a href="#/login" class="rail-person">${icon('lock')}<span>Hoora sign in</span></a>`}</div>`);
 }
 
 function footer(){return '';}
@@ -253,7 +273,7 @@ function footer(){return '';}
 function sidebar(workspace=false){
  const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
  const folderLinks=(parent=null,depth=0)=>state.folders.filter(f=>f.parent_id===parent).map(f=>`<a class="sidelink ${state.folder===f.id?'active':''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug||f.id)}">${toneIcon(f.icon,f.color)}<span>${e(f.name)}</span>${f.visibility==='private'?icon('lock'):''}</a>${depth<12?folderLinks(f.id,depth+1):''}`).join('');
- return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind&&!state.folder?'active':''}" href="${workspace?'#/workspace':'#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member?`<a class="sidelink" href="#/teams">${icon('users')}<span>Your teams</span></a><a class="sidelink" href="#/notifications">${icon('bell')}<span>Notifications</span></a>${canEdit(role)?`<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>`:''}`:''}<div class="rail-label">Collections</div>${state.types.filter(t=>t.key!=="release").map(t=>`<a class="sidelink ${state.kind===t.key?'active':''}" href="#/${workspace?'workspace':'browse'}?kind=${t.key}">${toneIcon(t.icon,t.color)}<span>${e(t.name)}</span>${!state.member&&t.default_visibility==='private'?icon('lock'):''}</a>`).join('')}${workspace?`<div class="rail-label">Folders${role==='admin'?'<button class="iconbtn" data-action="add-folder" aria-label="Add folder">+</button>':''}</div>${folderLinks()}${!state.folders.length?'<p class="rail-empty">Organize documents in folders.</p>':''}`:''}${role==='admin'?`<div class="rail-label">Administration</div><a class="sidelink" href="#/folders">${icon('settings')}<span>Structure & visibility</span></a><a class="sidelink" href="#/users">${icon('users')}<span>People</span></a><a class="sidelink" href="#/requests">${icon('check')}<span>Requests</span></a><a class="sidelink" href="#/archive">${icon("folder")}<span>Archive</span></a><a class="sidelink" href="#/activity">${icon("clock")}<span>Activity</span></a>`:''}<div class="rail-bottom">${icon('lock')}<span>${state.member?'Private content stays within your team.':'Sign in to read internal documents.'}</span></div></aside>`;
+ return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind&&!state.folder?'active':''}" href="${workspace?'#/workspace':'#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member?`<a class="sidelink" href="#/teams">${icon('users')}<span>Your teams</span></a><a class="sidelink" href="#/notifications">${icon('bell')}<span>Notifications</span></a>${canEdit(role)?`<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>`:''}`:''}<div class="rail-label">Collections</div>${state.types.filter(t=>t.key!=="release").map(t=>`<a class="sidelink ${state.kind===t.key?'active':''}" href="#/${workspace?'workspace':'browse'}?kind=${t.key}">${toneIcon(t.icon,t.color)}<span>${e(t.name)}</span>${!state.member&&t.default_visibility==='private'?icon('lock'):''}</a>`).join('')}${workspace?`<div class="rail-label">Folders${role==='admin'?'<button class="iconbtn" data-action="add-folder" aria-label="Add folder">+</button>':''}</div>${folderLinks()}${!state.folders.length?'<p class="rail-empty">Organize documents in folders.</p>':''}`:''}</aside>`;
 }
 
 function row(p,internal=false){
@@ -270,7 +290,14 @@ function workspace(){
  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1><p>${pages.length} documents${state.member.role==='viewer'?' available to your team':''}</p></div>${canEdit(state.member.role)?'<div class="toolbar-actions"><button class="btn outline" data-action="quick-asset">Add link / PDF</button><button class="btn outline" data-action="import-document">'+icon('upload')+'Import</button><a class="btn dark" href="#/new">'+icon('plus')+'New document</a></div>':''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status==='draft'?'selected':''}>Drafts</option><option value="published" ${state.status==='published'?'selected':''}>Published</option></select></div><div class="document-table"><div class="document-table-heading"><span>Document</span><span>Status</span><span>Access</span><span>Updated</span></div><div id="document-list">${pages.map(p=>row(p,true)).join('')||empty('No documents here yet','Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
-function login(){return `<main id="main" class="signin-page"><div class="signin-card"><div class="signin-mark">${icon('book')}</div><h1>Sign in to Hoora Docs</h1><p>Release notes, guides, and your team’s knowledge.</p>${config.microsoftEnabled?`<button class="btn microsoft" type="button" data-action="microsoft-login">${icon('microsoft')}Continue with Microsoft</button><div class="signin-divider">or use your Hoora Docs password</div>`:''}<form id="login-form"><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" type="submit">Sign in</button></form><p class="signin-note">First visit? Continue with Microsoft to verify your work account and create a password.</p><a href="#/releases" class="signin-public">Browse public releases</a></div><span class="signin-caption">Internal documents are available only to signed-in team members.</span></main>`;}
+function login(){return `<main id="main" class="signin-page"><div class="signin-card"><div class="signin-mark"><img src="/hoora-mark.png" width="38" height="38" alt=""></div><h1>Welcome to Hoora Docs</h1><p>Sign in to your team’s knowledge.</p>${config.microsoftEnabled?`<button class="btn microsoft" type="button" data-action="microsoft-login">${icon('microsoft')}Continue with Microsoft</button><div class="signin-divider">or continue with email</div>`:''}<form id="login-form"><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field" id="password-field" hidden><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password"></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue with email</button></form><p class="signin-note">First time here? Continue with Microsoft to verify your work account.</p><a href="#/home" class="signin-public">Browse public knowledge</a></div><span class="signin-caption">Hoora employees can access private documents after signing in.</span></main>`;}
+function home(){
+ const publicPages=state.published.filter(p=>p.visibility==='public');
+ const releases=publicPages.filter(p=>p.kind==='release').slice(0,4);
+ const documents=publicPages.filter(p=>p.kind!=='release').slice(0,4);
+ const link=p=>publishedRoute(p,state.projects);
+ return `<main id="main" class="home"><div class="home-intro"><span class="home-eyebrow">HOORA DOCS</span><h1>Product knowledge, in one place.</h1><p>Updates and public documentation from Hoora.</p><button class="home-search" data-action="global-search">${icon('search')}Search knowledge <kbd>⌘ K</kbd></button></div><div class="home-cards"><a href="#/releases"><span>${icon('release')}</span><strong>Release notes</strong><small>See what changed across our platforms.</small>${icon('arrow')}</a><a href="#/browse"><span>${icon('book')}</span><strong>Documentation</strong><small>Explore guides and shared resources.</small>${icon('arrow')}</a></div>${releases.length?`<section class="home-list"><div><h2>Latest releases</h2><a href="#/releases">View all ${icon('chevron')}</a></div>${releases.map(p=>`<a href="${link(p)}"><span>${e(displayPlatformName(p.release_snapshot?.project||p.title))}</span><small>v${e(versionKey(p.version))} · ${date(p.published_at)}</small></a>`).join('')}</section>`:''}${documents.length?`<section class="home-list"><div><h2>Public documentation</h2><a href="#/browse">View all ${icon('chevron')}</a></div>${documents.map(p=>`<a href="${link(p)}"><span>${e(p.title)}</span><small>${e(names[p.kind]||'Document')}</small></a>`).join('')}</section>`:''}<footer class="home-footer">${!state.member?'<a href="#/login">Hoora employee? Sign in</a>':''}<a href="https://github.com/hoora-product-dev/hoora-docs" target="_blank" rel="noopener noreferrer">GitHub ${icon('external')}</a></footer></main>`;
+}
 
 function artifactFrame(page, draft = false, full = false) {
   return `<section class="artifact-card ${full ? "artifact-full" : ""}"><div class="artifact-toolbar"><div class="browser-dots"><span></span><span></span><span></span></div><span class="artifact-filename">${e(
@@ -431,8 +458,9 @@ async function render() {
   const routeParts=pathname.split("/").filter(Boolean);
   let [route,id]=routeParts;
   if(route==='release-notes'){
-    const version=decodeURIComponent(id||''),projectSlug=decodeURIComponent(routeParts[2]||'');
+    const version=decodeURIComponent(id||''),oldSlug=decodeURIComponent(routeParts[2]||''),projectSlug=({"admin-panel":"panels","partner-app-sample":"partner-app"})[oldSlug]||oldSlug;
     const match=releaseRecords(true).find(r=>publishedRoute(r.page,state.projects)===`#/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}`);
+    if(match&&oldSlug!==projectSlug)history.replaceState(null,'',`/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}${search?'?'+search:''}`);
     route='doc';id=match?.page.slug||'__release_unavailable__';
   }
   const params = new URLSearchParams(search);
@@ -454,6 +482,7 @@ async function render() {
   ].includes(route);
   if (state.member && !state.member.password_setup_complete) {
     app.innerHTML = header() + onboarding() + footer();
+    enhanceRail();
     bind();
     return;
   }
@@ -464,6 +493,7 @@ async function render() {
         ? `<main class="article" id="main">${empty("Your account doesn’t have access", "Ask a Hoora Docs administrator to activate your team membership.", '<button class="btn outline" data-action="logout">Sign out</button>')}</main>`
         : login()) +
       footer();
+    enhanceRail();
     bind();
     return;
   }
@@ -471,6 +501,9 @@ async function render() {
     await hydrateRoute(route,id);
     let view;
     switch (route) {
+      case "home":
+        view = home();
+        break;
       case "login":
         view = state.member ? workspace() : login();
         break;
@@ -527,7 +560,8 @@ async function render() {
         view = releaseHub();
     }
     if (rid !== renderId) return;
-    app.innerHTML = header() + view + footer();
+    app.innerHTML = header() + view + footer() + assistantUI();
+    enhanceRail();
     canonicalizeRoute();
     markSamplePages();
     bind();
@@ -543,6 +577,7 @@ async function render() {
       header() +
       `<main class="article" id="main"><div class="content-error">${e(err.message)}</div><a class="btn outline" href="#/workspace">Back to workspace</a></main>` +
       footer();
+    enhanceRail();
     bind();
   }
 }
@@ -747,7 +782,8 @@ async function completeMicrosoftSignIn() {
     if (error) throw error;
     const { provider_token, provider_refresh_token, ...session } = data.session;
     saveSession(session);
-    await appApi("/api/sso", { providerToken: provider_token });
+    const verified=await appApi("/api/sso", { providerToken: provider_token });
+    if(verified.avatar)sessionStorage.setItem('hoora-avatar',verified.avatar);
     const outlookReturn = sessionStorage.getItem("hoora-outlook-return");
     if (outlookReturn) {
       sessionStorage.setItem("hoora-outlook-token", provider_token);
@@ -1068,12 +1104,15 @@ function bind() {
   bindWorkspace();
   document.querySelector("#login-form")?.addEventListener("submit", (ev) => {
     ev.preventDefault();
+    const passwordField=ev.target.querySelector('#password-field');
+    if(passwordField.hidden){passwordField.hidden=false;const password=ev.target.querySelector('#password');password.required=true;ev.target.querySelector('#login-submit').textContent='Sign in';password.focus();return;}
     busy(ev.submitter, async () => {
       const f = new FormData(ev.target);
       const session = await api("/auth/v1/token?grant_type=password", {
         method: "POST",
         body: { email: f.get("email"), password: f.get("password") },
       });
+      sessionStorage.removeItem('hoora-avatar');
       saveSession({
         ...session,
         expires_at: Date.now() / 1000 + session.expires_in,
@@ -1414,9 +1453,13 @@ document.addEventListener("click", async (ev) => {
   if (a === "theme") {
     const theme =
       document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("hoora-theme", theme);
-    b.innerHTML=icon(theme==="dark"?"sun":"moon");
+    const apply=()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('hoora-theme',theme);b.innerHTML=icon(theme==='dark'?'sun':'moon');};
+    if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+      const bounds=b.getBoundingClientRect(),x=bounds.left+bounds.width/2,y=bounds.top+bounds.height/2;
+      document.documentElement.style.setProperty('--theme-x',`${x}px`);
+      document.documentElement.style.setProperty('--theme-y',`${y}px`);
+      document.startViewTransition(apply);
+    }else apply();
     return;
   }
   if (a === "new-project") {
@@ -1496,6 +1539,7 @@ document.addEventListener("click", async (ev) => {
           (a === "publish-release" ? "docs_publish" : "docs_unpublish"),
         { method: "POST", body: { page_id: id } },
       );
+      if(a==='publish-release')appApi('/api/ai-index',{documentId:id}).catch(()=>{});
       await load();
       await render();
       toast(
@@ -1561,7 +1605,7 @@ function visibilityField(p){return state.member?.role==='admin'?`<div class="fie
 function customFieldList(p){const pairs=Object.entries(p.custom_fields||{}).filter(([,value])=>value);return pairs.length?`<dl class="custom-details">${pairs.map(([label,value])=>`<div><dt>${e(label)}</dt><dd>${e(value)}</dd></div>`).join('')}</dl>`:'';}
 function releaseRecords(publishedOnly=false){
  const drafts=state.member&&canEdit(state.member.role)&&!publishedOnly;const source=drafts?state.pages:state.published;
- return source.filter(p=>p.kind==='release'&&!p.archived_at).map(p=>{const relation=state.releases.find(r=>r.id===p.id);const projectId=relation?.project_id||p.project_id||'other';const project=state.projects.find(c=>c.id===projectId)||{id:projectId,name:p.release_snapshot?.project||'Other releases',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'violet'};const notes=drafts&&relation?state.entries.filter(n=>n.release_id===p.id).map(n=>({...n,vertical:verticalName(n.vertical_id),vertical_icon:state.verticals.find(v=>v.id===n.vertical_id)?.icon,vertical_color:state.verticals.find(v=>v.id===n.vertical_id)?.color,author:n.author_name,edited_by:n.updated_name})):p.release_snapshot?.entries||[];return {page:p,project,notes,draft:drafts,version:versionKey(p.version||p.release_snapshot?.version||'Unversioned'),published:state.published.find(x=>x.id===p.id)};});
+ return source.filter(p=>p.kind==='release'&&!p.archived_at).map(p=>{const relation=state.releases.find(r=>r.id===p.id);const projectId=relation?.project_id||p.project_id||'other';const rawProject=state.projects.find(c=>c.id===projectId)||{id:projectId,name:p.release_snapshot?.project||'Other releases',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'violet'};const project={...rawProject,name:displayPlatformName(rawProject.name)};const notes=drafts&&relation?state.entries.filter(n=>n.release_id===p.id).map(n=>({...n,vertical:verticalName(n.vertical_id),vertical_icon:state.verticals.find(v=>v.id===n.vertical_id)?.icon,vertical_color:state.verticals.find(v=>v.id===n.vertical_id)?.color,author:n.author_name,edited_by:n.updated_name})):p.release_snapshot?.entries||[];return {page:p,project,notes,draft:drafts,version:versionKey(p.version||p.release_snapshot?.version||'Unversioned'),published:state.published.find(x=>x.id===p.id)};});
 }
 function releaseRail(records,version,project='',publishedOnly=false){
  const filtered=records.filter(r=>!project||r.project.id===project).sort((a,b)=>compareVersions(a.version,b.version));const application=filtered[0]?.project;
@@ -1574,8 +1618,9 @@ function releaseTimeline(){
  const applications=[...new Map(applicationSource.map(p=>[p.id,p])).values()],current=applications.find(p=>p.id===state.project);
  const records=all.filter(r=>!current||r.project.id===current.id).sort((a,b)=>new Date(b.page.published_at)-new Date(a.page.published_at));
  const days=new Map();for(const record of records){const day=record.page.published_at.slice(0,10);if(!days.has(day))days.set(day,[]);days.get(day).push(record);}
- const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation"><div class="rail-heading">Product updates</div><a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Applications</div>${applications.map(p=>`<a class="sidelink ${current?.id===p.id?'active':''}" href="#/releases?project=${encodeURIComponent(p.slug||slugify(p.name))}">${icon(p.icon)}<span>${e(p.name)}</span></a>`).join('')}${state.member?.role==='admin'?`<div class="rail-bottom"><a href="#/folders">${icon('settings')}Manage structure</a></div>`:''}</aside>`;
- return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(current.name):'What’s new at Hoora'}</h1><p>${current?'Release history and product improvements.':'The latest releases across Hoora products.'}</p></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2>${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects);return `<article class="timeline-item">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(r.project.name)} <span>· ${e(version)}</span></a></h3><div class="release-row-meta"><span>Released</span>${r.page.tags?.includes('sample')?'<span class="sample-label">Example</span>':''}${pageAccess({...r.page,project_id:r.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`:''}</div></div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('arrow')}</a></article>`;}).join('')}</section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
+ const platformName=p=>displayPlatformName(p.name);
+ const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${applications.map(p=>`<a class="sidelink ${current?.id===p.id?'active':''}" href="#/releases?project=${encodeURIComponent(p.slug||slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}</aside>`;
+ return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(platformName(current)):'All updates'}</h1></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2>${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects),sections=[...new Set((r.notes||r.page.release_snapshot?.entries||[]).map(n=>n.vertical).filter(Boolean))];return `<article class="timeline-item">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(platformName(r.project))} <span>· ${e(version)}</span></a></h3><div class="release-row-meta">${sections.length?`<span>${e(sections.join(' · '))}</span>`:''}${pageAccess({...r.page,project_id:r.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`:''}</div></div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('chevron')}</a></article>`;}).join('')}</section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
 }
 
 function releaseDocumentNew(p){
@@ -1586,11 +1631,11 @@ function releaseDocumentNew(p){
  const notes=selectedSection?allNotes.filter(note=>slugify(note.vertical||'General')===selectedSection):allNotes;
  const versions=records.filter(r=>r.project.id===project.id).sort((a,b)=>compareVersions(a.version,b.version));
  const authors=[...new Set(notes.map(n=>n.author).filter(Boolean))];
- const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><div class="rail-heading">${e(project.name)}</div><a class="sidelink" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}<span>All ${e(project.name)} releases</span></a><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="${publishedRoute(r.page,state.projects)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span><small>${date(r.page.published_at||r.page.updated_at)}</small></a>`).join('')}</nav><div class="rail-bottom"><a href="#/releases">${icon('grid')}All product updates</a></div></aside>`;
+ const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><div class="rail-label">Versions</div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="${publishedRoute(r.page,state.projects)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span><small>${date(r.page.published_at||r.page.updated_at)}</small></a>`).join('')}</nav></aside>`;
  const releaseLink=publishedRoute(p,state.projects);
  const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><a class="${!selectedSection?'active':''}" href="${releaseLink}">All</a>${[...new Set(allNotes.map(n=>n.vertical||'General'))].map(name=>`<a class="${selectedSection===slugify(name)?'active':''}" href="${releaseLink}?section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All ${e(project.name)} releases</a><div class="native-release-overline">${toneIcon(project.icon,project.color)}<span>Release notes</span><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><h1>${e(project.name)} · v${e(versionKey(record?.version||p.version))}</h1><div class="native-release-meta"><span><small>Published</small>${date(p.published_at)}</span>${p.published_by_name?`<span><small>Published by</small>${e(p.published_by_name)}</span>`:''}<span><small>Contributors</small>${authors.length} ${authors.length===1?'person':'people'}</span><button type="button" class="btn outline" data-action="share">${icon('link')}Share</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit release</a>`:''}</div>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}<div class="native-release-end"><span>That’s everything in ${e(project.name)} ${e(record?.version||p.version||'')}.</span><a href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">Browse earlier versions ${icon('chevron')}</a></div></div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All updates</a><h1>${e(project.name)} <span>v${e(versionKey(record?.version||p.version))}</span></h1><div class="native-release-meta"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}</div></main></div>`;
 }
 
 function releaseApplication(record){
@@ -1674,6 +1719,18 @@ document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-action]");
   if (!b) return;
   const action = b.dataset.action;
+  if(action==='rail-collapse'){
+    const collapsed=document.body.classList.toggle('rail-collapsed');
+    localStorage.setItem('hoora-rail-collapsed',String(collapsed));
+    b.innerHTML=icon(collapsed?'panelOpen':'panelClose');
+    b.setAttribute('aria-label',collapsed?'Expand sidebar':'Collapse sidebar');
+    b.title=collapsed?'Expand sidebar':'Collapse sidebar';
+    return;
+  }
+  if(action==='reindex-knowledge'&&state.member?.role==='admin'){
+    await busy(b,async()=>{let count=0;for(const page of state.published){try{await appApi('/api/ai-index',{documentId:page.id});count++;}catch(error){console.warn('AI index skipped:',page.slug,error.message);}}toast(`AI index refreshed for ${count} documents.`);});
+    return;
+  }
   if (action === "menu") {
     document.querySelector(".layout")?.classList.toggle("menu-open");
     return;
@@ -1738,6 +1795,7 @@ document.addEventListener("click", async (ev) => {
         method: "POST",
         body: { page_id: id },
       });
+      appApi('/api/ai-index',{documentId:id}).catch(()=>{});
       await load();
       location.hash = "#/edit/" + id;
       await render();
@@ -1858,6 +1916,23 @@ document.addEventListener('click',ev=>{const button=ev.target.closest('[data-tea
 document.addEventListener('click',event=>{const b=event.target.closest('[data-hub-action]');if(b)busy(b,()=>features.action(b));if(event.target.closest('[data-action="quick-asset"]'))sources.open();const notice=event.target.closest('[data-notice-read]');if(notice&&state.member)features.markRead(notice.dataset.noticeRead).catch(()=>{});const external=event.target.closest('[data-external-page]');if(external&&state.member)db('rpc/docs_track','',{method:'POST',body:{document_id:external.dataset.externalPage,event:'external_opened'}}).catch(()=>{});});
 
 document.addEventListener("submit",ev=>{if(ev.target.id==="search-results-form"){ev.preventDefault();location.hash="#/search?"+new URLSearchParams(new FormData(ev.target));}});
+
+document.addEventListener('click',event=>{if(!event.target.closest('[data-assistant="toggle"]'))return;assistantOpen=!assistantOpen;renderAssistant();if(assistantOpen)document.querySelector('#assistant-question')?.focus();});
+document.addEventListener('submit',async event=>{
+ if(event.target.id!=='assistant-form')return;
+ event.preventDefault();
+ const input=event.target.elements.question,question=input.value.trim();if(!question)return;
+ assistantMessages.push({role:'user',text:question});input.value='';renderAssistant();
+ const form=document.querySelector('#assistant-form'),submit=form?.querySelector('button');if(submit)submit.disabled=true;
+ try{
+  const token=await getToken();
+  const page=currentPublishedPage();
+  const response=await fetch('/api/assistant',{method:'POST',headers:{...authHeaders(token),'Content-Type':'application/json'},body:JSON.stringify({question,currentDocumentId:page?.id||null})});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'The assistant is unavailable.');
+  assistantMessages.push({role:'assistant',text:data.answer,sources:data.sources||[]});
+ }catch(error){assistantMessages.push({role:'assistant',text:error.message||'Please try again.'});}
+ renderAssistant();document.querySelector('.assistant-messages')?.scrollTo({top:99999,behavior:'smooth'});document.querySelector('#assistant-question')?.focus();
+});
 
 try {
   await completeMicrosoftSignIn();

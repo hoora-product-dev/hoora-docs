@@ -125,9 +125,18 @@ export default async function handler(req, res) {
     members = await call(
       `/rest/v1/docs_members?id=eq.${user.id}&select=role,active`,
     );
+    let avatar = null;
+    try {
+      const photo = await fetch('https://graph.microsoft.com/v1.0/me/photos/48x48/$value', {headers:graphHeaders,signal:AbortSignal.timeout(5000)});
+      const mime = photo.headers.get('content-type') || '';
+      if(photo.ok && /^image\/(jpeg|png)$/i.test(mime)){
+        const image = Buffer.from(await photo.arrayBuffer());
+        if(image.length>0 && image.length<100000)avatar=`data:${mime};base64,${image.toString('base64')}`;
+      }
+    } catch { /* Some Microsoft profiles have no picture. */ }
     return res
       .status(200)
-      .json({ ok: true, role: members[0]?.role || "viewer" });
+      .json({ ok: true, role: members[0]?.role || "viewer", avatar });
   } catch (error) {
     return res.status(error.status === 401 ? 401 : 400).json({
       error: error.message || "Unable to complete Microsoft sign-in.",

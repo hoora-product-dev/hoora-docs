@@ -1,0 +1,10 @@
+begin;
+update public.docs_projects set name='Panels',slug='panels' where name='Admin Panel' and slug='admin-panel';
+update public.docs_projects set name='Partner App',slug='partner-app' where name='Partner App (Sample)' and slug='partner-app-sample';
+update public.docs_pages set title=replace(title,'Admin Panel','Panels') where kind='release' and title like 'Admin Panel%';
+update public.docs_pages set title=replace(title,'Partner App (Sample)','Partner App') where kind='release' and title like 'Partner App (Sample)%';
+update public.docs_published set title=replace(title,'Admin Panel','Panels') where kind='release' and title like 'Admin Panel%';
+update public.docs_published set title=replace(title,'Partner App (Sample)','Partner App') where kind='release' and title like 'Partner App (Sample)%';
+update public.docs_published set release_snapshot=jsonb_set(jsonb_set(release_snapshot,'{project}','"Panels"'::jsonb),'{project_slug}','"panels"'::jsonb) where kind='release' and release_snapshot->>'project'='Admin Panel';
+update public.docs_published set release_snapshot=jsonb_set(jsonb_set(release_snapshot,'{project}','"Partner App"'::jsonb),'{project_slug}','"partner-app"'::jsonb) where kind='release' and release_snapshot->>'project'='Partner App (Sample)';
+commit;

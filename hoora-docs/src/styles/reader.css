@@ -70,8 +70,8 @@
 }
 
 .document-nav-page.active {
-  border-left-color: #eac700;
-  background: color-mix(in srgb, #ffda00 9%, var(--surface));
+  border-left-color: var(--ink);
+  background: var(--raised);
   color: var(--ink);
   font-weight: 620;
 }
@@ -243,7 +243,7 @@
 
 .document-outline-link:hover,
 .document-outline-link:focus-visible {
-  border-left-color: #eac700;
+  border-left-color: var(--ink);
   color: var(--ink);
 }
 
