@@ -121,7 +121,7 @@ let assistantOpen=false;
 let assistantBusy=false;
 function assistantUI(){
  const route=routeHash();
- if(route.startsWith('#/login')||route.startsWith('#/artifact/')||route.startsWith('#/preview/'))return '';
+ if(route.startsWith('#/login')||route.startsWith('#/install')||route.startsWith('#/artifact/')||route.startsWith('#/preview/'))return '';
  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assistant" aria-expanded="${assistantOpen}">${icon(assistantOpen?'close':'chat')}<span>Hoora Assistant</span></button><section class="assistant-panel" aria-label="Hoora Docs assistant" ${assistantOpen?'':'hidden'}><div class="assistant-header"><div><strong>Hoora Assistant</strong><small>Answers from documents you can access</small></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${assistantMessages.length?assistantMessages.map(m=>m.thinking?'<div class="assistant-message assistant thinking" role="status" aria-live="polite"><span>Searching Hoora knowledge</span><span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>':`<div class="assistant-message ${m.role}"><div>${e(m.text)}</div>${m.sources?.length?`<nav aria-label="Sources">${m.sources.map(s=>`<a href="${e(s.url)}">[${s.number}] ${e(s.title)}</a>`).join('')}</nav>`:''}</div>`).join(''):'<div class="assistant-empty">Ask about a release, SOP, or the document you are reading. Answers link back to their source.</div>'}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about Hoora knowledge…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function renderAssistant(){const old=document.querySelector('.assistant-shell');if(old)old.outerHTML=assistantUI();}
@@ -306,7 +306,7 @@ async function hydrateRoute(route,id){
 function header(){
  if((routeHash().startsWith('#/artifact/')||routeHash().startsWith('#/preview/'))&&state.nativeTitle&&document.body.dataset.route!=="edit")return `<header class="topbar artifact-app-header"><a class="btn text" href="${e(state.nativeBack)}">${icon('back')}Back</a><strong>${e(state.nativeTitle)}</strong>${state.nativeDraft?'<span class="badge draft">Draft preview</span>':''}<div><button class="iconbtn" data-action="native-fullscreen" aria-label="Enter fullscreen">${icon('expand')}</button><button class="iconbtn" data-action="download-artifact" aria-label="Download original HTML">${icon('download')}</button></div></header>`;
  const route=routeHash().split('?')[0];const auth=route==='#/login';const native=route.startsWith('#/artifact/')||route.startsWith('#/preview/');
- return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button><a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a><span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a></nav>`:''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("bell")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${memberAvatar()}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
+ return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("bell")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${memberAvatar()}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
 }
 function enhanceRail(){
  const rail=app.querySelector('.layout>.sidebar');
@@ -349,13 +349,19 @@ function workspace(){
  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1><p>${pages.length} documents${state.member.role==='viewer'?' available to your team':''}</p></div>${canEdit(state.member.role)?'<div class="toolbar-actions"><button class="btn outline" data-action="quick-asset">Add link / PDF</button><button class="btn outline" data-action="import-document">'+icon('upload')+'Import</button><a class="btn dark" href="#/new">'+icon('plus')+'New document</a></div>':''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status==='draft'?'selected':''}>Drafts</option><option value="published" ${state.status==='published'?'selected':''}>Published</option></select></div><div class="document-table"><div class="document-table-heading"><span>Document</span><span>Status</span><span>Access</span><span>Updated</span></div><div id="document-list">${pages.map(p=>row(p,true)).join('')||empty('No documents here yet','Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
-function login(){return `<main id="main" class="signin-page"><div class="signin-card">${config.microsoftEnabled?`<button class="btn microsoft" type="button" data-action="microsoft-login">${icon('microsoft')}Continue with Microsoft</button><div class="signin-divider">or use your work email</div>`:''}<form id="login-form"><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field" id="password-field" hidden><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password"></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue to Hoora Docs</button></form><p class="signin-note">First time here? Continue with Microsoft to verify your work account.</p></div></main>`;}
+function login(){return `<main id="main" class="signin-page"><div class="signin-card"><button class="btn microsoft" type="button" data-action="microsoft-login">${icon('microsoft')}Continue with Microsoft</button><p class="signin-note">Use your Hoora Microsoft account to continue.</p><p id="form-error" class="error" role="alert"></p></div></main>`;}
+function installPage(){
+ const ua=navigator.userAgent.toLowerCase(),ios=/iphone|ipad|ipod/.test(ua),android=/android/.test(ua),standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ const title=standalone?'Hoora Docs is installed':ios?'Install on iPhone or iPad':android?'Install on Android':'Install on your computer';
+ const instruction=android?'Use Install app when it appears, or open Chrome’s menu and choose Install app.':'Choose the install icon in your browser’s address bar, or open the browser menu and select Install Hoora Docs.';
+ return `<main id="main" class="install-page"><section class="install-card"><img class="install-mark" src="/hoora-mark.png" alt="Hoora"><h1>${title}</h1><p class="install-lede">Keep Hoora Docs one tap away, with a focused app window on your phone or computer.</p><button class="btn install-primary" type="button" data-action="install-app" ${ios||standalone?'hidden':''}>${icon('download')}Install Hoora Docs</button>${ios?`<ol class="install-steps"><li><span>1</span>Open this page in Safari.</li><li><span>2</span>Tap <strong>Share</strong> and choose <strong>Add to Home Screen</strong>.</li><li><span>3</span>Tap <strong>Add</strong> to finish.</li></ol>`:!standalone?`<div class="install-steps"><p>${instruction}</p><p class="install-note">Install availability depends on your browser. Hoora Docs works in the browser either way.</p></div>`:`<div class="install-steps"><p>Open the app from your Home Screen or app launcher.</p></div>`}<a class="install-browser" href="/releases">Continue in browser ${icon('arrow')}</a></section></main>`;
+}
 function home(){
  const publicPages=state.published.filter(p=>p.visibility==='public');
  const releases=publicPages.filter(p=>p.kind==='release').slice(0,4);
  const documents=publicPages.filter(p=>p.kind!=='release').slice(0,4);
  const link=p=>publishedRoute(p,state.projects);
- return `<main id="main" class="home"><div class="home-intro"><span class="home-eyebrow">HOORA DOCS</span><h1>Product knowledge, in one place.</h1><p>Updates and public documentation from Hoora.</p><button class="home-search" data-action="global-search">${icon('search')}Search knowledge <kbd>⌘ K</kbd></button></div><div class="home-cards"><a href="#/releases"><span>${icon('release')}</span><strong>Release notes</strong><small>See what changed across our platforms.</small>${icon('arrow')}</a><a href="#/browse"><span>${icon('book')}</span><strong>Documentation</strong><small>Explore guides and shared resources.</small>${icon('arrow')}</a></div>${releases.length?`<section class="home-list"><div><h2>Latest releases</h2><a href="#/releases">View all ${icon('chevron')}</a></div>${releases.map(p=>`<a href="${link(p)}"><span>${e(displayPlatformName(p.release_snapshot?.project||p.title))}</span><small>v${e(versionKey(p.version))} · ${date(p.published_at)}</small></a>`).join('')}</section>`:''}${documents.length?`<section class="home-list"><div><h2>Public documentation</h2><a href="#/browse">View all ${icon('chevron')}</a></div>${documents.map(p=>`<a href="${link(p)}"><span>${e(p.title)}</span><small>${e(names[p.kind]||'Document')}</small></a>`).join('')}</section>`:''}<footer class="home-footer">${!state.member?'<a href="#/login">Hoora employee? Sign in</a>':''}<a href="https://github.com/hoora-product-dev/hoora-docs" target="_blank" rel="noopener noreferrer">GitHub ${icon('external')}</a></footer></main>`;
+ return `<main id="main" class="home"><div class="home-intro"><span class="home-eyebrow">HOORA DOCS</span><h1>Product knowledge, in one place.</h1><p>Updates and public documentation from Hoora.</p><button class="home-search" data-action="global-search">${icon('search')}Search knowledge <kbd>⌘ K</kbd></button></div><div class="home-cards"><a href="#/releases"><span>${icon('release')}</span><strong>Release notes</strong><small>See what changed across our platforms.</small>${icon('arrow')}</a><a href="#/browse"><span>${icon('book')}</span><strong>Documentation</strong><small>Explore guides and shared resources.</small>${icon('arrow')}</a></div>${releases.length?`<section class="home-list"><div><h2>Latest releases</h2><a href="#/releases">View all ${icon('chevron')}</a></div>${releases.map(p=>`<a href="${link(p)}"><span>${e(displayPlatformName(p.release_snapshot?.project||p.title))}</span><small>v${e(versionKey(p.version))} · ${date(p.published_at)}</small></a>`).join('')}</section>`:''}${documents.length?`<section class="home-list"><div><h2>Public documentation</h2><a href="#/browse">View all ${icon('chevron')}</a></div>${documents.map(p=>`<a href="${link(p)}"><span>${e(p.title)}</span><small>${e(names[p.kind]||'Document')}</small></a>`).join('')}</section>`:''}<footer class="home-footer"><a href="#/install">Install Hoora Docs</a>${!state.member?'<a href="#/login">Hoora employee? Continue with Microsoft</a>':''}<a href="https://github.com/hoora-product-dev/hoora-docs" target="_blank" rel="noopener noreferrer">GitHub ${icon('external')}</a></footer></main>`;
 }
 
 function artifactFrame(page, draft = false, full = false) {
@@ -511,7 +517,7 @@ async function shareCurrentPage() {
 
 async function render() {
   const rid = ++renderId;
-  document.title = "Hoora Docs";
+  document.title = routeHash().split('?')[0]==='#/install'?'Install Hoora Docs':'Hoora Docs';
   state.nativeTitle=null;
   const [pathname, search = ""] = routeHash().replace(/^#/, "").split("?");
   const routeParts=pathname.split("/").filter(Boolean);
@@ -539,7 +545,7 @@ async function render() {
     "account",
     "requests", "preview", "teams", "notifications", "contributions", "archive", "activity",
   ].includes(route);
-  if (state.member && !state.member.password_setup_complete) {
+  if (state.member && !state.member.password_setup_complete && route!=='install') {
     app.innerHTML = header() + onboarding() + footer();
     enhanceRail();
     bind();
@@ -565,6 +571,9 @@ async function render() {
         break;
       case "login":
         view = state.member ? workspace() : login();
+        break;
+      case "install":
+        view = installPage();
         break;
       case "releases":
         view = releaseHub();
@@ -1109,6 +1118,7 @@ document.addEventListener("click", (ev) => {
   if (!b) return;
   const action = b.dataset.action;
   if (action === "microsoft-login") busy(b, startMicrosoftSignIn);
+  if (action === "install-app") pwa.install();
   if (action === "search") {
     const field =
       document.querySelector("#public-search") ||
@@ -1163,27 +1173,6 @@ document.addEventListener("click", (ev) => {
 function bind() {
   bindEnhancements();
   bindWorkspace();
-  document.querySelector("#login-form")?.addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    const passwordField=ev.target.querySelector('#password-field');
-    if(passwordField.hidden){passwordField.hidden=false;const password=ev.target.querySelector('#password');password.required=true;ev.target.querySelector('#login-submit').textContent='Continue to Hoora Docs';password.focus();return;}
-    busy(ev.submitter, async () => {
-      const f = new FormData(ev.target);
-      const session = await api("/auth/v1/token?grant_type=password", {
-        method: "POST",
-        body: { email: f.get("email"), password: f.get("password") },
-      });
-      sessionStorage.removeItem('hoora-avatar');
-      saveSession({
-        ...session,
-        expires_at: Date.now() / 1000 + session.expires_in,
-      });
-      await load();
-      location.hash = sessionStorage.getItem("hoora-return-to") || "#/workspace";
-      sessionStorage.removeItem("hoora-return-to");
-      await render();
-    });
-  });
   for (const id of ["public-search", "workspace-search"])
     document.getElementById(id)?.addEventListener("input", (ev) => {
       state.query = ev.target.value;

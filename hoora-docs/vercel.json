@@ -46,6 +46,10 @@
   ],
   "rewrites": [
     {
+      "source": "/install",
+      "destination": "/index.html"
+    },
+    {
       "source": "/release-notes/:version/:application",
       "destination": "/api/release-preview?version=:version&application=:application"
     },
