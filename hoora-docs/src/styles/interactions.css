@@ -27,7 +27,8 @@ a:hover,
 }
 
 .btn.dark:hover,
-.btn.primary:hover {
+.btn.primary:hover,
+.signin-card .microsoft:hover {
   background: var(--contrast);
   border-color: var(--contrast);
   color: var(--on-contrast);
