@@ -22,47 +22,87 @@ const sections = Object.fromEntries((await api('docs_verticals', '?select=*')).m
 
 const apps = [
   ['Customer App', 'phone', 'blue', ['Auto Care', 'Garage Services', 'Products & Accessories', 'VSA']],
-  ['Admin Panel', 'settings', 'slate', ['Operations', 'Customer Experience', 'Product & Engineering']],
-  ['Hoora on Web', 'web', 'green', ['Auto Care', 'Products & Accessories']],
-  ['Partner App (Sample)', 'tool', 'orange', ['Garage Services', 'VSA']],
+  ['Panels', 'settings', 'slate', ['Operations', 'Customer Experience', 'Product & Engineering']],
+  ['Hoora on Web', 'web', 'slate', ['Auto Care', 'Products & Accessories', 'Product & Engineering']],
+  ['Partner App', 'tool', 'slate', ['Garage Services', 'VSA', 'Operations']],
 ];
 const examples = [
-  ['Customer App', '5.11.0', '2026-11-05', [
-    ['Auto Care', 'Booking flow clarity', 'Customers can compare available slots before checkout and see service inclusions on the same page.', 'Aditi'],
-    ['Garage Services', 'Service progress details', 'The status screen explains inspection, work in progress, and handover in plain language.', 'Kabir'],
-    ['Products & Accessories', 'Accessory compatibility', 'Product pages show compatibility guidance next to the vehicle selection.', 'Palak'],
-    ['VSA', 'Advisor follow-up queue', 'Advisors can see the next action and due time for every open request.', 'Neha'],
+  ['Customer App', '5.15.0', '2026-11-06', [
+    ['Auto Care', 'Booking comparison and confirmation', 'Customers can compare service slots, see what each package includes, and review the vehicle and address before confirming. The booking summary keeps price, duration, and next steps together.', 'Aanya Verma (Demo)'],
+    ['Garage Services', 'Service progress and handover', 'The service timeline now separates inspection, repair, and handover. Each stage shows its latest update and the action expected from the customer.', 'Kabir Mehta (Demo)'],
+    ['Products & Accessories', 'Vehicle fitment guidance', 'Accessory pages show vehicle compatibility before checkout and explain when a selected product does not fit the chosen model.', 'Mira Shah (Demo)'],
+    ['VSA', 'Advisor follow-up queue', 'Advisors can see the customer request, next action, and response due time together. Completed follow-ups remain visible in the request history.', 'Dev Nair (Demo)'],
   ]],
-  ['Admin Panel', '3.8.2', '2026-11-04', [
-    ['Operations', 'Clearer booking exceptions', 'Exception cases show the reason, owner, and next action in one view.', 'Rohan'],
-    ['Customer Experience', 'Customer case handoff', 'Support and operations can follow a shared handoff checklist.', 'Mira'],
-    ['Product & Engineering', 'Activity filtering', 'The activity log can be filtered by actor and date.', 'Ishaan'],
+  ['Panels', '3.9.0', '2026-11-05', [
+    ['Operations', 'Booking exception triage', 'The operations queue groups booking exceptions by urgency and shows the current owner, reason, and recommended next step.', 'Rohan Das (Demo)'],
+    ['Customer Experience', 'Shared customer case view', 'Support and operations can review the same case timeline, reducing repeated questions during a handoff.', 'Ira Sen (Demo)'],
+    ['Product & Engineering', 'Activity filters', 'Panel activity can be filtered by date, actor, and action. The selected filters remain in the URL for sharing a focused view.', 'Neil Rao (Demo)'],
   ]],
-  ['Hoora on Web', '2.6.0', '2026-10-29', [
-    ['Auto Care', 'Service comparison', 'Visitors can compare service packages and read what each includes.', 'Tara'],
-    ['Products & Accessories', 'Search improvements', 'Search results show category and vehicle compatibility before opening a product.', 'Dev'],
+  ['Hoora on Web', '2.8.0', '2026-11-06', [
+    ['Auto Care', 'Service discovery pages', 'Visitors can compare service packages by inclusions, duration, and availability before moving into booking.', 'Tara Iyer (Demo)'],
+    ['Products & Accessories', 'Catalog search and fitment', 'Search results show category and vehicle compatibility so visitors can narrow the catalog without opening each product.', 'Aarav Kulkarni (Demo)'],
+    ['Product & Engineering', 'Accessible navigation', 'Primary navigation and product filters support keyboard focus and maintain clear labels at smaller screen sizes.', 'Nisha Roy (Demo)'],
   ]],
-  ['Customer App', '5.10.0', '2026-10-21', [
-    ['Auto Care', 'Appointment reminder', 'Customers receive a clearer appointment reminder and preparation checklist.', 'Aditi'],
-    ['Garage Services', 'Workshop handover', 'The handover summary lists completed work and next steps.', 'Kabir'],
+  ['Partner App', '1.6.0', '2026-11-05', [
+    ['Garage Services', 'Job scope before acceptance', 'Partners can review the requested work, vehicle details, and customer-selected slot before accepting a job.', 'Karan Joshi (Demo)'],
+    ['VSA', 'Advisor escalation context', 'Escalations include the customer request, work already completed, and response deadline so the next team can act without rebuilding context.', 'Meera Pillai (Demo)'],
+    ['Operations', 'Daily job closeout', 'The closeout view highlights incomplete notes and pending customer updates before a job is marked complete.', 'Samir Rao (Demo)'],
   ]],
-  ['Admin Panel', '3.8.1', '2026-10-14', [
-    ['Operations', 'Daily queue summary', 'The queue groups open issues by urgency and assigned team.', 'Rohan'],
+  ['Customer App', '5.14.0', '2026-11-03', [
+    ['Auto Care', 'Reschedule without restarting', 'Customers can choose another available slot while keeping the selected service package and vehicle details.', 'Aanya Verma (Demo)'],
+    ['Garage Services', 'Inspection update summary', 'Inspection notes are organized by finding and recommended action, making the service update easier to scan.', 'Kabir Mehta (Demo)'],
+    ['Products & Accessories', 'Saved product comparison', 'Customers can compare selected accessories on one page and return to the same comparison later.', 'Mira Shah (Demo)'],
+    ['VSA', 'Request status reminders', 'The app sends a reminder when an advisor needs more information and links directly to the open request.', 'Dev Nair (Demo)'],
   ]],
-  ['Partner App (Sample)', '1.4.0', '2026-09-30', [
-    ['Garage Services', 'Job acceptance', 'Partners can review the job scope before accepting a service request.', 'Kabir'],
-    ['VSA', 'Advisor escalation', 'An escalation includes customer context and the requested response time.', 'Neha'],
+  ['Panels', '3.8.4', '2026-11-02', [
+    ['Operations', 'Service queue ownership', 'Unassigned service cases are visible in a dedicated queue, with clear ownership when an operator claims a case.', 'Rohan Das (Demo)'],
+    ['Customer Experience', 'Case handoff checklist', 'The handoff checklist captures customer context, completed checks, and the next response expected.', 'Ira Sen (Demo)'],
+    ['Product & Engineering', 'Saved table filters', 'Panel users can return to their recent status and date filters when reviewing recurring work.', 'Neil Rao (Demo)'],
+  ]],
+  ['Hoora on Web', '2.7.0', '2026-11-03', [
+    ['Auto Care', 'Coverage before checkout', 'Service availability is checked against the selected address before a visitor starts checkout.', 'Tara Iyer (Demo)'],
+    ['Products & Accessories', 'Product detail improvements', 'Product details surface delivery information, key specifications, and related accessories in a consistent order.', 'Aarav Kulkarni (Demo)'],
+    ['Product & Engineering', 'Faster content navigation', 'Long product pages include a compact contents menu and return the visitor to the last viewed section.', 'Nisha Roy (Demo)'],
+  ]],
+  ['Partner App', '1.5.0', '2026-11-01', [
+    ['Garage Services', 'Availability calendar', 'Partners can review upcoming service capacity by day and update available slots without leaving the job queue.', 'Karan Joshi (Demo)'],
+    ['VSA', 'Customer context on open requests', 'Open requests show the vehicle, selected service, and recent customer messages before an advisor responds.', 'Meera Pillai (Demo)'],
+    ['Operations', 'Partner job filters', 'The job list can be narrowed by status and due date to make daily follow-up easier.', 'Samir Rao (Demo)'],
+  ]],
+  ['Customer App', '5.13.0', '2026-10-30', [
+    ['Auto Care', 'Package details at selection', 'Service inclusions and estimated duration are visible while customers compare packages.', 'Aanya Verma (Demo)'],
+    ['Garage Services', 'Workshop status timeline', 'Customers can see when a vehicle is received, inspected, and ready for handover.', 'Kabir Mehta (Demo)'],
+    ['Products & Accessories', 'Category and vehicle filters', 'Catalog filters combine product category with vehicle fitment and can be cleared independently.', 'Mira Shah (Demo)'],
+    ['VSA', 'Advisor notes in one thread', 'Customer-visible updates and advisor follow-ups appear in chronological order on the request.', 'Dev Nair (Demo)'],
+  ]],
+  ['Panels', '3.8.3', '2026-10-28', [
+    ['Operations', 'Daily queue overview', 'The operations home summarizes cases by status and links directly to the queues that need attention.', 'Rohan Das (Demo)'],
+    ['Customer Experience', 'Customer profile timeline', 'Recent contact and active cases appear together so the team can understand context before replying.', 'Ira Sen (Demo)'],
+    ['Product & Engineering', 'Role-aware panel navigation', 'Panel navigation shows only the tools available to the signed-in role.', 'Neil Rao (Demo)'],
+  ]],
+  ['Hoora on Web', '2.6.1', '2026-10-29', [
+    ['Auto Care', 'Service page clarity', 'Service pages explain the process, expected duration, and required customer details before the booking form.', 'Tara Iyer (Demo)'],
+    ['Products & Accessories', 'Catalog refinements', 'Product listings keep pricing and compatibility details aligned across category pages.', 'Aarav Kulkarni (Demo)'],
+    ['Product & Engineering', 'Mobile layout adjustments', 'Navigation, filters, and product cards remain readable on narrow phone screens.', 'Nisha Roy (Demo)'],
+  ]],
+  ['Partner App', '1.4.1', '2026-10-28', [
+    ['Garage Services', 'Job acceptance checklist', 'A short checklist confirms service scope, vehicle details, and slot before the partner accepts a job.', 'Karan Joshi (Demo)'],
+    ['VSA', 'Escalation response targets', 'Escalations show the expected response window and the team currently responsible.', 'Meera Pillai (Demo)'],
+    ['Operations', 'Completed job summary', 'Partners can review the work completed and pending customer communication before closeout.', 'Samir Rao (Demo)'],
   ]],
 ];
 const docs = [
-  ['sample-challan-resolution-sop', 'sop', 'Sample: Challan resolution SOP', 'Operations', '2026-10-31', '# Before you start\n\nCollect the challan reference, vehicle registration, and customer contact details.\n\n# Check the source\n\n1. Verify the challan reference in the source system.\n2. Compare vehicle details with the customer report.\n3. Record the result in the case notes.\n\n# Escalate when needed\n\nEscalate disputed or time-sensitive cases to the operations owner. This is sample content only.'],
-  ['sample-release-contribution-guide', 'documentation', 'Sample: How to contribute to a release', 'Product & Engineering', '2026-11-02', '# Find the right application\n\nOpen Release notes and choose the application you worked on. Each application has its own version history.\n\n# Add your contribution\n\nChoose the section that matches your work, write a short heading, and explain the customer-visible change. Your name is recorded with your note.\n\n# Preview and publish\n\nPreview the assembled page before publishing. Only notes marked ready appear in the published release. This is sample content only.'],
+  ['demo-customer-booking-playbook', 'documentation', 'Demo: Customer booking journey', 'Auto Care', '2026-11-06', '# Purpose\n\nUse this playbook to review the customer booking journey from service discovery through confirmation. This is fictional demo content for exploring the knowledge hub.\n\n# Customer flow\n\n1. Select a service package and review its inclusions.\n2. Choose a vehicle and service address.\n3. Compare available slots and select a time.\n4. Review price, duration, and booking details.\n5. Confirm and follow the service status from the request page.\n\n# Expected outcome\n\nThe customer can understand the service, confirm an available time, and find the next step without contacting support.'],
+  ['demo-garage-handover-sop', 'sop', 'Demo: Garage service handover', 'Garage Services', '2026-11-06', '# Before handover\n\nConfirm the inspection and agreed work are recorded against the correct vehicle and booking. This sample is not an approved Hoora procedure.\n\n# Handover checklist\n\n- Summarize completed work in customer-friendly language.\n- Record any work that was not completed and why.\n- Confirm the vehicle and belongings are ready for collection.\n- Explain the next recommended action, if applicable.\n\n# Close the job\n\nShare the summary with the customer, record the handover time, and close the job only after required notes are complete.'],
+  ['demo-panel-exception-triage', 'sop', 'Demo: Panel exception triage', 'Operations', '2026-11-06', '# Purpose\n\nUse this sample guide to show how an internal operating procedure can be structured. It is demo content and does not replace an approved process.\n\n# Triage steps\n\n1. Confirm the customer, booking, and vehicle identifiers.\n2. Read the latest status and previous owner notes.\n3. Set the case priority based on impact and deadline.\n4. Assign an owner and record the next action.\n\n# Escalate\n\nEscalate cases with safety, payment, or time-critical impact to the relevant operational lead. Record the reason and expected response time.'],
+  ['demo-partner-job-acceptance', 'documentation', 'Demo: Partner job acceptance', 'VSA', '2026-11-06', '# Purpose\n\nThis sample guide demonstrates partner-facing content and is not a live operating instruction.\n\n# Review before accepting\n\n- Confirm the service scope and requested time.\n- Check vehicle details and service coverage.\n- Review any customer notes that affect the job.\n- Accept only when capacity and required equipment are available.\n\n# After acceptance\n\nKeep the job status current and notify the operations team if availability changes. Add a clear reason when returning a job to the queue.'],
 ];
 
 const projectByName = {};
 for (const [name, icon, color, sectionNames] of apps) {
   let project = await one('docs_projects', 'name', name);
-  if (!project) project = await insert('docs_projects', { name, icon, color, visibility: 'public', description: name.includes('Sample') ? 'Sample application for release browsing.' : `Release history for ${name}.` });
+  if (!project) project = await insert('docs_projects', { name, icon, color, visibility: 'public', description: `Release history for ${name}.` });
+  if (name === 'Partner App' && project.description?.includes('Sample application')) project = await api('docs_projects', `?id=eq.${project.id}`, 'PATCH', { description: 'Partner experience releases.' }).then(rows => rows[0] || project);
   projectByName[name] = project;
   const existing = await api('docs_project_sections', `?project_id=eq.${project.id}&select=vertical_id`);
   for (const [index, sectionName] of sectionNames.entries()) {
@@ -75,16 +115,16 @@ for (const [name, icon, color, sectionNames] of apps) {
 let created = 0;
 for (const [appName, version, date, notes] of examples) {
   const project = projectByName[appName];
-  const slug = `sample-${appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${version.replace(/[^a-z0-9]+/gi, '-')}`;
+  const slug = `demo-${appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${version.replace(/[^a-z0-9]+/gi, '-')}`;
   const published = await one('docs_published', 'slug', slug);
   if (published) continue;
   let page = await one('docs_pages', 'slug', slug);
   const conflict = await api('docs_releases', `?project_id=eq.${project.id}&version=eq.${encodeURIComponent(version)}&select=id`);
   if (conflict.length && (!page || conflict[0].id !== page.id)) continue;
   const id = page?.id || randomUUID(), timestamp = `${date}T10:00:00+05:30`;
-  const title = `${appName} · ${version}`;
-  const summary = 'Sample release for exploring the Hoora Docs workflow. This is not an actual product update.';
-  const body = notes.map(([sectionName, heading, content, author]) => `## ${sectionName}\n\n### ${heading}\n\n${content}\n\nAdded by ${author} (sample)`).join('\n\n');
+  const title = `${appName} · v${version}`;
+  const summary = 'Demo release showing how platform changes are grouped by section and credited to contributors.';
+  const body = notes.map(([sectionName, heading, content]) => `## ${sectionName}\n\n### ${heading}\n\n${content}`).join('\n\n');
   if (!page) page = await insert('docs_pages', { id, slug, title, kind: 'release', summary, version, body, tags: ['sample'], visibility: 'public', format: 'markdown', created_at: timestamp });
   if (!conflict.length) await insert('docs_releases', { id, project_id: project.id, version });
   const existingEntries = await api('docs_entries', `?release_id=eq.${id}&select=title`);
@@ -96,7 +136,7 @@ for (const [appName, version, date, notes] of examples) {
     try {
       await client.query('alter table public.docs_entries disable trigger docs_entry_stamp');
       for (const [sectionName, heading, content, author] of missing) {
-        const by = `${author} (sample)`;
+        const by = author;
         await client.query('insert into public.docs_entries(release_id,vertical_id,title,body,author_name,updated_name,submitted,created_at,updated_at) values($1,$2,$3,$4,$5,$5,true,$6,$6)', [id, sections[sectionName].id, heading, content, by, timestamp]);
       }
       await client.query('alter table public.docs_entries enable trigger docs_entry_stamp');
@@ -112,7 +152,7 @@ for (const [appName, version, date, notes] of examples) {
     return { id: entry.id, vertical_id: section.id, vertical: section.name, vertical_icon: section.icon, vertical_color: section.color, title: entry.title, body: entry.body, author: entry.author_name, edited_by: entry.updated_name, updated_at: timestamp };
   });
   page = await one('docs_pages', 'id', id);
-  await insert('docs_published', { id, slug, title, kind: 'release', summary, version, body, tags: ['sample'], revision: page.revision, visibility: 'public', project_id: project.id, format: 'markdown', published_at: timestamp, release_snapshot: { project: appName, project_icon: project.icon, project_color: project.color, version, sample: true, entries } });
+  await insert('docs_published', { id, slug, title, kind: 'release', summary, version, body, tags: ['sample'], revision: page.revision, visibility: 'public', project_id: project.id, format: 'markdown', published_at: timestamp, release_snapshot: { project: appName, project_slug: appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), project_icon: project.icon, project_color: project.color, version, sample: true, entries } });
   created++;
 }
 for (const [slug, kind, title, sectionName, date, body] of docs) {
@@ -124,5 +164,6 @@ for (const [slug, kind, title, sectionName, date, body] of docs) {
   await insert('docs_published', { ...row, revision: page.revision, published_at: timestamp });
   created++;
 }
-console.log(`Sample content ready: ${created} new pages. Existing content was preserved.`);
+const removed = await client.query("delete from public.docs_pages where coalesce(tags, '{}'::text[]) @> array['sample']::text[] and slug not like 'demo-%' returning slug");
+console.log(`Demo refresh complete: 12 platform releases and 4 knowledge docs created; ${removed.rowCount} older tagged demo pages removed. Company-authored content was preserved.`);
 await client.end();

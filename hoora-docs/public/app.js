@@ -262,9 +262,10 @@ function enhanceRail(){
  const rail=app.querySelector('.layout>.sidebar');
  document.body.classList.toggle('has-rail',!!rail);
  if(!rail)return;
- const collapsed=localStorage.getItem('hoora-rail-collapsed')==='true';
+ const pinned=localStorage.getItem('hoora-rail-pinned')==='true';
+ const collapsed=!pinned;
  document.body.classList.toggle('rail-collapsed',collapsed);
- rail.insertAdjacentHTML('afterbegin',`<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"><img class="logo-mark" src="/hoora-mark.png" alt=""><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-collapse" aria-label="${collapsed?'Expand sidebar':'Collapse sidebar'}" title="${collapsed?'Expand sidebar':'Collapse sidebar'}">${icon(collapsed?'chevron':'back')}</button></div>`);
+ rail.insertAdjacentHTML('afterbegin',`<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="logo-mark" src="/hoora-mark.png" alt=""><span class="rail-brand-name">HOORA</span><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-pin" aria-label="${pinned?'Unpin sidebar':'Pin sidebar open'}" title="${pinned?'Unpin sidebar':'Pin sidebar open'}">${icon(pinned?'pinOff':'pin')}</button></div>`);
  const more=state.member?`<details class="rail-more"><summary aria-label="Workspace options" title="Workspace options">${icon('more')}</summary><div class="rail-menu"><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/folders">Manage structure</a><a href="#/users">Manage people</a><a href="#/requests">Requests</a><a href="#/archive">Archive</a><a href="#/activity">Activity</a><button type="button" data-action="reindex-knowledge">Refresh AI index</button>':''}<button type="button" data-action="logout">Sign out</button></div></details>`:'';
  rail.insertAdjacentHTML('beforeend',`<div class="rail-account">${state.member?`<a href="#/account" class="rail-person"><span class="user-avatar">${memberAvatar()}</span><span><strong>${e(state.member.name||state.member.email)}</strong><small>${e(state.member.email)}</small></span></a>${more}`:`<a href="#/login" class="rail-person">${icon('lock')}<span>Hoora sign in</span></a>`}</div>`);
 }
@@ -1623,7 +1624,7 @@ function releaseTimeline(){
  const days=new Map();for(const record of records){const day=record.page.published_at.slice(0,10);if(!days.has(day))days.set(day,[]);days.get(day).push(record);}
  const platformName=p=>displayPlatformName(p.name);
  const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${applications.map(p=>`<a class="sidelink ${current?.id===p.id?'active':''}" href="#/releases?project=${encodeURIComponent(p.slug||slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}</aside>`;
- return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(platformName(current)):'All updates'}</h1></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2>${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects);return `<article class="timeline-item">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(platformName(r.project))} <span>· ${e(version)}</span></a></h3><div class="release-row-meta">${pageAccess({...r.page,project_id:r.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`:''}</div></div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('chevron')}</a></article>`;}).join('')}</section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
+ return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(platformName(current)):'All updates'}</h1></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2><div class="timeline-day-items">${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects),demo=(r.page.tags||[]).includes('sample')||r.page.release_snapshot?.sample;return `<article class="timeline-item${demo?' is-demo':''}">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(platformName(r.project))} <span>· ${e(version)}</span></a>${demo?'<span class="demo-badge">Demo</span>':''}</h3><div class="release-row-meta">${pageAccess({...r.page,project_id:r.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`:''}</div></div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('chevron')}</a></article>`;}).join('')}</div></section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
 }
 
 function releaseDocumentNew(p){
@@ -1638,7 +1639,7 @@ function releaseDocumentNew(p){
  const releaseLink=publishedRoute(p,state.projects);
  const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><a class="${!selectedSection?'active':''}" href="${releaseLink}">All</a>${[...new Set(allNotes.map(n=>n.vertical||'General'))].map(name=>`<a class="${selectedSection===slugify(name)?'active':''}" href="${releaseLink}?section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All updates</a><h1>${e(project.name)} <span>v${e(versionKey(record?.version||p.version))}</span></h1><div class="native-release-meta"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}</div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All updates</a><h1>${e(project.name)} <span>v${e(versionKey(record?.version||p.version))}</span></h1><div class="native-release-meta"><time>${date(p.published_at)}</time>${((p.tags||[]).includes('sample')||p.release_snapshot?.sample)?'<span class="demo-badge">Demo data</span>':''}<span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}</div></main></div>`;
 }
 
 function releaseApplication(record){
@@ -1722,12 +1723,13 @@ document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-action]");
   if (!b) return;
   const action = b.dataset.action;
-  if(action==='rail-collapse'){
-    const collapsed=document.body.classList.toggle('rail-collapsed');
-    localStorage.setItem('hoora-rail-collapsed',String(collapsed));
-    b.innerHTML=icon(collapsed?'chevron':'back');
-    b.setAttribute('aria-label',collapsed?'Expand sidebar':'Collapse sidebar');
-    b.title=collapsed?'Expand sidebar':'Collapse sidebar';
+  if(action==='rail-pin'){
+    const pinned=localStorage.getItem('hoora-rail-pinned')!=='true';
+    localStorage.setItem('hoora-rail-pinned',String(pinned));
+    document.body.classList.toggle('rail-collapsed',!pinned);
+    b.innerHTML=icon(pinned?'pinOff':'pin');
+    b.setAttribute('aria-label',pinned?'Unpin sidebar':'Pin sidebar open');
+    b.title=pinned?'Unpin sidebar':'Pin sidebar open';
     return;
   }
   if(action==='reindex-knowledge'&&state.member?.role==='admin'){
