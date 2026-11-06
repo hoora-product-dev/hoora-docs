@@ -30,46 +30,19 @@ function richToolbar() {
 }
 const app = document.querySelector("#app"),
   modal = document.querySelector("#modal");
-const vehicleLoaderLines=[
- {text:'Foam on, dirt gone',icon:'web'},
- {text:'Your bike’s glow-up is loading',icon:'phone'},
- {text:'Polishing till it’s main-character shiny',icon:'tool'},
- {text:'Booking your society’s wash day',icon:'users'},
- {text:'Spanners out, mechanics locked in',icon:'tool'},
- {text:'Erasing dents like they never happened',icon:'settings'},
- {text:'Chilling the AC. Literally.',icon:'release'},
- {text:'No flat era. Checking your tyres',icon:'car'},
- {text:'Zero dead-battery drama',icon:'check'},
- {text:'Hunting down pending challans',icon:'documentation'},
- {text:'Making sure your ride’s covered',icon:'lock'},
- {text:'Keeping your PUC green, no cap',icon:'check'},
- {text:'FASTag topped up, tolls on easy mode',icon:'release'},
- {text:'Restocking the drip for your car',icon:'bag'},
- {text:'Roadside help, on speed dial',icon:'phone'},
- {text:'Finding chargers near you',icon:'phone'},
- {text:'Scouting cars worth the hype',icon:'car'},
- {text:'Stacking your Hoora Points',icon:'check'},
-];
-let vehicleLoaderTasks=0,vehicleLoaderDelay=null,vehicleLoaderVisibleAt=0,vehicleLoaderGeneration=0,vehicleLoaderCycle=null,vehicleLoaderSwap=null,vehicleLoaderOrder=[],vehicleLoaderStep=0;
-function setVehicleLoaderLine(index){
- const loader=document.querySelector('#vehicle-loader');if(!loader)return;
- const message=loader.querySelector('.vehicle-loader-message'),line=vehicleLoaderLines[vehicleLoaderOrder[index%vehicleLoaderOrder.length]];
- if(!message||!line)return;
- message.classList.add('is-changing');clearTimeout(vehicleLoaderSwap);
- vehicleLoaderSwap=setTimeout(()=>{message.querySelector('.vehicle-loader-icon').innerHTML=icon(line.icon);message.querySelector('.vehicle-loader-copy').textContent=line.text;message.classList.remove('is-changing');},160);
-}
+let vehicleLoaderTasks=0,vehicleLoaderDelay=null,vehicleLoaderVisibleAt=0,vehicleLoaderGeneration=0;
 function showVehicleLoader(){
- const loader=document.querySelector('#vehicle-loader');if(!loader||vehicleLoaderVisibleAt)return;
- const letters=[...'Vehicle',...'360'];
- loader.querySelector('.vehicle-loader-word').innerHTML=letters.map((letter,index)=>{const gap=index===7?'<span class="vehicle-loader-gap" aria-hidden="true"></span>':'';return gap+`<span class="vehicle-loader-letter" style="--letter:${index}">${letter}</span>`;}).join('');
- vehicleLoaderOrder=vehicleLoaderLines.map((_,index)=>index);for(let i=vehicleLoaderOrder.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[vehicleLoaderOrder[i],vehicleLoaderOrder[j]]=[vehicleLoaderOrder[j],vehicleLoaderOrder[i]];}vehicleLoaderStep=0;
- const first=vehicleLoaderLines[vehicleLoaderOrder[0]],message=loader.querySelector('.vehicle-loader-message');message.querySelector('.vehicle-loader-icon').innerHTML=icon(first.icon);message.querySelector('.vehicle-loader-copy').textContent=first.text;
- loader.hidden=false;loader.setAttribute('aria-hidden','false');vehicleLoaderVisibleAt=Date.now();document.body.classList.add('vehicle-loading');app?.setAttribute('aria-busy','true');
- const cycle=()=>{vehicleLoaderCycle=setTimeout(()=>{if(!vehicleLoaderVisibleAt)return;vehicleLoaderStep=(vehicleLoaderStep+1)%vehicleLoaderOrder.length;setVehicleLoaderLine(vehicleLoaderStep);vehicleLoaderCycle=setTimeout(cycle,160);},1800);};cycle();
+ const loader=document.querySelector("#vehicle-loader");if(!loader||vehicleLoaderVisibleAt)return;
+ const word=loader.querySelector(".vehicle-loader-word");
+ word.replaceChildren(...Array.from("Vehicle 360",(letter,index)=>{
+  if(letter===" "){const gap=document.createElement("span");gap.className="vehicle-loader-gap";gap.setAttribute("aria-hidden","true");return gap;}
+  const span=document.createElement("span");span.className="vehicle-loader-letter";span.textContent=letter;span.style.setProperty("--letter",index>7?index-1:index);return span;
+ }));
+ loader.hidden=false;loader.setAttribute("aria-hidden","false");vehicleLoaderVisibleAt=Date.now();document.body.classList.add("vehicle-loading");app?.setAttribute("aria-busy","true");
 }
 function hideVehicleLoader(){
  const loader=document.querySelector('#vehicle-loader');if(!loader)return;
- clearTimeout(vehicleLoaderCycle);clearTimeout(vehicleLoaderSwap);vehicleLoaderVisibleAt=0;loader.hidden=true;loader.setAttribute('aria-hidden','true');document.body.classList.remove('vehicle-loading');app?.setAttribute('aria-busy','false');
+ vehicleLoaderVisibleAt=0;loader.hidden=true;loader.setAttribute('aria-hidden','true');document.body.classList.remove('vehicle-loading');app?.setAttribute('aria-busy','false');
 }
 async function withVehicleLoader(work){
  vehicleLoaderTasks++;vehicleLoaderGeneration++;
@@ -349,7 +322,7 @@ function workspace(){
  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1><p>${pages.length} documents${state.member.role==='viewer'?' available to your team':''}</p></div>${canEdit(state.member.role)?'<div class="toolbar-actions"><button class="btn outline" data-action="quick-asset">Add link / PDF</button><button class="btn outline" data-action="import-document">'+icon('upload')+'Import</button><a class="btn dark" href="#/new">'+icon('plus')+'New document</a></div>':''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status==='draft'?'selected':''}>Drafts</option><option value="published" ${state.status==='published'?'selected':''}>Published</option></select></div><div class="document-table"><div class="document-table-heading"><span>Document</span><span>Status</span><span>Access</span><span>Updated</span></div><div id="document-list">${pages.map(p=>row(p,true)).join('')||empty('No documents here yet','Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
-function login(){return `<main id="main" class="signin-page"><div class="signin-card"><button class="btn microsoft" type="button" data-action="microsoft-login">${icon('microsoft')}Continue with Microsoft</button><p class="signin-note">Use your Hoora Microsoft account to continue.</p><p id="form-error" class="error" role="alert"></p></div></main>`;}
+function login(){return '<main id="main" class="signin-page"><div class="signin-card"><section id="login-methods"><h1>Continue to Hoora Docs</h1><button class="btn microsoft" type="button" data-action="microsoft-login">'+icon('microsoft')+'Continue with Microsoft</button><div class="signin-divider">OR</div><button class="btn email-choice" type="button" data-action="email-login">Continue with Email</button><p class="signin-note">Use your Hoora Microsoft account if this is your first time here.</p></section><form id="login-form" hidden><button class="btn text login-back" type="button" data-action="login-methods">'+icon('back')+'Back to sign-in options</button><h1>Continue with Email</h1><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue with Email</button><p class="signin-note">First time here? Use your Hoora Microsoft account to create your access.</p></form></div></main>';}
 function installPage(){
  const ua=navigator.userAgent.toLowerCase(),ios=/iphone|ipad|ipod/.test(ua),android=/android/.test(ua),standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
  const title=standalone?'Hoora Docs is installed':ios?'Install on iPhone or iPad':android?'Install on Android':'Install on your computer';
@@ -1118,6 +1091,8 @@ document.addEventListener("click", (ev) => {
   if (!b) return;
   const action = b.dataset.action;
   if (action === "microsoft-login") busy(b, startMicrosoftSignIn);
+  if (action === "email-login") { document.querySelector("#login-methods").hidden = true; document.querySelector("#login-form").hidden = false; document.querySelector("#email")?.focus(); }
+  if (action === "login-methods") { document.querySelector("#login-form").hidden = true; document.querySelector("#login-methods").hidden = false; document.querySelector("#form-error").textContent = ""; }
   if (action === "install-app") pwa.install();
   if (action === "search") {
     const field =
@@ -1173,6 +1148,29 @@ document.addEventListener("click", (ev) => {
 function bind() {
   bindEnhancements();
   bindWorkspace();
+  document.querySelector("#login-form")?.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    busy(ev.submitter, async () => {
+      const form = new FormData(ev.target);
+      try {
+        const session = await api("/auth/v1/token?grant_type=password", {
+          method: "POST",
+          body: { email: form.get("email"), password: form.get("password") },
+        });
+        sessionStorage.removeItem("hoora-avatar");
+        saveSession({ ...session, expires_at: Date.now() / 1000 + session.expires_in });
+        await load();
+        location.hash = sessionStorage.getItem("hoora-return-to") || "#/workspace";
+        sessionStorage.removeItem("hoora-return-to");
+        await render();
+      } catch (error) {
+        const message = String(error?.message || "");
+        document.querySelector("#form-error").textContent = /invalid login credentials|user not found/i.test(message)
+          ? "We couldn’t sign you in. If you haven’t registered yet, continue with your Hoora Microsoft account."
+          : message;
+      }
+    });
+  });
   for (const id of ["public-search", "workspace-search"])
     document.getElementById(id)?.addEventListener("input", (ev) => {
       state.query = ev.target.value;
