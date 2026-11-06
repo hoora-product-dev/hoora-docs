@@ -30,6 +30,56 @@ function richToolbar() {
 }
 const app = document.querySelector("#app"),
   modal = document.querySelector("#modal");
+const vehicleLoaderLines=[
+ {text:'Foam on, dirt gone',icon:'web'},
+ {text:'Your bike’s glow-up is loading',icon:'phone'},
+ {text:'Polishing till it’s main-character shiny',icon:'tool'},
+ {text:'Booking your society’s wash day',icon:'users'},
+ {text:'Spanners out, mechanics locked in',icon:'tool'},
+ {text:'Erasing dents like they never happened',icon:'settings'},
+ {text:'Chilling the AC. Literally.',icon:'release'},
+ {text:'No flat era. Checking your tyres',icon:'car'},
+ {text:'Zero dead-battery drama',icon:'check'},
+ {text:'Hunting down pending challans',icon:'documentation'},
+ {text:'Making sure your ride’s covered',icon:'lock'},
+ {text:'Keeping your PUC green, no cap',icon:'check'},
+ {text:'FASTag topped up, tolls on easy mode',icon:'release'},
+ {text:'Restocking the drip for your car',icon:'bag'},
+ {text:'Roadside help, on speed dial',icon:'phone'},
+ {text:'Finding chargers near you',icon:'phone'},
+ {text:'Scouting cars worth the hype',icon:'car'},
+ {text:'Stacking your Hoora Points',icon:'check'},
+];
+let vehicleLoaderTasks=0,vehicleLoaderDelay=null,vehicleLoaderVisibleAt=0,vehicleLoaderGeneration=0,vehicleLoaderCycle=null,vehicleLoaderSwap=null,vehicleLoaderOrder=[],vehicleLoaderStep=0;
+function setVehicleLoaderLine(index){
+ const loader=document.querySelector('#vehicle-loader');if(!loader)return;
+ const message=loader.querySelector('.vehicle-loader-message'),line=vehicleLoaderLines[vehicleLoaderOrder[index%vehicleLoaderOrder.length]];
+ if(!message||!line)return;
+ message.classList.add('is-changing');clearTimeout(vehicleLoaderSwap);
+ vehicleLoaderSwap=setTimeout(()=>{message.querySelector('.vehicle-loader-icon').innerHTML=icon(line.icon);message.querySelector('.vehicle-loader-copy').textContent=line.text;message.classList.remove('is-changing');},160);
+}
+function showVehicleLoader(){
+ const loader=document.querySelector('#vehicle-loader');if(!loader||vehicleLoaderVisibleAt)return;
+ const letters=[...'Vehicle',...'360'];
+ loader.querySelector('.vehicle-loader-word').innerHTML=letters.map((letter,index)=>{const gap=index===7?'<span class="vehicle-loader-gap" aria-hidden="true"></span>':'';return gap+`<span class="vehicle-loader-letter" style="--letter:${index}">${letter}</span>`;}).join('');
+ vehicleLoaderOrder=vehicleLoaderLines.map((_,index)=>index);for(let i=vehicleLoaderOrder.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[vehicleLoaderOrder[i],vehicleLoaderOrder[j]]=[vehicleLoaderOrder[j],vehicleLoaderOrder[i]];}vehicleLoaderStep=0;
+ const first=vehicleLoaderLines[vehicleLoaderOrder[0]],message=loader.querySelector('.vehicle-loader-message');message.querySelector('.vehicle-loader-icon').innerHTML=icon(first.icon);message.querySelector('.vehicle-loader-copy').textContent=first.text;
+ loader.hidden=false;loader.setAttribute('aria-hidden','false');vehicleLoaderVisibleAt=Date.now();document.body.classList.add('vehicle-loading');app?.setAttribute('aria-busy','true');
+ const cycle=()=>{vehicleLoaderCycle=setTimeout(()=>{if(!vehicleLoaderVisibleAt)return;vehicleLoaderStep=(vehicleLoaderStep+1)%vehicleLoaderOrder.length;setVehicleLoaderLine(vehicleLoaderStep);vehicleLoaderCycle=setTimeout(cycle,160);},1800);};cycle();
+}
+function hideVehicleLoader(){
+ const loader=document.querySelector('#vehicle-loader');if(!loader)return;
+ clearTimeout(vehicleLoaderCycle);clearTimeout(vehicleLoaderSwap);vehicleLoaderVisibleAt=0;loader.hidden=true;loader.setAttribute('aria-hidden','true');document.body.classList.remove('vehicle-loading');app?.setAttribute('aria-busy','false');
+}
+async function withVehicleLoader(work){
+ vehicleLoaderTasks++;vehicleLoaderGeneration++;
+ if(vehicleLoaderTasks===1&&!vehicleLoaderVisibleAt)vehicleLoaderDelay=setTimeout(()=>{if(vehicleLoaderTasks)showVehicleLoader();},600);
+ try{return await work();}
+ finally{
+  vehicleLoaderTasks=Math.max(0,vehicleLoaderTasks-1);
+  if(!vehicleLoaderTasks){clearTimeout(vehicleLoaderDelay);if(vehicleLoaderVisibleAt){const hideGeneration=++vehicleLoaderGeneration,wait=Math.max(0,1200-(Date.now()-vehicleLoaderVisibleAt));setTimeout(()=>{if(!vehicleLoaderTasks&&vehicleLoaderGeneration===hideGeneration)hideVehicleLoader();},wait);}else app?.setAttribute('aria-busy','false');}
+ }
+}
 const names = {
   release: "Release notes",
   sop: "SOPs",
@@ -598,7 +648,7 @@ function formError(err) {
 async function busy(button, fn) {
   if (button) button.disabled = true;
   try {
-    return await fn();
+    return await withVehicleLoader(fn);
   } catch (err) {
     formError(err);
   } finally {
@@ -1872,8 +1922,7 @@ window.addEventListener("hashchange", async () => {
   state.dirty = false;
   const route = routeHash();
   try {
-    await load();
-    if (route === routeHash()) await render();
+    await withVehicleLoader(async()=>{await load();if(route===routeHash())await render();});
   } catch (err) {
     toast(err.message, true);
   }
@@ -1917,8 +1966,7 @@ window.addEventListener("storage", (ev) => {
     } catch {
       state.session = null;
     }
-    load()
-      .then(render)
+    withVehicleLoader(async()=>{await load();await render();})
       .catch((err) => toast(err.message, true));
   }
 });
@@ -1948,13 +1996,15 @@ document.addEventListener('submit',async event=>{
 });
 
 try {
-  await completeMicrosoftSignIn();
-  if (!config.url || !config.key)
-    throw new Error(
-      "Hoora Docs is not configured. Set the Supabase environment variables and redeploy.",
-    );
-  await load();
-  await render();
+  await withVehicleLoader(async()=>{
+    await completeMicrosoftSignIn();
+    if (!config.url || !config.key)
+      throw new Error(
+        "Hoora Docs is not configured. Set the Supabase environment variables and redeploy.",
+      );
+    await load();
+    await render();
+  });
 } catch (err) {
   app.innerHTML =
     header() +

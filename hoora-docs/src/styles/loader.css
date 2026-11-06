@@ -1,0 +1,17 @@
+.vehicle-loading{overflow:hidden}
+.vehicle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--ink);pointer-events:auto}
+.vehicle-loader[hidden]{display:none}
+.vehicle-loader-content{display:flex;flex-direction:column;align-items:center;justify-content:center;max-width:calc(100vw - 40px);padding-bottom:40px}
+.vehicle-loader-word{display:flex;align-items:flex-end;justify-content:center;color:var(--muted);font-family:Geist,Arial,sans-serif;font-size:24px;font-weight:750;line-height:30px;letter-spacing:-.4px}
+.vehicle-loader-letter{display:inline-block;opacity:.38;animation:vehicle-letter-light 1.75s ease-in-out infinite;animation-delay:calc(var(--letter)*-130ms)}
+.vehicle-loader-gap{width:7px;flex:none}
+.vehicle-loader-track{position:relative;width:44px;height:2px;margin-top:18px;overflow:hidden;border-radius:1px;background:var(--line)}
+.vehicle-loader-track>span{position:absolute;top:0;left:0;width:16px;height:2px;border-radius:1px;background:#f5b800;animation:vehicle-light-sweep 1.75s ease-in-out infinite}
+.vehicle-loader-message{display:flex;align-items:center;gap:8px;width:max-content;max-width:min(320px,calc(100vw - 44px));margin-top:18px;color:var(--muted);font-size:13px;font-weight:500;line-height:1.5;transition:opacity .16s ease,transform .16s ease}
+.vehicle-loader-message.is-changing{opacity:0;transform:translateY(-3px)}
+.vehicle-loader-icon{display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;background:var(--raised);color:var(--ink)}
+.vehicle-loader-icon .icon svg{width:13px;height:13px}
+.vehicle-loader-copy{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes vehicle-letter-light{0%,100%{opacity:.38;transform:translateY(0);color:var(--muted)}17%,34%{opacity:1;transform:translateY(-1.5px);color:var(--ink)}48%{opacity:.38;transform:translateY(0);color:var(--muted)}}
+@keyframes vehicle-light-sweep{0%{transform:translateX(-16px)}84%{transform:translateX(44px)}100%{transform:translateX(44px)}}
+@media(prefers-reduced-motion:reduce){.vehicle-loader-letter,.vehicle-loader-track>span{animation:none}.vehicle-loader-letter{opacity:1;color:var(--ink)}.vehicle-loader-track>span{left:14px}.vehicle-loader-message{transition:none}}

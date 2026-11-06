@@ -17,7 +17,14 @@
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
-    <div id="app"><div class="loading">Loading Hoora Docs…</div></div>
+    <div id="app" aria-busy="true"></div>
+    <div id="vehicle-loader" class="vehicle-loader" role="status" aria-live="polite" aria-label="Loading Hoora Docs" aria-hidden="true" hidden>
+      <div class="vehicle-loader-content">
+        <div class="vehicle-loader-word" aria-hidden="true"></div>
+        <div class="vehicle-loader-track" aria-hidden="true"><span></span></div>
+        <div class="vehicle-loader-message"><span class="vehicle-loader-icon" aria-hidden="true"></span><span class="vehicle-loader-copy"></span></div>
+      </div>
+    </div>
     <div id="toast" role="status" aria-live="polite"></div>
     <dialog id="modal"></dialog>
     <script type="module" src="/app.js"></script>
