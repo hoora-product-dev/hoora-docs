@@ -123,17 +123,30 @@ export default async function handler(req, res) {
       });
     }
     members = await call(
-      `/rest/v1/docs_members?id=eq.${user.id}&select=role,active`,
+      `/rest/v1/docs_members?id=eq.${user.id}&select=role,active,avatar_data`,
     );
     let avatar = null;
     try {
-      const photo = await fetch('https://graph.microsoft.com/v1.0/me/photos/48x48/$value', {headers:graphHeaders,signal:AbortSignal.timeout(5000)});
-      const mime = photo.headers.get('content-type') || '';
-      if(photo.ok && /^image\/(jpeg|png)$/i.test(mime)){
+      for (const path of ['/me/photos/48x48/$value', '/me/photo/$value']) {
+        const photo = await fetch(`https://graph.microsoft.com/v1.0${path}`, {headers:graphHeaders,signal:AbortSignal.timeout(10000)});
+        if (!photo.ok) continue;
         const image = Buffer.from(await photo.arrayBuffer());
-        if(image.length>0 && image.length<100000)avatar=`data:${mime};base64,${image.toString('base64')}`;
+        if (!image.length || image.length > 100000) continue;
+        const png = image[0] === 0x89 && image.subarray(1, 4).toString() === 'PNG';
+        const jpeg = image[0] === 0xff && image[1] === 0xd8;
+        if (!png && !jpeg) continue;
+        avatar = `data:image/${png ? 'png' : 'jpeg'};base64,${image.toString('base64')}`;
+        break;
       }
     } catch { /* Some Microsoft profiles have no picture. */ }
+    avatar ||= members[0]?.avatar_data || null;
+    if (avatar && avatar !== members[0]?.avatar_data) {
+      await call(`/rest/v1/docs_members?id=eq.${user.id}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ avatar_data: avatar }),
+      });
+    }
     return res
       .status(200)
       .json({ ok: true, role: members[0]?.role || "viewer", avatar });
