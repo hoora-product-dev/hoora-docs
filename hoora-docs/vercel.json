@@ -46,6 +46,14 @@
   ],
   "rewrites": [
     {
+      "source": "/upcoming",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/upcoming/:slug",
+      "destination": "/index.html"
+    },
+    {
       "source": "/install",
       "destination": "/index.html"
     },

@@ -23,7 +23,7 @@ const root = path.resolve("public");
 http
   .createServer(async (req, res) => {
     try {
-      if (/^\/api\/(admin|sso|artifact|onboarding|notifications|push|content)(\?|$)/.test(req.url)) {
+      if (/^\/api\/(admin|sso|artifact|onboarding|notifications|push|content|upcoming)(\?|$)/.test(req.url)) {
         const endpoint = new URL(req.url, "http://localhost").pathname
           .split("/")
           .at(-1);

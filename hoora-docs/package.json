@@ -7,7 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "test": "node scripts/prepare.mjs && node --import ./tests/dom-setup.mjs --test tests/*.test.mjs",
-    "check": "node --check public/app.js && node --check public/teams.js && node --check public/sources.js && node --check public/search.js && node --check public/workspace-features.js && node --check public/pwa.js && node --check public/router.js && node --check public/sw.js && node --check api/push.js && node --check public/lib.js && node --check api/admin.js && node --check api/sso.js && node --check api/artifact.js && node --check api/onboarding.js && node --check api/notifications.js && node --check api/content.js && node --check api/assistant.js && node --check src/pdf-viewer.js",
+    "check": "node --check public/app.js && node --check public/teams.js && node --check public/sources.js && node --check public/search.js && node --check public/workspace-features.js && node --check public/pwa.js && node --check public/router.js && node --check public/sw.js && node --check api/push.js && node --check public/lib.js && node --check api/admin.js && node --check api/sso.js && node --check api/artifact.js && node --check api/onboarding.js && node --check api/notifications.js && node --check api/content.js && node --check api/assistant.js && node --check src/pdf-viewer.js && node --check public/upcoming.js && node --check api/upcoming.js && node --check server/jira.js",
     "test:browser": "node tests/browser-hub.mjs",
     "test:releases": "node tests/live-hub.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
