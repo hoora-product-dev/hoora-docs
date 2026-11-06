@@ -58,10 +58,14 @@ export default async function handler(req, res) {
       identity.identity_data?.sub ||
       identity.identity_data?.provider_id ||
       identity.id;
+    const accountEmail = String(user.email || '').trim().toLowerCase();
+    const microsoftEmail = String(profile.userPrincipalName || '').trim().toLowerCase();
     if (
       claims.tid !== tenant ||
       profile.userType !== "Member" ||
-      subject.sub !== expectedSubject
+      subject.sub !== expectedSubject ||
+      !accountEmail.endsWith('@hoora.me') ||
+      !microsoftEmail.endsWith('@hoora.me')
     ) {
       return res.status(403).json({
         error:
@@ -81,6 +85,9 @@ export default async function handler(req, res) {
       return res.status(403).json({
         error: "Your account is disabled. Contact a Hoora Docs administrator.",
       });
+    const bootstrapAdmin = accountEmail === microsoftEmail && (await call(
+      `/rest/v1/docs_bootstrap_admins?email=eq.${encodeURIComponent(accountEmail)}&claimed_at=is.null&select=email`,
+    )).length > 0;
     const attributes = {
       auth_source: "microsoft",
       microsoft_subject: subject.sub,
@@ -95,7 +102,7 @@ export default async function handler(req, res) {
           id: user.id,
           email: user.email,
           name: profile.displayName || user.email,
-          role: "viewer",
+          role: bootstrapAdmin ? "admin" : "viewer",
           password_setup_complete: false,
           ...attributes,
         }),
@@ -103,7 +110,16 @@ export default async function handler(req, res) {
     } else {
       await call(`/rest/v1/docs_members?id=eq.${user.id}`, {
         method: "PATCH",
-        body: JSON.stringify(attributes),
+        body: JSON.stringify({
+          ...attributes,
+          ...(bootstrapAdmin ? { role: 'admin' } : {}),
+        }),
+      });
+    }
+    if (bootstrapAdmin) {
+      await call(`/rest/v1/docs_bootstrap_admins?email=eq.${encodeURIComponent(accountEmail)}&claimed_at=is.null`, {
+        method: 'PATCH',
+        body: JSON.stringify({ claimed_at: new Date().toISOString() }),
       });
     }
     members = await call(

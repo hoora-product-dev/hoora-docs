@@ -56,9 +56,10 @@ test("SSO provisions a verified employee as viewer, never from metadata roles", 
         identities: [{ provider: "azure", identity_data: { sub: "subject" } }],
       };
     else if (url.includes("/v1.0/me"))
-      body = { userType: "Member", displayName: "Employee" };
+      body = { userType: "Member", displayName: "Employee", userPrincipalName: "employee@hoora.me" };
     else if (url.includes("/oidc/userinfo")) body = { sub: "subject" };
     else if (url.includes("docs_sso_blocks")) body = [];
+    else if (url.includes("docs_bootstrap_admins")) body = [];
     else if (options.method === "POST") {
       created = JSON.parse(options.body);
       body = null;
