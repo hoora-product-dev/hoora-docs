@@ -1,7 +1,14 @@
 export function pwaFeature({appApi,getToken,toast}){
  let installPrompt;
  window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;document.querySelectorAll('[data-install-app]').forEach(b=>b.hidden=false)});
- async function install(){if(installPrompt){await installPrompt.prompt();installPrompt=null;}else toast('Use your browser’s Install app or Add to Home Screen option.');}
+ window.addEventListener('appinstalled',()=>{installPrompt=null;window.dispatchEvent(new CustomEvent('hoora-app-installed'));});
+ async function install(){
+  if(installPrompt){const prompt=installPrompt;installPrompt=null;await prompt.prompt();const choice=await prompt.userChoice;return choice?.outcome==='accepted';}
+  const ua=navigator.userAgent.toLowerCase();
+  if(/iphone|ipad|ipod/.test(ua)&&!window.MSStream)toast('In Safari, tap Share, then Add to Home Screen.');
+  else toast('Choose Install app or Add to Home Screen in your browser menu.');
+  return false;
+ }
  async function registration(){if(!('serviceWorker' in navigator))throw Error('This browser does not support app notifications.');return navigator.serviceWorker.register('/sw.js');}
  async function enable(){
   if(!('PushManager' in window)||!('Notification' in window))throw Error('Browser notifications are unavailable. On iPhone, install Hoora Docs on the Home Screen first.');

@@ -103,6 +103,7 @@ const canPublish = role => canPublishRole(role) || canEdit(role);
 const teams = teamsFeature({state,db:(...args)=>db(...args),e,dialog:(...args)=>dialog(...args),toast,load,render,icon,row});
 const searchService=createSearchService((...args)=>db(...args));
 const pwa=pwaFeature({appApi,getToken,toast});
+window.addEventListener('hoora-app-installed',()=>{if(routeHash().split('?')[0]==='#/install')render();});
 const sources=sourcesFeature({state,db:(...args)=>db(...args),e,dialog,modal,toast,getToken,config,prepareUpload,slugify,load,render});
 const features=workspaceFeatures({state,db:(...args)=>db(...args),e,dialog,modal,toast,load,render,row,teams,appApi,pwa});
 try {
@@ -324,10 +325,12 @@ function workspace(){
 
 function login(){return '<main id="main" class="signin-page"><div class="signin-card"><section id="login-methods"><h1>Continue to Hoora Docs</h1><button class="btn microsoft" type="button" data-action="microsoft-login">'+icon('microsoft')+'Continue with Microsoft</button><div class="signin-divider">OR</div><button class="btn email-choice" type="button" data-action="email-login">Continue with Email</button><p class="signin-note">Use your Hoora Microsoft account if this is your first time here.</p></section><form id="login-form" hidden><button class="btn text login-back" type="button" data-action="login-methods">'+icon('back')+'Back to sign-in options</button><h1>Continue with Email</h1><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue with Email</button><p class="signin-note">First time here? Use your Hoora Microsoft account to create your access.</p></form></div></main>';}
 function installPage(){
- const ua=navigator.userAgent.toLowerCase(),ios=/iphone|ipad|ipod/.test(ua),android=/android/.test(ua),standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
- const title=standalone?'Hoora Docs is installed':ios?'Install on iPhone or iPad':android?'Install on Android':'Install on your computer';
- const instruction=android?'Use Install app when it appears, or open Chrome’s menu and choose Install app.':'Choose the install icon in your browser’s address bar, or open the browser menu and select Install Hoora Docs.';
- return `<main id="main" class="install-page"><section class="install-card"><img class="install-mark" src="/hoora-mark.png" alt="Hoora"><h1>${title}</h1><p class="install-lede">Keep Hoora Docs one tap away, with a focused app window on your phone or computer.</p><button class="btn install-primary" type="button" data-action="install-app" ${ios||standalone?'hidden':''}>${icon('download')}Install Hoora Docs</button>${ios?`<ol class="install-steps"><li><span>1</span>Open this page in Safari.</li><li><span>2</span>Tap <strong>Share</strong> and choose <strong>Add to Home Screen</strong>.</li><li><span>3</span>Tap <strong>Add</strong> to finish.</li></ol>`:!standalone?`<div class="install-steps"><p>${instruction}</p><p class="install-note">Install availability depends on your browser. Hoora Docs works in the browser either way.</p></div>`:`<div class="install-steps"><p>Open the app from your Home Screen or app launcher.</p></div>`}<a class="install-browser" href="/releases">Continue in browser ${icon('arrow')}</a></section></main>`;
+ const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ const signedIn=!!state.member;
+ const primaryAction=standalone?(signedIn?'enable-install-notifications':'install-notifications-login'):'install-app';
+ const primaryLabel=standalone?(signedIn?'Enable notifications':'Continue with Microsoft'):'Install Now';
+ const primaryIcon=standalone?(signedIn?'bell':'microsoft'):'download';
+ return `<main id="main" class="install-page"><section class="install-card"><div class="install-mark-wrap"><img class="install-mark" src="/hoora-mark.png" alt=""></div><h1>Hoora Docs</h1><p class="install-lede">Install on your phone or computer for faster access and a cleaner app experience.</p><button class="btn install-primary" type="button" data-action="${primaryAction}">${icon(primaryIcon)}${primaryLabel}</button><div class="install-divider"><span>OR</span></div><a class="btn install-browser" href="#/releases">Continue in Browser ${icon('arrow')}</a></section></main>`;
 }
 function home(){
  const publicPages=state.published.filter(p=>p.visibility==='public');
@@ -610,6 +613,13 @@ async function render() {
     hydrateImages();
     sources.hydrate();
     features.hydrate();
+    if((matchMedia('(display-mode: standalone)').matches||navigator.standalone===true)&&state.member&&'Notification'in window&&Notification.permission==='default'){
+      const promptKey=`hoora-push-opt-in:${state.member.id}`;
+      if(!localStorage.getItem(promptKey)){
+        localStorage.setItem(promptKey,'shown');
+        dialog(`<h2>Stay up to date</h2><p class="small">Enable notifications for documents shared with you.</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Not now</button><button class="btn dark" type="submit">Enable notifications</button></div></form>`,async()=>{await pwa.enable();});
+      }
+    }
     if(route==="workspace"){const recent=await features.recent().catch(()=>"");if(rid===renderId&&document.querySelector(".library-content"))document.querySelector(".library-content").insertAdjacentHTML("beforeend",recent);}
     const viewed=route==='doc'?state.published.find(p=>p.slug===id):null;
     if(viewed&&state.member)db("rpc/docs_track","",{method:"POST",body:{document_id:viewed.id,event:"asset_viewed"}}).catch(()=>{});
@@ -1093,7 +1103,9 @@ document.addEventListener("click", (ev) => {
   if (action === "microsoft-login") busy(b, startMicrosoftSignIn);
   if (action === "email-login") { document.querySelector("#login-methods").hidden = true; document.querySelector("#login-form").hidden = false; document.querySelector("#email")?.focus(); }
   if (action === "login-methods") { document.querySelector("#login-form").hidden = true; document.querySelector("#login-methods").hidden = false; document.querySelector("#form-error").textContent = ""; }
-  if (action === "install-app") pwa.install();
+  if (action === "install-app") busy(b, async()=>{const accepted=await pwa.install();if(accepted){toast('Hoora Docs is being installed. Enable notifications next to receive updates.');setTimeout(()=>{if(routeHash().split('?')[0]==='#/install')render();},600);}});
+  if (action === "enable-install-notifications") busy(b, async()=>{await pwa.enable();render();});
+  if (action === "install-notifications-login") { sessionStorage.setItem('hoora-return-to','#/install');location.hash='#/login'; }
   if (action === "search") {
     const field =
       document.querySelector("#public-search") ||
