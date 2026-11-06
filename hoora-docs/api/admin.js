@@ -1,5 +1,5 @@
 import { serverKeyHeaders } from '../server/supabase.js';
-const allowedRoles = ["admin", "publisher", "viewer"];
+const allowedRoles = ["admin", "manager", "publisher", "viewer"];
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (!["GET", "POST"].includes(req.method))

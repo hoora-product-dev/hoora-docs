@@ -6,9 +6,9 @@ Hoora's public knowledge hub and private publishing workspace for release notes,
 
 The application is a static Vercel site with small serverless endpoints. Supabase stores content, authentication records, permissions, and uploads. GitBook Open is used as a reading-design reference only; its hosted writing and management backend is absent from that repository. Hoora uses a locally bundled Tiptap editor for visual Markdown writing and keeps Markdown as the document source. The editor bundle loads only on writing screens.
 
-Public release notes have a chronological feed and a full page for each application version, with contributor sections, author names, version navigation, and an on-page outline. Application sections are reusable across versions. The additive `202611060001_project_sections_and_publisher.sql` migration adds per-application section configuration and publisher attribution; apply it to the correct Supabase project before enabling those controls. The UI retains a global-section fallback while that migration is pending.
+Public release notes have a chronological feed and a full page for each application version, with contributor sections, author names, version navigation, and an on-page outline. Application sections are reusable across versions. The migrations through `202611060004_sharing_and_managers.sql` are applied to the Hoora Supabase project.
 
-The target access model is administrator, manager, publisher, and viewer, including person-specific access for restricted documents. That scoped authorization model is still being developed; the current database continues to use its existing roles and policies. Do not treat UI visibility as an authorization boundary. Email announcements remain test-only and fixed to `rahul@hoora.me`.
+The roles are administrator, manager, publisher, and viewer. Administrators manage people, structure, publication, and test email announcements. Managers can read company documents and set a published page to public, Hoora sign-in, or selected Hoora emails. Publishers write and publish in existing applications. Viewers read pages shared with them. Database row policies and artifact endpoint checks enforce document access. Email announcements remain test-only and fixed to `rahul@hoora.me`.
 
 See `docs/GITBOOK-DECISION.md` and `docs/LIGHTWEIGHT-HUB.md` for the architecture decision and migration sequence.
 
@@ -33,6 +33,8 @@ npm run build
 ```
 
 Open http://localhost:3000. Drafts, users, shared releases, approval requests, and uploads are always stored in Supabase. Only the authentication session is cached in the browser.
+
+The production project contains clearly labeled sample releases for four applications, plus one private sample SOP and one private sample guide. They demonstrate per-application version archives and independent contributions from configured sections. Run `npm run seed:demo` only from a trusted local environment with `SUPABASE_DB_PASSWORD` in the gitignored `.env`; the script is idempotent and preserves existing pages. All sample pages use the `sample` tag and can be deleted by an administrator. The fictional contributor names are part of sample data, not employee accounts.
 
 ## Deployment
 
@@ -83,7 +85,7 @@ Create verticals for teams or product areas. Create folders for internal organiz
 
 ## HTML artifacts
 
-Choose **Import file** and select a standalone `.html` or `.htm` file, or select **HTML artifact** in an existing document's editor. The file is stored privately in Supabase and rendered in a browser-style preview. Open it as a full page, reload it, or download the original HTML. HTML files and other attachments are limited to **10 MB per upload**. Artifact responses stream through Vercel; uploads go directly to Supabase. Replacing a file creates a new storage path so draft changes never overwrite the published HTML.
+Choose **Import file** and select a standalone `.html` or `.htm` file, or select **HTML artifact** in an existing document's editor. You can also paste the source of a standalone HTML page in the editor and upload it directly. The artifact is stored privately in Supabase and rendered in a browser-style preview. Open it as a full page, reload it, or download the original HTML. HTML files and other attachments are limited to **10 MB per upload**. Artifact responses stream through Vercel; uploads go directly to Supabase. Replacing a file creates a new storage path so draft changes never overwrite the published HTML.
 
 Both the iframe and the HTML response enforce a sandbox without `allow-same-origin`. Interactive JavaScript can run, but it cannot access the parent app's DOM, session storage, cookies, or local storage. HTTPS scripts, styles, fonts, and images can load for common standalone AI exports. Forms and top-level navigation are disabled. Multi-file sites, relative local asset folders, servers, React/TSX source without an HTML build, and artifacts requiring secret API keys are not standalone HTML and must be exported/built before upload.
 

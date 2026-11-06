@@ -59,7 +59,12 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "HTML artifact not found." });
       if(scope === 'published'){
         const isPublic = await call('/rest/v1/rpc/docs_is_public',{method:'POST',body:JSON.stringify({document_id:page.id})});
-        if(!isPublic){const {user}=await requireMember(req,call);userId=user.id;}
+        if(!isPublic){
+          const {user}=await requireMember(req,call);
+          userId=user.id;
+          const allowed=await call('/rest/v1/rpc/docs_can_read_published_for',{method:'POST',body:JSON.stringify({document_id:page.id,viewer_id:userId})});
+          if(!allowed)return res.status(403).json({error:'This artifact has not been shared with your account.'});
+        }
       }
       const ticket = signTicket(
         {
@@ -83,12 +88,18 @@ export default async function handler(req, res) {
     const ticket = verifyTicket(params.get("ticket"), secret);
     if (ticket.userId) {
       const members = await call(
-        `/rest/v1/docs_members?id=eq.${ticket.userId}&select=active,password_setup_complete`,
+        `/rest/v1/docs_members?id=eq.${ticket.userId}&select=active,password_setup_complete,role`,
       );
       if (!members[0]?.active || !members[0]?.password_setup_complete)
         return res
           .status(403)
           .json({ error: "Team access is no longer active." });
+      if(ticket.scope==='draft'&&!['admin','publisher'].includes(members[0].role))
+        return res.status(403).json({error:'Draft preview access was removed.'});
+      if(ticket.scope==='published'){
+        const allowed=await call('/rest/v1/rpc/docs_can_read_published_for',{method:'POST',body:JSON.stringify({document_id:ticket.id,viewer_id:ticket.userId})});
+        if(!allowed)return res.status(403).json({error:'This artifact is no longer shared with your account.'});
+      }
     }
     if(ticket.scope!=='draft'&&!ticket.userId){
       const isPublic=await call('/rest/v1/rpc/docs_is_public',{method:'POST',body:JSON.stringify({document_id:ticket.id})});

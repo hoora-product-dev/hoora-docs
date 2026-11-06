@@ -86,6 +86,7 @@ const state = {
   query: "",
   kind: "",
   vertical: "",
+  section: "",
   status: "",
   members: [],
   projects: [],
@@ -256,7 +257,7 @@ function sidebar(workspace=false){
 
 function row(p,internal=false){
  const pub=state.published.find(x=>x.id===p.id),type=state.types.find(t=>t.key===p.kind)||{};const edit=internal&&canEdit(state.member?.role);const access=pageAccess(p);
- return `<div class="document-row">${toneIcon(p.format==='html'?'code':type.icon,type.color)}<div class="document-row-content"><a href="#/${edit?'edit/'+p.id:'doc/'+p.slug}">${e(p.title)}</a><p>${e(p.summary|| (p.format==='html'?'HTML artifact':type.name||'Document'))}</p></div><span class="document-row-status">${internal?`<span class="badge ${pub?'published':'draft'}">${pub?(pub.revision===p.revision?'Published':'Changes pending'):'Draft'}</span>`:''}</span><span class="access-label">${icon(access==='private'?'lock':'web')}${access==='private'?'Team only':'Public'}</span><time>${date(p.updated_at||p.published_at)}</time><a class="iconbtn" href="#/${edit?'edit/'+p.id:'doc/'+p.slug}" aria-label="${edit?'Edit':'Read'} ${e(p.title)}">${icon('chevron')}</a></div>`;
+ return `<div class="document-row">${toneIcon(p.format==='html'?'code':type.icon,type.color)}<div class="document-row-content"><a href="#/${edit?'edit/'+p.id:'doc/'+p.slug}">${e(p.title)}</a><p>${e(p.summary|| (p.format==='html'?'HTML artifact':type.name||'Document'))}</p></div><span class="document-row-status">${internal?`<span class="badge ${pub?'published':'draft'}">${pub?(pub.revision===p.revision?'Published':'Changes pending'):'Draft'}</span>`:''}</span><span class="access-label">${icon(access==='public'?'web':'lock')}${e(accessText(p))}</span><time>${date(p.updated_at||p.published_at)}</time><a class="iconbtn" href="#/${edit?'edit/'+p.id:'doc/'+p.slug}" aria-label="${edit?'Edit':'Read'} ${e(p.title)}">${icon('chevron')}</a></div>`;
 }
 
 function empty(title, text, action = "") {
@@ -304,7 +305,7 @@ function documentPage(p, draft = false) {
  const folder=state.folders.find(item=>item.id===p.folder_id);
  return `<div class="layout document-reader-layout">${documentReaderSidebar(p,peers,draft)}<main id="main" class="document-reader">
    <div class="document-article"><nav class="document-breadcrumbs" aria-label="Breadcrumb"><a href="#/browse">Library</a>${icon('chevron')}<a href="#/browse?kind=${encodeURIComponent(p.kind)}">${e(type?.name||names[p.kind]||'Documents')}</a>${folder?`${icon('chevron')}<span>${e(folder.name)}</span>`:''}</nav>
-   <div class="document-article-actions">${draft?'<span class="badge draft">Saved draft preview</span>':`<span class="access-label">${icon(pageAccess(p)==='private'?'lock':'web')}${pageAccess(p)==='private'?'Team only':'Public'}</span>`}<div>${draft?`<a class="btn outline" href="#/edit/${p.id}">Back to editing</a>`:`<button class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit page</a>`:''}`}</div></div>
+   <div class="document-article-actions">${draft?'<span class="badge draft">Saved draft preview</span>':`<span class="access-label">${icon(pageAccess(p)==='public'?'web':'lock')}${e(accessText(p))}</span>`}<div>${draft?`<a class="btn outline" href="#/edit/${p.id}">Back to editing</a>`:`<button class="btn text" data-action="share">${icon('link')}Share</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit page</a>`:''}`}</div></div>
    <header class="document-article-heading"><h1>${e(p.title)}</h1>${p.summary?`<p>${e(p.summary)}</p>`:''}<div class="document-article-meta"><span>${draft?'Saved':'Published'} ${date(draft?p.updated_at:p.published_at)}</span>${p.version?`<span>${e(p.version)}</span>`:''}${!draft&&p.published_by_name?`<span>By ${e(p.published_by_name)}</span>`:''}</div></header>
    ${customFieldList(p)}${outline.mobile}${p.format==='html'?`${draft?'':`<a class="open-artifact" href="#/artifact/${e(p.slug)}">${icon('expand')}Open full-page HTML preview</a>`}${artifactFrame(p,draft)}`:''}<div class="prose document-prose">${content.html}</div>
    <nav class="document-pagination" aria-label="More in this collection">${previous?`<a href="#/doc/${e(previous.slug)}"><small>Previous page</small><span>${icon('back')}${e(previous.title)}</span></a>`:'<span></span>'}${next?`<a href="#/doc/${e(next.slug)}"><small>Next page</small><span>${e(next.title)}${icon('chevron')}</span></a>`:'<span></span>'}</nav>
@@ -355,7 +356,7 @@ function editor(id) {
   if (!canEdit(state.member.role))
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === "html" ? artifactFrame(p, true) : ""}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === "html";
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon("chevron")}<span>${isNew ? "New document" : e(p.title)}</span></nav><div class="editor-top-actions"><span class="badge ${published ? "published" : "draft"}">${published ? "Published" : "Private draft"}</span>${!isNew ? `<button type="button" class="btn outline" data-action="open-draft-preview">Preview draft</button>` : ""}${published ? `<a class="btn outline" href="#/doc/${e(published.slug)}">View published</a>` : ""}<a class="btn outline" href="#/workspace">Close</a></div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><div class="editor-grid"><div class="editor-main"><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? "active" : ""}">${icon("documentation")}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? "active" : ""}">${icon("code")}HTML artifact</button></div></div><input type="hidden" id="format" name="format" value="${p.format || "markdown"}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || "")}"><section id="markdown-editor" ${html ? "hidden" : ""}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon("upload")}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? "hidden" : ""}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon("code")}</div><h3>${p.artifact_path ? "Replace your HTML artifact" : "Your artifact. A page of its own."}</h3><p>Drop a standalone HTML file here, or choose one from your computer. Diagrams, interactive reports, and AI artifacts are welcome.</p><button type="button" class="btn dark" data-action="upload-html">${icon("upload")}${p.artifact_path ? "Replace HTML file" : "Choose HTML file"}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon("chevron")}<span>${isNew ? "New document" : e(p.title)}</span></nav><div class="editor-top-actions"><span class="badge ${published ? "published" : "draft"}">${published ? "Published" : "Private draft"}</span><button type="button" class="btn outline" data-action="open-draft-preview">Preview</button><button type="submit" form="editor-form" class="btn outline">Save draft</button>${canPublish(state.member.role) ? `<button type="button" class="btn primary" data-action="publish">${published ? "Publish changes" : "Publish"}</button>` : ""}${published ? `<a class="btn outline" href="#/doc/${e(published.slug)}">View published</a>` : ""}<a class="btn outline" href="#/workspace">Close</a></div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><div class="editor-grid"><div class="editor-main"><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? "active" : ""}">${icon("documentation")}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? "active" : ""}">${icon("code")}HTML artifact</button></div></div><input type="hidden" id="format" name="format" value="${p.format || "markdown"}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || "")}"><section id="markdown-editor" ${html ? "hidden" : ""}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon("upload")}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? "hidden" : ""}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon("code")}</div><h3>${p.artifact_path ? "Replace your HTML artifact" : "Your artifact. A page of its own."}</h3><p>Drop a standalone HTML file here, or choose one from your computer. Diagrams, interactive reports, and AI artifacts are welcome.</p><button type="button" class="btn dark" data-action="upload-html">${icon("upload")}${p.artifact_path ? "Replace HTML file" : "Choose HTML file"}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon("code")}<span>${e(
           p.artifact_path
@@ -364,7 +365,7 @@ function editor(id) {
             .replace(/^[a-f0-9-]{37}/, ""),
         )}</span><span class="badge">Uploaded</span></div>${artifactFrame(p, true)}`
       : ""
-  }</section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document details</h2><div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
+  }<div class="html-paste"><div class="html-paste-heading"><div><strong>Or paste HTML source</strong><span>Paste a complete single-file HTML artifact, then preview it as a page.</span></div><button type="button" class="btn outline" data-action="paste-html">Use pasted HTML</button></div><label class="sr-only" for="html-source">HTML source</label><textarea id="html-source" spellcheck="false" placeholder="<!doctype html>\n<html>\n  <head><title>My artifact</title></head>\n  <body>...</body>\n</html>"></textarea></div></section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document details</h2><div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
     names,
   )
     .map(
@@ -376,8 +377,39 @@ function editor(id) {
     )}</select></div><div class="field"><label for="vertical_id">Vertical</label><select id="vertical_id" name="vertical_id">${options(state.verticals, p.vertical_id, "General")}</select></div><div class="field"><label for="folder_id">Folder</label><select id="folder_id" name="folder_id">${options(state.folders, p.folder_id, "No folder")}</select></div><div class="field"><label for="version">Version / reference</label><input id="version" name="version" value="${e(p.version)}" maxlength="100" placeholder="e.g. v2.4.0"></div><div class="field"><label for="slug">Page URL</label><input id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p.slug)}" placeholder="document-title"></div><div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="${e(p.tags.join(", "))}" placeholder="product, onboarding"><small>Separate with commas.</small></div>${typeFields(p)}${visibilityField(p)}<div class="properties-help">${icon("lock")}Only your team can see a draft. Publishing creates a public copy.</div></aside></div><p id="form-error" class="error" role="alert"></p><div class="editor-actions"><span class="statusbar" id="save-status">${isNew ? "Draft not saved" : "Saved " + date(p.updated_at)}</span><div class="editor-action-buttons">${!isNew ? `<button type="button" class="btn outline" data-action="request-publish" data-id="${p.id}">Request approval</button>` : ""}${published && state.member.role === "admin" ? `<button type="button" class="btn outline" data-action="email-preview" data-id="${p.id}">Email announcement</button>` : ""}${published ? '<button type="button" class="btn outline" data-action="unpublish">Unpublish</button>' : ""}<button class="btn outline" type="submit">Save draft</button>${canPublish(state.member.role) ? `<button type="button" class="btn primary" data-action="publish">${published ? "Publish changes" : "Publish document"}${icon("arrow")}</button>` : ""}</div></div>${published ? '<div class="workspace-note">Your public page stays unchanged until you publish changes.</div>' : ""}${!isNew && state.member.role === "admin" ? '<button type="button" class="btn text danger" data-action="delete-document">Delete document</button>' : ""}</form></main></div>`;
 }
 
-async function users(){state.members=await admin();return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People</h1><p>Administrators manage access. Publishers create and publish. Viewers read.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>${state.members.map(m=>`<tr><td><strong>${e(m.name||m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active?'Active':'Disabled'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><div class="role-explainer"><p><strong>Administrator</strong> Full control of structure, visibility, deletion, people and email announcements.</p><p><strong>Publisher</strong> Create documents and release versions in existing applications, edit contributions, preview and publish. Cannot change structure, delete content or send email.</p><p><strong>Viewer</strong> Read published public and internal documents. Can request publisher access.</p></div></main></div>`; }
+async function users(){state.members=await admin();return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People</h1><p>Administrators manage the workspace. Managers control sharing. Publishers write and publish. Viewers read.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>${state.members.map(m=>`<tr><td><strong>${e(m.name||m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active?'Active':'Disabled'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><div class="role-explainer"><p><strong>Administrator</strong> Full control of structure, visibility, deletion, people and email announcements.</p><p><strong>Manager</strong> View company knowledge and choose who can open restricted pages. Cannot publish or email announcements.</p><p><strong>Publisher</strong> Create documents and release versions in existing applications, edit contributions, preview and publish. Cannot change structure, delete content or send email.</p><p><strong>Viewer</strong> Read published public and internal documents. Can request publisher access.</p></div></main></div>`; }
 function folders(){return structureView();}
+
+function markSamplePages() {
+  const isSample = slug => state.published.some(page => page.slug === slug && page.tags?.includes('sample'));
+  const slug = location.hash.match(/^#\/doc\/([^?]+)/)?.[1];
+  if (slug && isSample(decodeURIComponent(slug))) {
+    document.querySelector('.native-release-overline, .document-article-actions')?.insertAdjacentHTML('beforeend', '<span class="sample-label">Sample content</span>');
+  }
+}
+async function shareCurrentPage() {
+  const slug = location.hash.match(/^#\/doc\/([^?]+)/)?.[1];
+  const page = state.published.find(item => item.slug === decodeURIComponent(slug || ''));
+  if (!page) throw new Error('Open a published page before sharing it.');
+  const canManage = ['admin', 'manager'].includes(state.member?.role);
+  const grants = canManage ? await db('docs_page_access', `?page_id=eq.${page.id}&select=email&order=email`) : [];
+  const access = pageAccess(page);
+  const link = `${location.origin}/#/doc/${encodeURIComponent(page.slug)}`;
+  dialog(`<h2>Share this page</h2><p class="small">${e(page.title)}</p>
+    <div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div>
+    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="public" ${access==='public'?'selected':''}>Anyone · public</option><option value="private" ${access==='private'?'selected':''}>Hoora employees · Microsoft sign-in</option><option value="restricted" ${access==='restricted'?'selected':''}>Selected Hoora people only</option></select></div><div class="field share-emails" ${access==='restricted'?'':'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map(row=>row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. People sign in with Microsoft before opening the link.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access==='restricted'?'Only people selected by a manager can open this link.':access==='private'?'Hoora employees must sign in with Microsoft to open this link.':'Anyone can open this public link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
+    async form => {
+      if (!canManage) return;
+      const allowed_emails=String(form.get('emails')||'').split(/[\s,;]+/).map(email=>email.trim()).filter(Boolean);
+      await db('rpc/docs_set_access','',{method:'POST',body:{document_id:page.id,access_mode:form.get('access_mode'),allowed_emails}});
+      await load();
+      await render();
+      toast('Page access updated.');
+    });
+  modal.querySelector('#share-access')?.addEventListener('change', event => {
+    modal.querySelector('.share-emails').hidden = event.target.value !== 'restricted';
+  });
+}
 
 async function render() {
   const rid = ++renderId;
@@ -389,6 +421,7 @@ async function render() {
   state.kind = params.get("kind") || "";
   state.vertical = params.get("vertical") || "";
   state.folder = params.get("folder") || "";
+  state.section = params.get("section") || "";
   state.project=params.get("project")||"";state.version=params.get("version")||"";state.view=params.get("view")||"";
   document.body.dataset.route=route||"releases";
   const internal = [
@@ -458,10 +491,11 @@ async function render() {
         view = publicView(false);
         break;
       default:
-        view = releaseBrowser();
+        view = releaseHub();
     }
     if (rid !== renderId) return;
     app.innerHTML = header() + view + footer();
+    markSamplePages();
     bind();
     hydrateArtifacts();
     hydrateImages();
@@ -519,7 +553,7 @@ async function confirmAction(title, description, action) {
 function memberDialog(id) {
   const m = state.members.find((x) => x.id === id);
   dialog(
-    `<h2>${m ? "Manage member" : "Welcome someone new."}</h2><p class="small">${m ? e(m.email) : "Create a login and choose what they can do."}</p><form id="member-form"><div class="field"><label for="member-name">Name</label><input id="member-name" name="name" required maxlength="100" value="${e(m?.name || "")}"></div>${!m ? '<div class="field"><label for="member-email">Email</label><input id="member-email" name="email" type="email" required></div><div class="field"><label for="member-password">Temporary password</label><input id="member-password" name="password" type="password" autocomplete="new-password" minlength="12" required><small>At least 12 characters. Share securely with this person.</small></div>' : ""}<div class="field"><label for="member-role">Role</label><select id="member-role" name="role">${["viewer", "publisher", "admin"].map((r) => `<option value="${r}" ${m?.role === r ? "selected" : ""}>${roleName(r)}</option>`).join("")}</select></div>${m ? `<div class="field"><label for="member-active">Account access</label><select id="member-active" name="active"><option value="true" ${m.active ? "selected" : ""}>Active</option><option value="false" ${!m.active ? "selected" : ""}>Disabled</option></select></div>` : ""}<p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">${m ? "Save changes" : "Create account"}</button></div></form>${m && m.id !== state.member.id ? `<div class="toolbar"><button class="btn outline" id="reset-member-password">Reset password</button><button class="btn danger" id="delete-member">Remove member</button></div>` : ""}`,
+    `<h2>${m ? "Manage member" : "Welcome someone new."}</h2><p class="small">${m ? e(m.email) : "Create a login and choose what they can do."}</p><form id="member-form"><div class="field"><label for="member-name">Name</label><input id="member-name" name="name" required maxlength="100" value="${e(m?.name || "")}"></div>${!m ? '<div class="field"><label for="member-email">Email</label><input id="member-email" name="email" type="email" required></div><div class="field"><label for="member-password">Temporary password</label><input id="member-password" name="password" type="password" autocomplete="new-password" minlength="12" required><small>At least 12 characters. Share securely with this person.</small></div>' : ""}<div class="field"><label for="member-role">Role</label><select id="member-role" name="role">${["viewer", "publisher", "manager", "admin"].map((r) => `<option value="${r}" ${m?.role === r ? "selected" : ""}>${roleName(r)}</option>`).join("")}</select></div>${m ? `<div class="field"><label for="member-active">Account access</label><select id="member-active" name="active"><option value="true" ${m.active ? "selected" : ""}>Active</option><option value="false" ${!m.active ? "selected" : ""}>Disabled</option></select></div>` : ""}<p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">${m ? "Save changes" : "Create account"}</button></div></form>${m && m.id !== state.member.id ? `<div class="toolbar"><button class="btn outline" id="reset-member-password">Reset password</button><button class="btn danger" id="delete-member">Remove member</button></div>` : ""}`,
     async (f) => {
       await admin({
         ...Object.fromEntries(f),
@@ -789,6 +823,20 @@ async function uploadHtml(file) {
   else await render();
   toast("HTML artifact uploaded. Preview it, then publish when ready.");
 }
+async function pasteHtmlArtifact() {
+  const source = document.querySelector("#html-source")?.value.trim() || "";
+  if (!source) throw new Error("Paste HTML source before uploading.");
+  if (!/<(?:!doctype\s+html|html|head|body)\b/i.test(source))
+    throw new Error("Paste a complete standalone HTML page.");
+  const title = document.querySelector("#title");
+  if (!title.value.trim()) {
+    const parsed = new DOMParser().parseFromString(source, "text/html");
+    title.value = (parsed.querySelector("title")?.textContent?.trim() || "Untitled artifact").slice(0, 250);
+    document.querySelector("#slug").value = slugify(title.value);
+  }
+  const name = (slugify(title.value) || "pasted-artifact") + ".html";
+  await uploadHtml(new File([source], name, { type: "text/html" }));
+}
 async function importMarkdown(file) {
   if (file.size > 500000)
     throw new Error("Choose a Markdown file smaller than 500 KB.");
@@ -929,6 +977,7 @@ document.addEventListener("click", (ev) => {
     } else location.hash = "#/browse";
   }
   if (action === "upload-html") document.querySelector("#html-upload").click();
+  if (action === "paste-html") busy(b, pasteHtmlArtifact);
   if (action === "import-markdown")
     document.querySelector("#markdown-upload").click();
   if (action === "reload-artifact") {
@@ -1121,7 +1170,7 @@ function passwordForm(first = false) {
 function account() {
   return `<div class="layout">${sidebar(true)}<main id="main" class="content account-content"><div class="page-location">Workspace ${icon("chevron")} My account</div><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Workspace access</h2><span class="badge">${e(roleName(state.member.role))}</span></div><p>${state.member.role === "viewer" ? "You can read team documents. Request publisher access to write documents and contribute to releases." : "Your workspace role controls what you can edit and publish."}</p>${state.member.role === "viewer" ? '<button class="btn outline" data-action="request-access">Request publisher access</button>' : ""}<a class="btn text" href="#/requests">View requests</a></section><section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === "microsoft" ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ""}</main></div>`;
 }
-function releaseHub(){return state.version?releaseBrowser():releaseTimeline();}
+function releaseHub(){return releaseTimeline();}
 
 function publicReleaseHub(){return releaseBrowser();}
 
@@ -1454,10 +1503,11 @@ document.addEventListener("click", async (ev) => {
 function manageLegacyOrganization(type,id){return manageStructure(type,id);}
 
 function toneIcon(name='documentation',color='blue'){const tone=['blue','green','violet','orange','slate'].includes(color)?color:'blue';return `<span class="tone-icon tone-${tone}">${icon(name)}</span>`;}
-function roleName(role){return {admin:'Administrator',publisher:'Publisher',viewer:'Viewer'}[role]||role;}
-function pageAccess(p){if(p.visibility==='private')return 'private';if(p.project_id&&state.projects.find(c=>c.id===p.project_id)?.visibility==='private')return 'private';let folder=state.folders.find(f=>f.id===p.folder_id);let depth=0;while(folder&&depth++<30){if(folder.visibility==='private')return 'private';folder=state.folders.find(f=>f.id===folder.parent_id);}return p.visibility||'private';}
+function roleName(role){return {admin:'Administrator',manager:'Manager',publisher:'Publisher',viewer:'Viewer'}[role]||role;}
+function pageAccess(p){if(p.visibility==='restricted')return 'restricted';if(p.visibility==='private')return 'private';if(p.project_id&&state.projects.find(c=>c.id===p.project_id)?.visibility==='private')return 'private';let folder=state.folders.find(f=>f.id===p.folder_id);let depth=0;while(folder&&depth++<30){if(folder.visibility==='private')return 'private';folder=state.folders.find(f=>f.id===folder.parent_id);}return p.visibility||'private';}
+function accessText(p){const access=pageAccess(p);return access==='restricted'?'Selected people':access==='private'?'Hoora sign-in':'Public';}
 function typeFields(p){const type=state.types.find(t=>t.key===p.kind);return `<div id="custom-fields">${(type?.fields||[]).map(label=>`<div class="field"><label>${e(label)}<input name="field:${e(label)}" maxlength="2000" value="${e(p.custom_fields?.[label]||'')}"></label></div>`).join('')}</div>`;}
-function visibilityField(p){return state.member?.role==='admin'?`<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility!=='public'?'selected':''}>Private · sign-in required</option><option value="public" ${p.visibility==='public'?'selected':''}>Public · anyone with the link</option></select><small>A private parent folder or application always restricts access.</small></div>`:`<p class="properties-help">${icon('lock')}Access is controlled by your administrator.</p>`;}
+function visibilityField(p){return state.member?.role==='admin'?`<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility==='private'?'selected':''}>Hoora employees · sign-in required</option><option value="restricted" ${p.visibility==='restricted'?'selected':''}>Selected people · use Share to add emails</option><option value="public" ${p.visibility==='public'?'selected':''}>Public · anyone can view</option></select><small>Private folders and applications always require sign-in.</small></div>`:`<p class="properties-help">${icon('lock')}A manager or administrator controls sharing.</p>`;}
 function customFieldList(p){const pairs=Object.entries(p.custom_fields||{}).filter(([,value])=>value);return pairs.length?`<dl class="custom-details">${pairs.map(([label,value])=>`<div><dt>${e(label)}</dt><dd>${e(value)}</dd></div>`).join('')}</dl>`:'';}
 function releaseRecords(publishedOnly=false){
  const drafts=state.member&&canEdit(state.member.role)&&!publishedOnly;const source=drafts?state.pages:state.published;
@@ -1468,25 +1518,61 @@ function releaseRail(records,version,project='',publishedOnly=false){
  return `<aside class="sidebar release-sidebar" aria-label="Release versions"><div class="rail-heading">Release notes</div><label class="rail-select"><span class="sr-only">Filter release application</span><select id="release-app"><option value="">All applications</option>${projects.map(p=>`<option value="${e(p.id)}" ${p.id===project?'selected':''}>${e(p.name)}</option>`).join('')}</select></label><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${versions.map(v=>`<a class="version-link ${v===version?'active':''}" href="#/releases?version=${encodeURIComponent(v)}${project?'&project='+encodeURIComponent(project):''}${publishedOnly?'&view=published':''}"><span>${e(v==='Unversioned'?v:'v'+v)}</span><small>${new Set(filtered.filter(r=>r.version===v).map(r=>r.project.id)).size} apps</small></a>`).join('')||'<p class="rail-empty">No published versions yet.</p>'}</nav>${state.member?.role==='admin'?'<div class="rail-bottom"><a href="#/folders">'+icon('settings')+'Manage structure</a></div>':'<div class="rail-bottom"><span>Looking for a guide?</span><a href="#/workspace">Open the team library</a></div>'}</aside>`;
 }
 function releaseTimeline(){
- const publishedOnly=state.view==='published'||!state.member||!canEdit(state.member.role);
- const all=releaseRecords(publishedOnly);
- const records=all.filter(r=>(!state.project||r.project.id===state.project)&&r.published).sort((a,b)=>new Date(b.page.published_at||b.page.updated_at)-new Date(a.page.published_at||a.page.updated_at));
- const applications=[...new Map(all.map(r=>[r.project.id,r.project])).values()];
+ const all=releaseRecords(true);
+ const applications=[...new Map(all.map(record=>[record.project.id,record.project])).values()];
+ const current=applications.find(project=>project.id===state.project);
+ const available=all.filter(record=>!current||record.project.id===current.id)
+   .sort((a,b)=>new Date(b.page.published_at||b.page.updated_at)-new Date(a.page.published_at||a.page.updated_at));
+ const sectionNames=current?[...new Set(available.flatMap(record=>record.notes.map(note=>note.vertical||'General')))]:[];
+ const configured=state.projectSections?.filter(row=>row.project_id===current?.id&&row.active)
+   .sort((a,b)=>a.sort_order-b.sort_order).map(row=>state.verticals.find(section=>section.id===row.vertical_id)?.name).filter(Boolean)||[];
+ sectionNames.sort((a,b)=>{
+   const ai=configured.indexOf(a),bi=configured.indexOf(b);
+   return (ai<0?999:ai)-(bi<0?999:bi)||a.localeCompare(b);
+ });
+ const section=current&&sectionNames.some(name=>slugify(name)===state.section)?state.section:'';
+ const records=section?available.filter(record=>record.notes.some(note=>slugify(note.vertical||'General')===section)):available;
  const days=new Map();
- for(const record of records){const key=(record.page.published_at||record.page.updated_at||'').slice(0,10);if(!days.has(key))days.set(key,[]);days.get(key).push(record);}
- const current=applications.find(p=>p.id===state.project);
- const rail=`<aside class="sidebar release-sidebar" aria-label="Release applications"><div class="rail-heading">Product updates</div><a class="sidelink ${!state.project?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Applications</div>${applications.map(p=>`<a class="sidelink ${state.project===p.id?'active':''}" href="#/releases?project=${encodeURIComponent(p.id)}">${icon(p.icon)}<span>${e(p.name)}</span></a>`).join('')}${state.member?.role==='admin'?`<div class="rail-bottom"><a href="#/folders">${icon('settings')}Manage structure</a></div>`:''}</aside>`;
- return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><p class="reader-context">Release notes</p><h1>${current?e(current.name):'What’s new at Hoora'}</h1><p>${current?e(current.description||'Every published version of this application.'):'The latest changes across our products, from the people who built them.'}</p></div>${canEdit(state.member?.role)?`<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>`:''}</div><nav class="timeline-apps" aria-label="Filter by application"><a class="${!state.project?'active':''}" href="#/releases">All applications</a>${applications.map(p=>`<a class="${p.id===state.project?'active':''}" href="#/releases?project=${encodeURIComponent(p.id)}">${e(p.name)}</a>`).join('')}</nav><div class="timeline-columns"><div class="timeline-list">${[...days].map(([key,items])=>`<section class="timeline-day"><h2><time datetime="${key}">${date(key)}</time><span>${items.length} ${items.length===1?'release':'releases'}</span></h2>${items.map(r=>{const notes=r.notes||[],sections=[...new Set(notes.map(n=>n.vertical).filter(Boolean))],authors=[...new Set(notes.map(n=>n.author).filter(Boolean))];return `<article class="timeline-item"><div class="timeline-meta">${toneIcon(r.project.icon,r.project.color)}<span>${e(r.project.name)}</span><span class="badge">${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span>${pageAccess({...r.page,project_id:r.project.id})==='private'?`<span class="access-label">${icon('lock')}Company only</span>`:''}</div><h3><a href="#/doc/${e(r.page.slug)}">${e(r.page.title.replace(/^.*? · /,''))}</a></h3>${r.page.summary?`<p>${e(r.page.summary)}</p>`:''}<div class="timeline-sections">${sections.map(s=>`<span>${e(s)}</span>`).join('')}</div><div class="timeline-footer"><span>${authors.length} ${authors.length===1?'contributor':'contributors'} · ${notes.length} updates</span><a href="#/doc/${e(r.page.slug)}">Read release ${icon('chevron')}</a></div></article>`}).join('')}</section>`).join('')||empty('No published releases yet','Choose another application or publish the first release.')}</div><aside class="timeline-aside"><h2>Browse an application</h2>${applications.map(p=>{const latest=records.find(r=>r.project.id===p.id);return latest?`<a href="#/releases?project=${encodeURIComponent(p.id)}">${toneIcon(p.icon,p.color)}<span><strong>${e(p.name)}</strong><small>Latest: ${e(latest.version==='Unversioned'?latest.version:'v'+latest.version)}</small></span>${icon('chevron')}</a>`:''}).join('')}<p>Each application keeps its own versions. This feed brings their published updates together by date.</p></aside></div></main></div>`;
+ for(const record of records){
+   const key=(record.page.published_at||record.page.updated_at||'').slice(0,10);
+   if(!days.has(key))days.set(key,[]);
+   days.get(key).push(record);
+ }
+ const versions=current?available.sort((a,b)=>compareVersions(a.version,b.version)):[];
+ const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation">
+   <div class="rail-heading">Product updates</div>
+   <a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a>
+   <div class="rail-label">Applications</div>
+   ${applications.map(project=>`<a class="sidelink ${current?.id===project.id?'active':''}" href="#/releases?project=${encodeURIComponent(project.id)}">${icon(project.icon)}<span>${e(project.name)}</span></a>`).join('')}
+   ${current?`<div class="rail-label">${e(current.name)} versions <span>Newest first</span></div><nav class="version-nav">${versions.map(record=>`<a class="version-link" href="#/doc/${e(record.page.slug)}"><span>${e(record.version==='Unversioned'?record.version:'v'+record.version)}</span><small>${date(record.page.published_at)}</small></a>`).join('')}</nav>`:''}
+   ${state.member?.role==='admin'?`<div class="rail-bottom"><a href="#/folders">${icon('settings')}Manage structure</a></div>`:''}
+ </aside>`;
+ const tabs=current?`<nav class="timeline-apps release-section-tabs" aria-label="${e(current.name)} sections"><a class="${!section?'active':''}" href="#/releases?project=${encodeURIComponent(current.id)}">All sections</a>${sectionNames.map(name=>`<a class="${section===slugify(name)?'active':''}" href="#/releases?project=${encodeURIComponent(current.id)}&section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`:'';
+ return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader">
+   <div class="reader-heading"><div><p class="reader-context">Release notes</p><h1>${current?e(current.name):'What’s new at Hoora'}</h1><p>${current?e(current.description||'Versions and updates from this application.'):'A chronological view of published updates across applications.'}</p></div>${canEdit(state.member?.role)?`<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>`:''}</div>
+   ${tabs}<div class="timeline-columns single-column"><div class="timeline-list">
+   ${[...days].map(([key,items])=>`<section class="timeline-day"><h2><time datetime="${key}">${date(key)}</time><span>${items.length} ${items.length===1?'release':'releases'}</span></h2>${items.map(record=>{
+     const notes=section?record.notes.filter(note=>slugify(note.vertical||'General')===section):record.notes;
+     const sections=[...new Set(notes.map(note=>note.vertical||'General'))];
+     const authors=[...new Set(notes.map(note=>note.author).filter(Boolean))];
+     const version=record.version==='Unversioned'?record.version:'v'+record.version;
+     const pageLink=`#/doc/${e(record.page.slug)}${section?'?section='+encodeURIComponent(section):''}`;
+     const teaser=record.page.tags?.includes('sample')?notes.map(note=>note.title).slice(0,3).join(' · '):record.page.summary;
+     return `<article class="timeline-item"><div class="timeline-meta">${toneIcon(record.project.icon,record.project.color)}<span>${e(record.project.name)}</span><span class="badge">${e(version)}</span>${record.page.tags?.includes('sample')?'<span class="sample-label">Sample release</span>':''}${pageAccess({...record.page,project_id:record.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...record.page,project_id:record.project.id}))}</span>`:''}</div><h3><a href="${pageLink}">${current?'Release '+e(version):e(record.project.name)+' · '+e(version)}</a></h3>${teaser?`<p>${e(teaser)}</p>`:''}<div class="timeline-sections">${sections.map(name=>`<span>${e(name)}</span>`).join('')}</div><div class="timeline-footer"><span>${authors.length} ${authors.length===1?'contributor':'contributors'} · ${notes.length} ${notes.length===1?'update':'updates'}</span><a href="${pageLink}">Read release ${icon('chevron')}</a></div></article>`;
+   }).join('')}</section>`).join('')||empty('No published releases here','Choose another application or section to see its updates.')}
+   </div></div></main></div>`;
 }
 function releaseDocumentNew(p){
  const records=releaseRecords(true),record=records.find(r=>r.page.id===p.id);
  const project=record?.project||{id:p.project_id||'',name:p.release_snapshot?.project||'Release notes',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'slate'};
- const notes=record?.notes||p.release_snapshot?.entries||[];
+ const allNotes=record?.notes||p.release_snapshot?.entries||[];
+ const selectedSection=allNotes.some(note=>slugify(note.vertical||'General')===state.section)?state.section:'';
+ const notes=selectedSection?allNotes.filter(note=>slugify(note.vertical||'General')===selectedSection):allNotes;
  const versions=records.filter(r=>r.project.id===project.id).sort((a,b)=>compareVersions(a.version,b.version));
  const sections=[...new Set(notes.map(n=>n.vertical||'General'))],authors=[...new Set(notes.map(n=>n.author).filter(Boolean))];
  const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><div class="rail-heading">${e(project.name)}</div><a class="sidelink" href="#/releases?project=${encodeURIComponent(project.id)}">${icon('back')}<span>All ${e(project.name)} releases</span></a><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="#/doc/${e(r.page.slug)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span><small>${date(r.page.published_at||r.page.updated_at)}</small></a>`).join('')}</nav><div class="rail-bottom"><a href="#/releases">${icon('grid')}All product updates</a></div></aside>`;
  const outline=`<aside class="release-outline" aria-label="On this page"><div class="release-outline-inner"><h2>On this page</h2>${sections.map(s=>`<button type="button" data-scroll-section="${e(slugify(s))}">${e(s)}<small>${notes.filter(n=>(n.vertical||'General')===s).length}</small></button>`).join('')}<div class="outline-authors"><h2>Contributors</h2>${authors.map(name=>`<span><span class="mini-avatar">${e(name.slice(0,2).toUpperCase())}</span>${e(name)}</span>`).join('')}</div></div></aside>`;
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.id)}">${icon('back')}All ${e(project.name)} releases</a><div class="native-release-overline">${toneIcon(project.icon,project.color)}<span>${e(project.name)}</span><span class="badge">${e((record?.version||versionKey(p.version)).startsWith('v')?(record?.version||versionKey(p.version)):'v'+(record?.version||versionKey(p.version)))}</span><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='private'?'lock':'web')}${pageAccess({...p,project_id:project.id})==='private'?'Company only':'Public'}</span></div><h1>${e(p.title.replace(/^.*? · /,''))}</h1>${p.summary?`<p class="native-release-summary">${e(p.summary)}</p>`:''}<div class="native-release-meta"><span><small>Published</small>${date(p.published_at)}</span>${p.published_by_name?`<span><small>Published by</small>${e(p.published_by_name)}</span>`:''}<span><small>Contributors</small>${authors.length} ${authors.length===1?'person':'people'}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/release/${p.id}">Edit release</a>`:''}</div><div class="native-release-mobile-outline"><details><summary>On this page</summary>${sections.map(s=>`<button type="button" data-scroll-section="${e(slugify(s))}">${e(s)}</button>`).join('')}</details></div><div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div><div class="native-release-end"><span>That’s everything in ${e(project.name)} ${e(record?.version||p.version||'')}.</span><a href="#/releases?project=${encodeURIComponent(project.id)}">Browse earlier versions ${icon('chevron')}</a></div></div>${outline}</main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.id)}">${icon('back')}All ${e(project.name)} releases</a><div class="native-release-overline">${toneIcon(project.icon,project.color)}<span>${e(project.name)}</span><span class="badge">${e((record?.version||versionKey(p.version)).startsWith('v')?(record?.version||versionKey(p.version)):'v'+(record?.version||versionKey(p.version)))}</span><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><h1>${e(p.title.replace(/^.*? · /,''))}</h1>${p.summary?`<p class="native-release-summary">${e(p.summary)}</p>`:''}<div class="native-release-meta"><span><small>Published</small>${date(p.published_at)}</span>${p.published_by_name?`<span><small>Published by</small>${e(p.published_by_name)}</span>`:''}<span><small>Contributors</small>${authors.length} ${authors.length===1?'person':'people'}</span><button type="button" class="btn outline" data-action="share">${icon('link')}Share</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/release/${p.id}">Edit release</a>`:''}</div><div class="native-release-mobile-outline"><details><summary>On this page</summary>${sections.map(s=>`<button type="button" data-scroll-section="${e(slugify(s))}">${e(s)}</button>`).join('')}</details></div><div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div><div class="native-release-end"><span>That’s everything in ${e(project.name)} ${e(record?.version||p.version||'')}.</span><a href="#/releases?project=${encodeURIComponent(project.id)}">Browse earlier versions ${icon('chevron')}</a></div></div>${outline}</main></div>`;
 }
 function releaseBrowser(options={}){
  const publishedOnly=state.view==='published'||!state.member||!canEdit(state.member.role);const records=releaseRecords(publishedOnly);const project=options.project??state.project??'';const available=records.filter(r=>!project||r.project.id===project);const versions=[...new Set(available.map(r=>r.version))].sort(compareVersions);const version=options.version?versionKey(options.version):state.version||versions[0]||'';const shown=available.filter(r=>r.version===version);const projects=[...new Map(records.filter(r=>r.version===version).map(r=>[r.project.id,r.project])).values()];
@@ -1597,9 +1683,15 @@ document.addEventListener("click", async (ev) => {
   }
   if (action === "copy-link") {
     await busy(b, async () => {
-      await navigator.clipboard.writeText(location.href);
+      const slug=location.hash.match(/^#\/doc\/([^?]+)/)?.[1];
+      const page=state.published.find(item=>item.slug===decodeURIComponent(slug||''));
+      await navigator.clipboard.writeText(page?`${location.origin}/#/doc/${encodeURIComponent(page.slug)}`:location.href);
       toast("Link copied.");
     });
+    return;
+  }
+  if (action === "share") {
+    await busy(b, shareCurrentPage);
     return;
   }
   if (action === "add-member") {
