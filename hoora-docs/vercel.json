@@ -47,7 +47,7 @@
   "rewrites": [
     {
       "source": "/release-notes/:version/:application",
-      "destination": "/index.html"
+      "destination": "/api/release-preview?version=:version&application=:application"
     },
     {
       "source": "/docs/:slug",
@@ -133,5 +133,10 @@
       "source": "/search",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/release-preview.js": {
+      "includeFiles": "dist/index.html"
+    }
+  }
 }
