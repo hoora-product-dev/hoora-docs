@@ -286,7 +286,7 @@ function enhanceRail(){
  const rail=app.querySelector('.layout>.sidebar');
  document.body.classList.toggle('has-rail',!!rail);
  if(!rail)return;
- const pinned=localStorage.getItem('hoora-rail-pinned')==='true';
+ const pinned=localStorage.getItem('hoora-rail-pinned')!=='false';
  const collapsed=!pinned;
  document.body.classList.toggle('rail-collapsed',collapsed);
  const railLogo=document.documentElement.dataset.theme==='dark'?'/hoora-dark.png':'/hoora-light.png';

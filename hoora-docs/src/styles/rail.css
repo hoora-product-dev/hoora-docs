@@ -129,7 +129,10 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{d
 .timeline-day-items{gap:8px!important}
 .timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:68px!important;padding:10px 12px!important;border:1px solid var(--line)!important;border-radius:10px!important;background:var(--surface)!important;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease!important}
 .timeline-item:hover,.timeline-item:focus-within{background:var(--raised)!important;border-color:var(--muted)!important;box-shadow:0 4px 14px #00000012;transform:translateY(-1px)}
-.timeline-item h3 a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:4px}
+.timeline-item h3 a,.timeline-item h3 a:hover,.timeline-item h3 a:focus-visible{text-decoration:none!important}
+.timeline-item h3{line-height:1.45;overflow-wrap:anywhere}
+.release-row-copy{min-width:0;align-self:center}
+.release-row-meta{line-height:1.45;overflow-wrap:anywhere}
 .release-row-open{opacity:.55;transition:opacity .16s ease,background-color .16s ease,color .16s ease,transform .16s ease}
 .timeline-item:hover .release-row-open,.timeline-item:focus-within .release-row-open{opacity:1;background:var(--raised);color:var(--ink);transform:translateX(2px)}
 .release-row-open:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
