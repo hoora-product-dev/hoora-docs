@@ -354,7 +354,7 @@ function home(){
  if(!state.member)html=html.replace(/<button class="home-search"[\s\S]*?<\/button>/,'').replace(/<div class="home-cards">[\s\S]*?<\/div>/,'');
  const section=name=>html.match(new RegExp(`<section class="home-list"><div><h2>${name}<\\/h2>[\\s\\S]*?<\\/section>`))?.[0]||'';
  const documents=section('Public documentation'),releases=section('Latest releases');
- const content=html.replace(documents,'').replace(releases,'').replace(/<footer class="home-footer">[\s\S]*?<\/footer>/,'');
+ const content=html.replace(documents,'').replace(releases,'').replace(/<footer class="[^"]*\bhome-footer\b[^"]*">[\s\S]*?<\/footer>/,'');
  const end=content.lastIndexOf('</main>');
  return `${content.slice(0,end)}${documents}${releases}${siteFooter('home-footer')}${content.slice(end)}`;
 }
