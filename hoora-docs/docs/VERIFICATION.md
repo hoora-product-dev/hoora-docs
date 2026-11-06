@@ -1,5 +1,13 @@
 # Delivery verification · 6 November 2026
 
+## Interface and release URL pass
+
+The release feed now shows only date, application/version and an open action. An opened version has a single version rail and All/section tabs above long-form contributions with individual author names. Public release URLs use `/release-notes/<version>/<application>`; old `/docs/<release-slug>` links redirect to the same page. Share links, search results, email previews and browser push use the version URL. Library listing and search exclude releases, which remain in Releases.
+
+The header is 56 px, the sidebar uses neutral selection, and a bundled Lucide icon set replaces prototype icons. Light and dark styles build from one source bundle. The search overlay and document table have tighter spacing and one input border. The explicitly labeled Customer App sample release now has long Markdown content to exercise multi-page reading.
+
+Checks: `npm run check`, `npm test` (23 tests), `npm run knip`, `npm run build`, local `npm run test:browser`, local `npm run test:release-browser`, and local `npm run test:production`. Desktop and 390 px mobile screenshots were reviewed without horizontal overflow or browser exceptions. No email or browser push was sent during verification.
+
 ## Implemented and checked
 
 - Four company roles, with manager-owned teams and separate per-team viewer/publisher access. Administrator ownership transfer and manager removal preserve team documents.

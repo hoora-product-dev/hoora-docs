@@ -1,8 +1,9 @@
+import {icon} from "./vendor/icons.js";
 import {createSearchService,searchDialog,searchResultsPage} from "./search.js";
 import {pwaFeature} from "./pwa.js";
 import {sourcesFeature} from "./sources.js";
 import {workspaceFeatures} from "./workspace-features.js";
-import {routeHash,routeUrl,canonicalizeRoute} from "./router.js";
+import {routeHash,routeUrl,canonicalizeRoute,publishedRoute} from "./router.js";
 import { prepareUpload } from "./vendor/uploads.js";
 import { config } from "./config.js";
 import { teamsFeature } from "./teams.js";
@@ -21,61 +22,19 @@ let documentRichEditor = null;
 let contributionRichEditor = null;
 function richToolbar() {
   const buttons = [
-    ["heading", "Heading", "H₂"], ["bold", "Bold", "<strong>B</strong>"],
-    ["italic", "Italic", "<em>I</em>"], ["strike", "Strikethrough", "S̶"],
-    ["bulletList", "Bulleted list", "• ≡"], ["orderedList", "Numbered list", "1. ≡"],
-    ["blockquote", "Quote", "❝"], ["codeBlock", "Code block", "&lt;/&gt;"],
-    ["table", "Insert table", "▦"], ["link", "Link", "↗"],
+    ["heading","Heading","heading"],["bold","Bold","bold"],["italic","Italic","italic"],
+    ["strike","Strikethrough","strike"],["bulletList","Bulleted list","list"],["orderedList","Numbered list","ordered"],
+    ["blockquote","Quote","quote"],["codeBlock","Code block","code"],["table","Insert table","table"],["link","Link","link"]
   ];
-  return `<div class="rich-toolbar" role="toolbar" aria-label="Text formatting">${buttons.map(([command,label,content])=>`<button type="button" data-rich-command="${command}" aria-label="${label}" aria-pressed="false" title="${label}">${content}</button>`).join("")}</div>`;
+  return `<div class="rich-toolbar" role="toolbar" aria-label="Text formatting">${buttons.map(([command,label,key])=>`<button type="button" data-rich-command="${command}" aria-label="${label}" aria-pressed="false" title="${label}">${icon(key)}</button>`).join("")}</div>`;
 }
 const app = document.querySelector("#app"),
   modal = document.querySelector("#modal");
-const icons = {
-  search: '<circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>',
-  arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
-  book: '<path d="M12 6c-3-2-7-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V5c-2-1-6-1-9 1Zm0 0v15"/>',
-  release: '<path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/>',
-  sop: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v4H9zm0 9 2 2 4-4m-6 8h6"/>',
-  documentation: '<path d="M5 3h9l5 5v13H5zM14 3v6h5M9 13h6m-6 4h6"/>',
-  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-  users:
-    '<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5v2"/>',
-  folder: '<path d="M3 7V4h6l3 3h9v13H3V7Z"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  logout: '<path d="M9 4H4v16h5m5-12 4 4-4 4m-6-4h14"/>',
-  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
-  upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
-  settings:
-    '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="16" cy="17" r="3"/>',
-  chevron: '<path d="m9 5 7 7-7 7"/>',
-  check: '<path d="m5 12 4 4L19 6"/>',
-};
-const icon = (name) =>
-  `<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.documentation}</svg></span>`;
 const names = {
   release: "Release notes",
   sop: "SOPs",
   documentation: "Documentation",
 };
-Object.assign(icons, {
-  code: '<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18"/>',
-  edit: '<path d="m15 4 5 5M4 20l4-1L20 7a3 3 0 0 0-4-4L4 15v5Z"/>',
-  download: '<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/>',
-  expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5"/>',
-  reload:
-    '<path d="M20 7v5h-5M4 17v-5h5m11 0a8 8 0 0 0-14-6m-2 6a8 8 0 0 0 14 6"/>',
-  back: '<path d="M19 12H5m6-6-6 6 6 6"/>',
-  link: '<path d="m10 13 4-4m-6 6-2 2a3 3 0 0 1-4-4l5-5a3 3 0 0 1 4 0m2 2 2-2a3 3 0 0 1 4 4l-5 5a3 3 0 0 1-4 0"/>',
-  list: '<path d="M8 6h12M8 12h12M8 18h12M3 6h.01M3 12h.01M3 18h.01"/>',
-  paperclip:
-    '<path d="m8 12 6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l9-9a6 6 0 0 1 8 8l-9 9"/>',
-  microsoft:
-    '<path stroke="none" fill="#f25022" d="M2 2h9v9H2z"/><path stroke="none" fill="#7fba00" d="M13 2h9v9h-9z"/><path stroke="none" fill="#00a4ef" d="M2 13h9v9H2z"/><path stroke="none" fill="#ffb900" d="M13 13h9v9h-9z"/>',
-});
-Object.assign(icons,{theme:'<circle cx="12" cy="12" r="8"/><path d="M12 4v16"/>',web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z"/>',phone:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',car:'<path d="m5 7 2-4h10l2 4 2 3v9h-3v-3H6v3H3v-9l2-3Zm0 0h14M7 11h1m8 0h1"/>',tool:'<path d="m14 6 4 4 3-3a7 7 0 0 1-9 8L5 22l-3-3 7-7a7 7 0 0 1 8-9Z"/>',bag:'<path d="M4 7h16v14H4zM8 7V5a4 4 0 0 1 8 0v2"/>',trash:'<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>'});
 const descriptions = {
   release: "What’s new, what’s improved, and what’s next across Hoora.",
   sop: "Clear, repeatable processes. Everything you need to get it right.",
@@ -286,15 +245,15 @@ async function hydrateRoute(route,id){
 function header(){
  if((routeHash().startsWith('#/artifact/')||routeHash().startsWith('#/preview/'))&&state.nativeTitle&&document.body.dataset.route!=="edit")return `<header class="topbar artifact-app-header"><a class="btn text" href="${e(state.nativeBack)}">${icon('back')}Back</a><strong>${e(state.nativeTitle)}</strong>${state.nativeDraft?'<span class="badge draft">Draft preview</span>':''}<div><button class="iconbtn" data-action="native-fullscreen" aria-label="Enter fullscreen">${icon('expand')}</button><button class="iconbtn" data-action="download-artifact" aria-label="Download original HTML">${icon('download')}</button></div></header>`;
  const route=routeHash().split('?')[0];const auth=route==='#/login';const native=route.startsWith('#/artifact/')||route.startsWith('#/preview/');
- return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/releases"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/workspace">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon('theme')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("mail")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${e((state.member.name||state.member.email).slice(0,2).toUpperCase())}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
+ return `<header class="topbar"><div class="topbar-left">${!auth&&!native?`<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>`:''}<a class="product-brand" href="#/releases"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth&&!native?'<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/workspace">Library</a></nav>':''}</div><div class="topbar-right">${!auth&&!native?`<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>`:''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme==='dark'?'sun':'moon')}</button>${state.member?`<a class="iconbtn" href="#/notifications" aria-label="Notifications">${icon("bell")}</a><details class="account-menu"><summary aria-label="Open account menu"><span class="user-avatar">${e((state.member.name||state.member.email).slice(0,2).toUpperCase())}</span></summary><div><strong>${e(state.member.name)}</strong><small>${e(state.member.email)}</small><a href="#/account">Account settings</a>${state.member.role==='admin'?'<a href="#/users">Manage people</a>':''}<button data-action="logout">Sign out</button></div></details>`:!auth?'<a class="btn dark" href="#/login">Sign in</a>':''}</div></header>`;
 }
 
 function footer(){return '';}
 
 function sidebar(workspace=false){
- const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at);
+ const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
  const folderLinks=(parent=null,depth=0)=>state.folders.filter(f=>f.parent_id===parent).map(f=>`<a class="sidelink ${state.folder===f.id?'active':''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug||f.id)}">${toneIcon(f.icon,f.color)}<span>${e(f.name)}</span>${f.visibility==='private'?icon('lock'):''}</a>${depth<12?folderLinks(f.id,depth+1):''}`).join('');
- return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind&&!state.folder?'active':''}" href="${workspace?'#/workspace':'#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member?`<a class="sidelink" href="#/teams">${icon('users')}<span>Your teams</span></a><a class="sidelink" href="#/notifications">${icon('mail')}<span>Notifications</span></a>${canEdit(role)?`<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>`:''}`:''}<div class="rail-label">Collections</div>${state.types.map(t=>`<a class="sidelink ${state.kind===t.key?'active':''}" href="#/${workspace?'workspace':'browse'}?kind=${t.key}">${toneIcon(t.icon,t.color)}<span>${e(t.name)}</span>${!state.member&&t.default_visibility==='private'?icon('lock'):''}</a>`).join('')}${workspace?`<div class="rail-label">Folders${role==='admin'?'<button class="iconbtn" data-action="add-folder" aria-label="Add folder">+</button>':''}</div>${folderLinks()}${!state.folders.length?'<p class="rail-empty">Organize documents in folders.</p>':''}`:''}${role==='admin'?`<div class="rail-label">Administration</div><a class="sidelink" href="#/folders">${icon('settings')}<span>Structure & visibility</span></a><a class="sidelink" href="#/users">${icon('users')}<span>People</span></a><a class="sidelink" href="#/requests">${icon('check')}<span>Requests</span></a><a class="sidelink" href="#/archive">${icon("folder")}<span>Archive</span></a><a class="sidelink" href="#/activity">${icon("clock")}<span>Activity</span></a>`:''}<div class="rail-bottom">${icon('lock')}<span>${state.member?'Private content stays within your team.':'Sign in to read internal documents.'}</span></div></aside>`;
+ return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind&&!state.folder?'active':''}" href="${workspace?'#/workspace':'#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member?`<a class="sidelink" href="#/teams">${icon('users')}<span>Your teams</span></a><a class="sidelink" href="#/notifications">${icon('bell')}<span>Notifications</span></a>${canEdit(role)?`<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>`:''}`:''}<div class="rail-label">Collections</div>${state.types.filter(t=>t.key!=="release").map(t=>`<a class="sidelink ${state.kind===t.key?'active':''}" href="#/${workspace?'workspace':'browse'}?kind=${t.key}">${toneIcon(t.icon,t.color)}<span>${e(t.name)}</span>${!state.member&&t.default_visibility==='private'?icon('lock'):''}</a>`).join('')}${workspace?`<div class="rail-label">Folders${role==='admin'?'<button class="iconbtn" data-action="add-folder" aria-label="Add folder">+</button>':''}</div>${folderLinks()}${!state.folders.length?'<p class="rail-empty">Organize documents in folders.</p>':''}`:''}${role==='admin'?`<div class="rail-label">Administration</div><a class="sidelink" href="#/folders">${icon('settings')}<span>Structure & visibility</span></a><a class="sidelink" href="#/users">${icon('users')}<span>People</span></a><a class="sidelink" href="#/requests">${icon('check')}<span>Requests</span></a><a class="sidelink" href="#/archive">${icon("folder")}<span>Archive</span></a><a class="sidelink" href="#/activity">${icon("clock")}<span>Activity</span></a>`:''}<div class="rail-bottom">${icon('lock')}<span>${state.member?'Private content stays within your team.':'Sign in to read internal documents.'}</span></div></aside>`;
 }
 
 function row(p,internal=false){
@@ -306,7 +265,7 @@ function empty(title, text, action = "") {
   return `<div class="empty">${icon("book")}<h3>${e(title)}</h3><p>${e(text)}</p>${action}</div>`;
 }
 function workspace(){
- const pages=filterPages(state.pages,state).filter(p=>!p.archived_at).filter(p=>!state.team||p.team_id===state.team).filter(p=>!state.status||(state.status==='draft'?!state.published.some(x=>x.id===p.id):state.published.some(x=>x.id===p.id)));
+ const pages=filterPages(state.pages,state).filter(p=>!p.archived_at&&p.kind!=="release").filter(p=>!state.team||p.team_id===state.team).filter(p=>!state.status||(state.status==='draft'?!state.published.some(x=>x.id===p.id):state.published.some(x=>x.id===p.id)));
  const title=state.folder?state.folders.find(f=>f.id===state.folder)?.name:names[state.kind]||'All documents';
  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1><p>${pages.length} documents${state.member.role==='viewer'?' available to your team':''}</p></div>${canEdit(state.member.role)?'<div class="toolbar-actions"><button class="btn outline" data-action="quick-asset">Add link / PDF</button><button class="btn outline" data-action="import-document">'+icon('upload')+'Import</button><a class="btn dark" href="#/new">'+icon('plus')+'New document</a></div>':''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status==='draft'?'selected':''}>Drafts</option><option value="published" ${state.status==='published'?'selected':''}>Published</option></select></div><div class="document-table"><div class="document-table-heading"><span>Document</span><span>Status</span><span>Access</span><span>Updated</span></div><div id="document-list">${pages.map(p=>row(p,true)).join('')||empty('No documents here yet','Create a document or choose another collection.')}</div></div></main></div>`;
 }
@@ -356,7 +315,8 @@ function documentPage(p, draft = false) {
 function article(slug,full=false){
  const alias=state.aliases?.find(a=>a.slug===slug);
  const p=state.published.find(p=>p.slug===slug||(alias&&p.id===alias.page_id));
- if(p&&p.slug!==slug)history.replaceState(null,"",routeUrl("#/doc/"+p.slug));
+ if(p&&p.kind==='release'&&routeHash().startsWith('#/doc/'))history.replaceState(null,"",routeUrl(publishedRoute(p,state.projects))+(routeHash().includes('?')?'?'+routeHash().split('?')[1]:''));
+ else if(p&&p.slug!==slug)history.replaceState(null,"",routeUrl("#/doc/"+p.slug));
  if(!p){if(!state.member){sessionStorage.setItem('hoora-return-to',routeHash());return `<main id="main" class="access-gate">${icon('lock')}<h1>Sign in to continue</h1><p>This link may belong to your team’s private library. Sign in with your work account to check access.</p><a class="btn dark" href="#/login">Sign in with your work account</a><a href="#/releases">Browse public releases</a></main>`;}return `<main id="main" class="article">${empty('Document unavailable','This page may have been removed or unpublished.','<a class="btn outline" href="#/workspace">Open library</a>')}</main>`;}
  document.title=p.title+' — Hoora Docs';
  if(full&&p.format==='html')return nativeArtifact(p,false);
@@ -402,7 +362,7 @@ function editor(id) {
   if (!canEdit(state.member.role) || p._readOnly)
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === "html" ? artifactFrame(p, true) : ""}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === "html";
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon("chevron")}<span>${isNew ? "New document" : e(p.title)}</span></nav><div class="editor-top-actions"><span class="badge ${published ? "published" : "draft"}">${published ? "Published" : "Private draft"}</span><button type="button" class="btn outline" data-action="open-draft-preview">Preview</button><button type="submit" form="editor-form" class="btn outline">Save draft</button>${canPublish(state.member.role) ? `<button type="button" class="btn primary" data-action="publish">${published ? "Publish changes" : "Publish"}</button>` : ""}${published ? `<a class="btn outline" href="#/doc/${e(published.slug)}">View published</a>` : ""}<a class="btn outline" href="#/workspace">Close</a></div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><div class="editor-grid"><div class="editor-main"><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? "active" : ""}">${icon("documentation")}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? "active" : ""}">${icon("code")}HTML artifact</button></div></div><input type="hidden" id="format" name="format" value="${p.format || "markdown"}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || "")}"><section id="markdown-editor" ${html ? "hidden" : ""}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon("upload")}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? "hidden" : ""}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon("code")}</div><h3>${p.artifact_path ? "Replace your HTML artifact" : "Your artifact. A page of its own."}</h3><p>Drop a standalone HTML file here, or choose one from your computer. Diagrams, interactive reports, and AI artifacts are welcome.</p><button type="button" class="btn dark" data-action="upload-html">${icon("upload")}${p.artifact_path ? "Replace HTML file" : "Choose HTML file"}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon("chevron")}<span>${isNew ? "New document" : e(p.title)}</span></nav><div class="editor-top-actions"><span class="badge ${published ? "published" : "draft"}">${published ? "Published" : "Private draft"}</span><button type="button" class="btn outline" data-action="open-draft-preview">Preview</button><button type="submit" form="editor-form" class="btn outline">Save draft</button>${canPublish(state.member.role) ? `<button type="button" class="btn primary" data-action="publish">${published ? "Publish changes" : "Publish"}</button>` : ""}${published ? `<a class="btn outline" href="${publishedRoute(published,state.projects)}">View published</a>` : ""}<a class="btn outline" href="#/workspace">Close</a></div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><div class="editor-grid"><div class="editor-main"><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? "active" : ""}">${icon("documentation")}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? "active" : ""}">${icon("code")}HTML artifact</button></div></div><input type="hidden" id="format" name="format" value="${p.format || "markdown"}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || "")}"><section id="markdown-editor" ${html ? "hidden" : ""}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon("upload")}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? "hidden" : ""}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon("code")}</div><h3>${p.artifact_path ? "Replace your HTML artifact" : "Your artifact. A page of its own."}</h3><p>Drop a standalone HTML file here, or choose one from your computer. Diagrams, interactive reports, and AI artifacts are welcome.</p><button type="button" class="btn dark" data-action="upload-html">${icon("upload")}${p.artifact_path ? "Replace HTML file" : "Choose HTML file"}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon("code")}<span>${e(
           p.artifact_path
@@ -425,22 +385,28 @@ function editor(id) {
 
 async function users(){state.members=await admin();return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People</h1><p>Administrators manage the workspace. Managers run team workspaces. Publishers write and publish. Viewers read.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>${state.members.map(m=>`<tr><td><strong>${e(m.name||m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active?'Active':'Disabled'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><div class="role-explainer"><p><strong>Administrator</strong> Full control of structure, visibility, deletion, people and email announcements.</p><p><strong>Manager</strong> Create teams, invite team viewers and publishers, publish team knowledge, manage sharing and send in-app notices. Email announcements remain administrator-only.</p><p><strong>Publisher</strong> Create documents and release versions in existing applications, edit contributions, preview and publish. Cannot change structure, delete content or send email.</p><p><strong>Viewer</strong> Read published public and internal documents. Can request publisher access.</p></div></main></div>`; }
 function folders(){return structureView();}
+function currentPublishedPage(){
+ const parts=routeHash().split('?')[0].split('/').filter(Boolean);
+ if(parts[0]==='#'||parts[0]==='')parts.shift();
+ if(parts[0]==='doc')return state.published.find(item=>item.slug===decodeURIComponent(parts[1]||''));
+ if(parts[0]==='release-notes')return releaseRecords(true).find(r=>publishedRoute(r.page,state.projects)===`#/release-notes/${parts[1]}/${parts[2]}`)?.page;
+ return null;
+}
 
 function markSamplePages() {
   const isSample = slug => state.published.some(page => page.slug === slug && page.tags?.includes('sample'));
-  const slug = routeHash().match(/^#\/doc\/([^?]+)/)?.[1];
-  if (slug && isSample(decodeURIComponent(slug))) {
+  const page=currentPublishedPage();
+  if (page && isSample(page.slug)) {
     document.querySelector('.native-release-overline, .document-article-actions')?.insertAdjacentHTML('beforeend', '<span class="sample-label">Sample content</span>');
   }
 }
 async function shareCurrentPage() {
-  const slug = routeHash().match(/^#\/doc\/([^?]+)/)?.[1];
-  const page = state.published.find(item => item.slug === decodeURIComponent(slug || ''));
+  const page=currentPublishedPage();
   if (!page) throw new Error('Open a published page before sharing it.');
   const canManage = state.member?.role==='admin'||(page.team_id&&teams.manages(state.teams.find(t=>t.id===page.team_id)||{}));
   const grants = canManage ? await db('docs_page_access', `?page_id=eq.${page.id}&select=email&order=email`) : [];
   const access = pageAccess(page);
-  const link = `${location.origin}/docs/${encodeURIComponent(page.slug)}`;
+  const link = location.origin+routeUrl(publishedRoute(page,state.projects));
   dialog(`<h2>Share this page</h2><p class="small">${e(page.title)}</p>
     <div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${navigator.share?'<button type="button" class="btn outline" data-action="native-share">Share…</button>':''}</div>
     ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="public" ${access==='public'?'selected':''}>Anyone · public</option><option value="private" ${access==='private'?'selected':''}>Hoora employees · Microsoft sign-in</option><option value="restricted" ${access==='restricted'?'selected':''}>Selected Hoora people only</option>${page.team_id?`<option value="team" ${access==='team'?'selected':''}>Document team only</option>`:""}</select></div><div class="field share-emails" ${access==='restricted'?'':'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map(row=>row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. People sign in with Microsoft before opening the link. The owner, team manager and administrators retain access.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access==='restricted'?'Only selected people and the document’s owners can open this link.':access==='team'?'Members of this document’s team must sign in to open this link.':access==='private'?'Hoora employees must sign in with Microsoft to open this link.':'Anyone can open this public link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
@@ -462,7 +428,13 @@ async function render() {
   document.title = "Hoora Docs";
   state.nativeTitle=null;
   const [pathname, search = ""] = routeHash().replace(/^#/, "").split("?");
-  const [route, id] = pathname.split("/").filter(Boolean);
+  const routeParts=pathname.split("/").filter(Boolean);
+  let [route,id]=routeParts;
+  if(route==='release-notes'){
+    const version=decodeURIComponent(id||''),projectSlug=decodeURIComponent(routeParts[2]||'');
+    const match=releaseRecords(true).find(r=>publishedRoute(r.page,state.projects)===`#/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}`);
+    route='doc';id=match?.page.slug||'__release_unavailable__';
+  }
   const params = new URLSearchParams(search);
   state.kind = params.get("kind") || "";
   state.vertical = params.get("vertical") || "";
@@ -564,7 +536,7 @@ async function render() {
     sources.hydrate();
     features.hydrate();
     if(route==="workspace"){const recent=await features.recent().catch(()=>"");if(rid===renderId&&document.querySelector(".library-content"))document.querySelector(".library-content").insertAdjacentHTML("beforeend",recent);}
-    const viewed=state.published.find(p=>p.slug===decodeURIComponent(routeHash().match(/^#\/doc\/([^?]+)/)?.[1]||""));
+    const viewed=route==='doc'?state.published.find(p=>p.slug===id):null;
     if(viewed&&state.member)db("rpc/docs_track","",{method:"POST",body:{document_id:viewed.id,event:"asset_viewed"}}).catch(()=>{});
   } catch (err) {
     app.innerHTML =
@@ -590,6 +562,7 @@ async function busy(button, fn) {
   }
 }
 function dialog(html, callback) {
+  modal.className = "";
   modal.innerHTML = html;
   modal.showModal();
   modal
@@ -1118,7 +1091,7 @@ function bind() {
       const pages = filterPages(
         internal ? state.pages : state.published,
         state,
-      ).filter(p=>!p.archived_at&&(!state.team||p.team_id===state.team)).filter(
+      ).filter(p=>!p.archived_at&&p.kind!=="release"&&(!state.team||p.team_id===state.team)).filter(
         (p) =>
           !internal ||
           !state.status ||
@@ -1443,6 +1416,7 @@ document.addEventListener("click", async (ev) => {
       document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("hoora-theme", theme);
+    b.innerHTML=icon(theme==="dark"?"sun":"moon");
     return;
   }
   if (a === "new-project") {
@@ -1596,50 +1570,14 @@ function releaseRail(records,version,project='',publishedOnly=false){
 
 function releaseTimeline(){
  const all=releaseRecords(true);
- const applicationSource=[...all.map(record=>record.project),...(['admin','publisher'].includes(state.member?.role)?state.projects:[])];
- const applications=[...new Map(applicationSource.map(project=>[project.id,project])).values()];
- const current=applications.find(project=>project.id===state.project);
- const available=all.filter(record=>!current||record.project.id===current.id)
-   .sort((a,b)=>new Date(b.page.published_at||b.page.updated_at)-new Date(a.page.published_at||a.page.updated_at));
- const sectionNames=current?[...new Set(available.flatMap(record=>record.notes.map(note=>note.vertical||'General')))]:[];
- const configured=state.projectSections?.filter(row=>row.project_id===current?.id&&row.active)
-   .sort((a,b)=>a.sort_order-b.sort_order).map(row=>state.verticals.find(section=>section.id===row.vertical_id)?.name).filter(Boolean)||[];
- sectionNames.sort((a,b)=>{
-   const ai=configured.indexOf(a),bi=configured.indexOf(b);
-   return (ai<0?999:ai)-(bi<0?999:bi)||a.localeCompare(b);
- });
- const section=current&&sectionNames.some(name=>slugify(name)===state.section)?state.section:'';
- const records=section?available.filter(record=>record.notes.some(note=>slugify(note.vertical||'General')===section)):available;
- const days=new Map();
- for(const record of records){
-   const key=(record.page.published_at||record.page.updated_at||'').slice(0,10);
-   if(!days.has(key))days.set(key,[]);
-   days.get(key).push(record);
- }
- const versions=current?available.sort((a,b)=>compareVersions(a.version,b.version)):[];
- const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation">
-   <div class="rail-heading">Product updates</div>
-   <a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a>
-   <div class="rail-label">Applications</div>
-   ${applications.map(project=>`<a class="sidelink ${current?.id===project.id?'active':''}" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon(project.icon)}<span>${e(project.name)}</span></a>`).join('')}
-   ${current?`<div class="rail-label">${e(current.name)} versions <span>Newest first</span></div><nav class="version-nav">${versions.map(record=>`<a class="version-link" href="#/doc/${e(record.page.slug)}"><span>${e(record.version==='Unversioned'?record.version:'v'+record.version)}</span><small>${date(record.page.published_at)}</small></a>`).join('')}</nav>`:''}
-   ${state.member?.role==='admin'?`<div class="rail-bottom"><a href="#/folders">${icon('settings')}Manage structure</a></div>`:''}
- </aside>`;
- const tabs=current?`<nav class="timeline-apps release-section-tabs" aria-label="${e(current.name)} sections"><a class="${!section?'active':''}" href="#/releases?project=${encodeURIComponent(current.slug||slugify(current.name))}">All sections</a>${sectionNames.map(name=>`<a class="${section===slugify(name)?'active':''}" href="#/releases?project=${encodeURIComponent(current.slug||slugify(current.name))}&section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`:'';
- return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader">
-   <div class="reader-heading"><div><p class="reader-context">Release notes</p><h1>${current?e(current.name):'What’s new at Hoora'}</h1><p>${current?e(current.description||'Versions and updates from this application.'):'A chronological view of published updates across applications.'}</p></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>`:''}</div>
-   ${tabs}<div class="timeline-columns single-column"><div class="timeline-list">
-   ${[...days].map(([key,items])=>`<section class="timeline-day"><h2><time datetime="${key}">${date(key)}</time><span>${items.length} ${items.length===1?'release':'releases'}</span></h2>${items.map(record=>{
-     const notes=section?record.notes.filter(note=>slugify(note.vertical||'General')===section):record.notes;
-     const sections=[...new Set(notes.map(note=>note.vertical||'General'))];
-     const authors=[...new Set(notes.map(note=>note.author).filter(Boolean))];
-     const version=record.version==='Unversioned'?record.version:'v'+record.version;
-     const pageLink=`#/doc/${e(record.page.slug)}${section?'?section='+encodeURIComponent(section):''}`;
-     const teaser=record.page.tags?.includes('sample')?notes.map(note=>note.title).slice(0,3).join(' · '):record.page.summary;
-     return `<article class="timeline-item"><div class="timeline-meta">${!current?`${toneIcon(record.project.icon,record.project.color)}<span>${e(record.project.name)}</span><span class="badge">${e(version)}</span>`:""}${record.page.tags?.includes('sample')?'<span class="sample-label">Sample release</span>':''}${pageAccess({...record.page,project_id:record.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...record.page,project_id:record.project.id}))}</span>`:''}</div><h3><a href="${pageLink}">${current?'Release '+e(version):e(record.project.name)+' · '+e(version)}</a></h3>${teaser?`<p>${e(teaser)}</p>`:''}${!current?`<div class="timeline-sections">${sections.map(name=>`<span>${e(name)}</span>`).join('')}</div>`:""}<div class="timeline-footer"><span>${authors.length} ${authors.length===1?'contributor':'contributors'} · ${notes.length} ${notes.length===1?'update':'updates'}</span><a href="${pageLink}">Read release ${icon('chevron')}</a></div></article>`;
-   }).join('')}</section>`).join('')||empty('No published releases here','Choose another application or section to see its updates.')}
-   </div></div></main></div>`;
+ const applicationSource=[...all.map(r=>r.project),...(['admin','publisher'].includes(state.member?.role)?state.projects:[])];
+ const applications=[...new Map(applicationSource.map(p=>[p.id,p])).values()],current=applications.find(p=>p.id===state.project);
+ const records=all.filter(r=>!current||r.project.id===current.id).sort((a,b)=>new Date(b.page.published_at)-new Date(a.page.published_at));
+ const days=new Map();for(const record of records){const day=record.page.published_at.slice(0,10);if(!days.has(day))days.set(day,[]);days.get(day).push(record);}
+ const rail=`<aside class="sidebar release-sidebar" aria-label="Release navigation"><div class="rail-heading">Product updates</div><a class="sidelink ${!current?'active':''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Applications</div>${applications.map(p=>`<a class="sidelink ${current?.id===p.id?'active':''}" href="#/releases?project=${encodeURIComponent(p.slug||slugify(p.name))}">${icon(p.icon)}<span>${e(p.name)}</span></a>`).join('')}${state.member?.role==='admin'?`<div class="rail-bottom"><a href="#/folders">${icon('settings')}Manage structure</a></div>`:''}</aside>`;
+ return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current?e(current.name):'What’s new at Hoora'}</h1><p>${current?'Release history and product improvements.':'The latest releases across Hoora products.'}</p></div>${['admin','publisher'].includes(state.member?.role)?`<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>`:''}</div><div class="timeline-list">${[...days].map(([day,items])=>`<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2>${items.map(r=>{const version=r.version==='Unversioned'?'Update':'v'+r.version,link=publishedRoute(r.page,state.projects);return `<article class="timeline-item">${toneIcon(r.project.icon,r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(r.project.name)} <span>· ${e(version)}</span></a></h3><div class="release-row-meta"><span>Released</span>${r.page.tags?.includes('sample')?'<span class="sample-label">Example</span>':''}${pageAccess({...r.page,project_id:r.project.id})!=='public'?`<span class="access-label">${icon('lock')}${e(accessText({...r.page,project_id:r.project.id}))}</span>`:''}</div></div><a class="release-row-open" href="${link}" aria-label="Open ${e(r.project.name)} ${e(version)}">${icon('arrow')}</a></article>`;}).join('')}</section>`).join('')||empty('No published releases yet','Published versions will appear here.')}</div></main></div>`;
 }
+
 function releaseDocumentNew(p){
  const records=releaseRecords(true),record=records.find(r=>r.page.id===p.id);
  const project=record?.project||{id:p.project_id||'',name:p.release_snapshot?.project||'Release notes',icon:p.release_snapshot?.project_icon||'release',color:p.release_snapshot?.project_color||'slate'};
@@ -1647,15 +1585,17 @@ function releaseDocumentNew(p){
  const selectedSection=allNotes.some(note=>slugify(note.vertical||'General')===state.section)?state.section:'';
  const notes=selectedSection?allNotes.filter(note=>slugify(note.vertical||'General')===selectedSection):allNotes;
  const versions=records.filter(r=>r.project.id===project.id).sort((a,b)=>compareVersions(a.version,b.version));
- const sections=[...new Set(notes.map(n=>n.vertical||'General'))],authors=[...new Set(notes.map(n=>n.author).filter(Boolean))];
- const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><div class="rail-heading">${e(project.name)}</div><a class="sidelink" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}<span>All ${e(project.name)} releases</span></a><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="#/doc/${e(r.page.slug)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span><small>${date(r.page.published_at||r.page.updated_at)}</small></a>`).join('')}</nav><div class="rail-bottom"><a href="#/releases">${icon('grid')}All product updates</a></div></aside>`;
- const outline=`<aside class="release-outline" aria-label="On this page"><div class="release-outline-inner"><h2>On this page</h2>${sections.map(s=>`<button type="button" data-scroll-section="${e(slugify(s))}">${e(s)}<small>${notes.filter(n=>(n.vertical||'General')===s).length}</small></button>`).join('')}<div class="outline-authors"><h2>Contributors</h2>${authors.map(name=>`<span><span class="mini-avatar">${e(name.slice(0,2).toUpperCase())}</span>${e(name)}</span>`).join('')}</div></div></aside>`;
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All ${e(project.name)} releases</a><div class="native-release-overline">${toneIcon(project.icon,project.color)}<span>${e(project.name)}</span><span class="badge">${e((record?.version||versionKey(p.version)).startsWith('v')?(record?.version||versionKey(p.version)):'v'+(record?.version||versionKey(p.version)))}</span><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><h1>${e(p.title.replace(/^.*? · /,''))}</h1>${p.summary?`<p class="native-release-summary">${e(p.summary)}</p>`:''}<div class="native-release-meta"><span><small>Published</small>${date(p.published_at)}</span>${p.published_by_name?`<span><small>Published by</small>${e(p.published_by_name)}</span>`:''}<span><small>Contributors</small>${authors.length} ${authors.length===1?'person':'people'}</span><button type="button" class="btn outline" data-action="share">${icon('link')}Share</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit release</a>`:''}</div><div class="native-release-mobile-outline"><details><summary>On this page</summary>${sections.map(s=>`<button type="button" data-scroll-section="${e(slugify(s))}">${e(s)}</button>`).join('')}</details></div><div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}<div class="native-release-end"><span>That’s everything in ${e(project.name)} ${e(record?.version||p.version||'')}.</span><a href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">Browse earlier versions ${icon('chevron')}</a></div></div>${outline}</main></div>`;
+ const authors=[...new Set(notes.map(n=>n.author).filter(Boolean))];
+ const rail=`<aside class="sidebar release-sidebar" aria-label="Application versions"><div class="rail-heading">${e(project.name)}</div><a class="sidelink" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}<span>All ${e(project.name)} releases</span></a><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${versions.map(r=>`<a class="version-link ${r.page.id===p.id?'active':''}" href="${publishedRoute(r.page,state.projects)}"><span>${e(r.version==='Unversioned'?r.version:'v'+r.version)}</span><small>${date(r.page.published_at||r.page.updated_at)}</small></a>`).join('')}</nav><div class="rail-bottom"><a href="#/releases">${icon('grid')}All product updates</a></div></aside>`;
+ const releaseLink=publishedRoute(p,state.projects);
+ const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><a class="${!selectedSection?'active':''}" href="${releaseLink}">All</a>${[...new Set(allNotes.map(n=>n.vertical||'General'))].map(name=>`<a class="${selectedSection===slugify(name)?'active':''}" href="${releaseLink}?section=${encodeURIComponent(slugify(name))}">${e(name)}</a>`).join('')}</nav>`;
+
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><a class="native-back" href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">${icon('back')}All ${e(project.name)} releases</a><div class="native-release-overline">${toneIcon(project.icon,project.color)}<span>Release notes</span><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><h1>${e(project.name)} · v${e(versionKey(record?.version||p.version))}</h1><div class="native-release-meta"><span><small>Published</small>${date(p.published_at)}</span>${p.published_by_name?`<span><small>Published by</small>${e(p.published_by_name)}</span>`:''}<span><small>Contributors</small>${authors.length} ${authors.length===1?'person':'people'}</span><button type="button" class="btn outline" data-action="share">${icon('link')}Share</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit release</a>`:''}</div>${tabs}<div class="native-release-body">${notes.length?contributionGroups(notes,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}<div class="native-release-end"><span>That’s everything in ${e(project.name)} ${e(record?.version||p.version||'')}.</span><a href="#/releases?project=${encodeURIComponent(project.slug||slugify(project.name))}">Browse earlier versions ${icon('chevron')}</a></div></div></main></div>`;
 }
 
 function releaseApplication(record){
  const {page,project,notes,draft,published}=record,editable=draft&&canEdit(state.member?.role),adminRole=state.member?.role==='admin';
- return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon,project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({...page,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...page,project_id:project.id}))}${draft?`<span class="badge ${published?'published':'draft'}">${published?(published.revision===page.revision?'Published':'Changes pending'):'Draft'}</span>`:''}</span></div>${editable?`<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>`:''}</div>${page.summary?`<p class="release-description">${e(page.summary)}</p>`:''}${customFieldList(page)}${editable?`<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published?'Publish changes':'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${published?`<a class="btn outline" href="#/doc/${e(published.slug)}">View published</a>`:''}<button class="btn text" data-action="release-details" data-id="${page.id}">Edit details</button>${adminRole&&published?`<button class="btn text" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>`:''}${published?`<button class="btn text" data-action="unpublish-release" data-id="${page.id}">Unpublish</button>`:''}${adminRole?`<button class="btn text danger" data-action="delete-release" data-id="${page.id}">Delete</button>`:''}</div><p class="release-help">Only notes marked ready are included when you publish.</p>`:''}${notes.length?contributionGroups(notes,editable):empty('Add the first contribution','Group the work by vertical and mark it ready when it can be published.')}</section>`;
+ return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon,project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({...page,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...page,project_id:project.id}))}${draft?`<span class="badge ${published?'published':'draft'}">${published?(published.revision===page.revision?'Published':'Changes pending'):'Draft'}</span>`:''}</span></div>${editable?`<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>`:''}</div>${page.summary?`<p class="release-description">${e(page.summary)}</p>`:''}${customFieldList(page)}${editable?`<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published?'Publish changes':'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${published?`<a class="btn outline" href="${publishedRoute(published,state.projects)}">View published</a>`:''}<button class="btn text" data-action="release-details" data-id="${page.id}">Edit details</button>${adminRole&&published?`<button class="btn text" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>`:''}${published?`<button class="btn text" data-action="unpublish-release" data-id="${page.id}">Unpublish</button>`:''}${adminRole?`<button class="btn text danger" data-action="delete-release" data-id="${page.id}">Delete</button>`:''}</div><p class="release-help">Only notes marked ready are included when you publish.</p>`:''}${notes.length?contributionGroups(notes,editable):empty('Add the first contribution','Group the work by vertical and mark it ready when it can be published.')}</section>`;
 }
 function contributionGroups(notes,editable=false){
  const groups=new Map();for(const note of notes){const name=note.vertical||'General';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(note);}
@@ -1664,7 +1604,7 @@ function contributionGroups(notes,editable=false){
 
 function nativeArtifact(page,draft){state.nativeTitle=page.title;state.nativeBack=draft?'#/edit/'+page.id:'#/doc/'+page.slug;state.nativeDraft=draft;return `<main id="main" class="native-artifact">${artifactFrame(page,draft,true)}</main>`;}
 function draftPreview(id){const page=state.pages.find(p=>p.id===id);if(!page||page._readOnly||!canEdit(state.member?.role))throw new Error('Publisher access is required to preview drafts.');if(page.format==='html')return nativeArtifact(page,true);if(state.releases.some(r=>r.id===id)){const record=releaseRecords(false).find(r=>r.page.id===id);return `<div class="layout release-layout">${releaseRail(releaseRecords(false),record.version,record.project.id,false)}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">Saved draft preview · not published</p><h1>${e(page.title)}</h1></div><a class="btn outline" href="#/edit/${id}">Back to editing</a></div>${contributionGroups(record.notes.filter(n=>n.submitted))}</main></div>`;}return documentPage(page,true);}
-function publicView(){const docs=filterPages(state.published,state);return `<div class="layout">${sidebar(!!state.member)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind]||'Published documents')}</h1><p>${state.member?'Published knowledge available to your team.':'Public documents. Internal knowledge requires sign-in.'}</p></div></div><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label><div id="document-list" class="document-table">${docs.map(p=>row(p)).join('')||empty('No public documents in this collection','Sign in with your company account to view internal documents.','<a class="btn dark" href="#/workspace">Open team library</a>')}</div></main></div>`;}
+function publicView(){const docs=filterPages(state.published,state).filter(p=>p.kind!=="release");return `<div class="layout">${sidebar(!!state.member)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind]||'Published documents')}</h1><p>${state.member?'Published knowledge available to your team.':'Public documents. Internal knowledge requires sign-in.'}</p></div></div><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label><div id="document-list" class="document-table">${docs.map(p=>row(p)).join('')||empty('No public documents in this collection','Sign in with your company account to view internal documents.','<a class="btn dark" href="#/workspace">Open team library</a>')}</div></main></div>`;}
 function projectSectionSettings(){
  if(state.projectSections===null)return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Configuration becomes available after the project sections migration is applied.</p></div></div></section>`;
  return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Choose reusable release sections for each application. Archived sections stay in older releases.</p></div></div>${state.projects.map(project=>{const rows=state.projectSections.filter(row=>row.project_id===project.id&&row.active);const labels=rows.sort((a,b)=>a.sort_order-b.sort_order).map(row=>state.verticals.find(section=>section.id===row.vertical_id)?.name).filter(Boolean);return `<div class="structure-row"><span class="structure-project-icon">${toneIcon(project.icon,project.color)}</span><div><strong>${e(project.name)}</strong><small>${labels.length?e(labels.join(' · ')):'No sections configured'}</small></div><button class="btn outline" data-action="configure-project-sections" data-id="${project.id}">Configure sections</button></div>`}).join('')}</section>`;
@@ -1759,16 +1699,15 @@ document.addEventListener("click", async (ev) => {
   }
   if (action === "copy-link") {
     await busy(b, async () => {
-      const slug=routeHash().match(/^#\/doc\/([^?]+)/)?.[1];
-      const page=state.published.find(item=>item.slug===decodeURIComponent(slug||''));
-      await navigator.clipboard.writeText(page?`${location.origin}/docs/${encodeURIComponent(page.slug)}`:location.href);
+      const page=currentPublishedPage();
+      await navigator.clipboard.writeText(page?location.origin+routeUrl(publishedRoute(page,state.projects)):location.href);
       if(page&&state.member)db("rpc/docs_track","",{method:"POST",body:{document_id:page.id,event:"asset_shared"}}).catch(()=>{});
       toast("Link copied.");
     });
     return;
   }
   if(action==='native-share'){
-    await busy(b,async()=>{const slug=routeHash().match(/^#\/doc\/([^?]+)/)?.[1];const page=state.published.find(p=>p.slug===decodeURIComponent(slug||''));if(!page||!navigator.share)return;try{await navigator.share({title:page.title,url:location.origin+'/docs/'+page.slug});if(state.member)await db('rpc/docs_track','',{method:'POST',body:{document_id:page.id,event:'asset_shared'}});}catch(error){if(error.name!=='AbortError')throw error;}});return;
+    await busy(b,async()=>{const page=currentPublishedPage();if(!page||!navigator.share)return;try{await navigator.share({title:page.title,url:location.origin+routeUrl(publishedRoute(page,state.projects))});if(state.member)await db('rpc/docs_track','',{method:'POST',body:{document_id:page.id,event:'asset_shared'}});}catch(error){if(error.name!=='AbortError')throw error;}});return;
   }
   if (action === "share") {
     await busy(b, shareCurrentPage);

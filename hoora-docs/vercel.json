@@ -46,6 +46,10 @@
   ],
   "rewrites": [
     {
+      "source": "/release-notes/:version/:application",
+      "destination": "/index.html"
+    },
+    {
       "source": "/docs/:slug",
       "destination": "/index.html"
     },

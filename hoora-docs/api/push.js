@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import {serverClient,requireMember} from '../server/supabase.js';
+import {publishedPath} from '../server/links.js';
 export const maxDuration=60;
 export function validSubscription(value){
  try{
@@ -39,13 +40,13 @@ export default async function handler(req,res){
    webpush.setVapidDetails('mailto:rahul@hoora.me',keys.publicKey,keys.privateKey);
    const subscriptions=await call('/rest/v1/docs_push_subscriptions?select=*');
    const active=new Set((await call('/rest/v1/docs_members?active=eq.true&password_setup_complete=eq.true&select=id')).map(m=>m.id));
-   const [page]=await call('/rest/v1/docs_published?id=eq.'+b.id+'&select=slug');
+   const [page]=await call('/rest/v1/docs_published?id=eq.'+b.id+'&select=slug,kind,version,release_snapshot');
    for(let start=0;start<subscriptions.length;start+=10){
     await Promise.all(subscriptions.slice(start,start+10).map(async sub=>{
      if(!active.has(sub.user_id))return;
      const allowed=await call('/rest/v1/rpc/docs_can_read_published_for',{method:'POST',body:JSON.stringify({document_id:b.id,viewer_id:sub.user_id})});
      if(!allowed)return;
-     try{await webpush.sendNotification(sub.subscription,JSON.stringify({title:'Hoora Docs update',body:'A document shared with you has an update.',url:'/docs/'+page.slug,tag:notice}),{TTL:3600,timeout:5000});delivered++;}
+     try{await webpush.sendNotification(sub.subscription,JSON.stringify({title:'Hoora Docs update',body:'A document shared with you has an update.',url:publishedPath(page),tag:notice}),{TTL:3600,timeout:5000});delivered++;}
      catch(error){failed++;if([404,410].includes(error.statusCode))await call('/rest/v1/docs_push_subscriptions?id=eq.'+sub.id,{method:'DELETE'});}
     }));
    }

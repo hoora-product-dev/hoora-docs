@@ -4,6 +4,8 @@ await rm(new URL('../public/vendor/', import.meta.url), {recursive:true,force:tr
 await mkdir("public/vendor", { recursive: true });
 await mkdir("public/fonts", { recursive: true });
 await Promise.all([
+  build({entryPoints:["src/styles/index.css"],outfile:"public/vendor/ui.css",bundle:true,minify:true,external:["/fonts.css"]}),
+  build({entryPoints:["src/icons.js"],outfile:"public/vendor/icons.js",bundle:true,format:"esm",platform:"browser",minify:true,legalComments:"eof"}),
   cp('node_modules/pdfjs-dist/cmaps','public/vendor/pdf/cmaps',{recursive:true}),
   cp('node_modules/pdfjs-dist/standard_fonts','public/vendor/pdf/standard_fonts',{recursive:true}),
   cp('node_modules/pdfjs-dist/wasm','public/vendor/pdf/wasm',{recursive:true}),

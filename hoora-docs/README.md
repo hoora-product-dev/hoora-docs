@@ -16,7 +16,7 @@ Hoora’s knowledge workspace for release notes, SOPs, guides, PDFs, dashboards 
 - Bidirectional related knowledge, actual recently viewed documents, personal contributions and an audit trail without per-edit content snapshots.
 - Notification inbox, sender attribution, read state and an atomic three-hour document cooldown. Browser push is opt-in; inactive users and inaccessible documents are excluded. Signing out removes this browser’s subscription.
 - Installable web app at `/app`, with a manifest, icons and service worker. Private pages, API responses and documents are never cached for offline reading.
-- Human-readable `/docs/page-slug` URLs. Titles can change without changing their slug. Explicit slug changes preserve former links. Application versions use application/version slugs without random IDs. Legacy hash links continue to work.
+- Human-readable `/docs/page-slug` document URLs and `/release-notes/5.12.0/customer-app` release URLs. Titles can change without breaking old shared document links. Each application has independent versions, with sections and contributor names inside each version. Legacy hash links continue to work.
 - Permanent document/project deletion queues storage cleanup and attempts it immediately. Administrators can finish pending deletions from Archive if Storage was temporarily unavailable.
 
 ## Authentication and email
@@ -61,6 +61,8 @@ npm run test:browser
 `npm run db:migrate` applies unapplied SQL migrations transactionally, with a migration lock and a hard project guard for **jrjkxddjwcphdmjeqyfq**. It requires `SUPABASE_DB_PASSWORD` locally. The Supabase MCP connection in this environment targets a different project and must not be used for Hoora changes.
 
 `npm run seed:demo` is idempotent and preserves existing content. Samples have a `sample` tag, explicit labels and fictional contributor names. Administrators can delete them through the application. Do not use the seed script to reset production.
+
+`npm run seed:longform` expands only the explicitly tagged Customer App sample release into a long Markdown example. It checks the Hoora project ID and sample labels before writing. It does not send notifications.
 
 ## Deployment
 

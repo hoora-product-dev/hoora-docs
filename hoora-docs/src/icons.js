@@ -1,0 +1,10 @@
+import {createElement,Search,ArrowRight,ArrowLeft,ArrowUp,ArrowDown,BookOpen,Zap,ClipboardCheck,FileText,LayoutGrid,Users,Folder,Plus,LogOut,Menu,Clock,LockKeyhole,Upload,SlidersHorizontal,ChevronRight,Check,Code2,Pencil,Download,Maximize2,RotateCw,Link2,List,Paperclip,SunMoon,Sun,Moon,Globe,Smartphone,Car,Wrench,ShoppingBag,Trash2,Mail,Bell,X,Bold,Italic,Strikethrough,Heading2,ListOrdered,Quote,Table2,CornerDownLeft,Archive,ExternalLink} from 'lucide';
+const nodes={search:Search,arrow:ArrowRight,back:ArrowLeft,up:ArrowUp,down:ArrowDown,book:BookOpen,release:Zap,sop:ClipboardCheck,documentation:FileText,grid:LayoutGrid,users:Users,folder:Folder,plus:Plus,logout:LogOut,menu:Menu,clock:Clock,lock:LockKeyhole,upload:Upload,settings:SlidersHorizontal,chevron:ChevronRight,check:Check,code:Code2,edit:Pencil,download:Download,expand:Maximize2,reload:RotateCw,link:Link2,list:List,paperclip:Paperclip,theme:SunMoon,sun:Sun,moon:Moon,Sun,Moon,web:Globe,phone:Smartphone,car:Car,tool:Wrench,bag:ShoppingBag,trash:Trash2,mail:Mail,bell:Bell,close:X,bold:Bold,italic:Italic,strike:Strikethrough,heading:Heading2,ordered:ListOrdered,quote:Quote,table:Table2,enter:CornerDownLeft,archive:Archive,external:ExternalLink};
+const cache=new Map();
+export function icon(name){
+ if(cache.has(name))return cache.get(name);
+ let svg;
+ if(name==='microsoft')svg='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z"/></svg>';
+ else svg=createElement(nodes[name]||FileText,{width:20,height:20,'stroke-width':1.75,'aria-hidden':'true',focusable:'false'}).outerHTML;
+ const markup=`<span class="icon">${svg}</span>`;cache.set(name,markup);return markup;
+}

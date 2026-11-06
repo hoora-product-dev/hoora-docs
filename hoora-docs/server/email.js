@@ -1,3 +1,4 @@
+import {publishedPath} from './links.js';
 const esc = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -12,7 +13,7 @@ export function announcement(
   actor,
   origin = "https://hoora-docs.vercel.app",
 ) {
-  const url = origin + "/docs/" + encodeURIComponent(page.slug);
+  const url = origin + publishedPath(page);
   const groups = new Map();
   for (const entry of page.release_snapshot?.entries || []) {
     const group = groups.get(entry.vertical) || [];

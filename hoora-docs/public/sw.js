@@ -6,7 +6,7 @@ self.addEventListener('fetch',event=>{
 });
 self.addEventListener('push',event=>{
   let data;try{data=event.data.json();}catch{data={};}
-  event.waitUntil(self.registration.showNotification(data.title||'Hoora Docs',{body:data.body||'Open Hoora Docs for the latest updates.',icon:'/app-icon-192.png',badge:'/app-icon-192.png',tag:data.tag||'hoora-update',data:{url:typeof data.url==='string'&&data.url.startsWith('/docs/')?data.url:'/notifications'}}));
+  event.waitUntil(self.registration.showNotification(data.title||'Hoora Docs',{body:data.body||'Open Hoora Docs for the latest updates.',icon:'/app-icon-192.png',badge:'/app-icon-192.png',tag:data.tag||'hoora-update',data:{url:typeof data.url==='string'&&(/^\/docs\/[a-z0-9-]+$/.test(data.url)||/^\/release-notes\/[a-z0-9][a-z0-9.-]*\/[a-z0-9-]+$/.test(data.url))?data.url:'/notifications'}}));
 });
 self.addEventListener('notificationclick',event=>{
   event.notification.close();

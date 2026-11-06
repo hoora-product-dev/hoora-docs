@@ -1,31 +1,7 @@
 /* Hoora's own implementation of the calm GitBook reading and writing layout. */
-:root {
-  --ink: #242428;
-  --muted: #686b72;
-  --subtle: #92959b;
-  --line: #e7e8eb;
-  --surface: #fff;
-  --canvas: #fff;
-  --rail: #fff;
-  --raised: #f5f5f6;
-  --accent: #6c5600;
-  --accent-soft: #fff7cc;
-  --header: 70px;
-  --sidebar: 276px;
-}
 
-:root[data-theme=dark] {
-  --ink: #f0f0f1;
-  --muted: #adb0b8;
-  --subtle: #878b95;
-  --line: #34373e;
-  --surface: #1a1b1f;
-  --canvas: #1a1b1f;
-  --rail: #1a1b1f;
-  --raised: #27292f;
-  --accent: #f5d64a;
-  --accent-soft: #363119;
-}
+
+
 
 body { color: var(--ink); }
 .topbar {
@@ -295,7 +271,7 @@ select:focus-visible { outline: 2px solid #d5ac00; outline-offset: 2px; }
   .timeline-columns { display: block; }
 }
 @media (max-width: 700px) {
-  :root { --header: 60px; }
+
   .topbar { padding-inline: 16px; }
   .product-brand img { width: 112px; }
   .topbar .compact-search { display: none; }
