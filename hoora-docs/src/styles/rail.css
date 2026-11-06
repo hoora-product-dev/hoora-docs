@@ -122,3 +122,16 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{d
 .release-row-open:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
 @media(max-width:760px){.timeline-day{margin-bottom:15px!important}.timeline-day>h2{padding-inline:8px!important}.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:60px!important;padding:8px!important}}
 @media(prefers-reduced-motion:reduce){.release-row-open{transition:none}}
+
+/* Give each release its own quiet card and keep date separators full width. */
+.timeline-day{border:0!important;border-bottom:1px solid var(--line)!important;margin:0 0 16px!important;padding:0 0 14px!important}
+.timeline-day>h2{margin:0!important;padding:12px 12px 0!important}
+.timeline-day-items{gap:8px!important}
+.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:68px!important;padding:10px 12px!important;border:1px solid var(--line)!important;border-radius:10px!important;background:var(--surface)!important;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease!important}
+.timeline-item:hover,.timeline-item:focus-within{background:var(--raised)!important;border-color:var(--muted)!important;box-shadow:0 4px 14px #00000012;transform:translateY(-1px)}
+.timeline-item h3 a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:4px}
+.release-row-open{opacity:.55;transition:opacity .16s ease,background-color .16s ease,color .16s ease,transform .16s ease}
+.timeline-item:hover .release-row-open,.timeline-item:focus-within .release-row-open{opacity:1;background:var(--raised);color:var(--ink);transform:translateX(2px)}
+.release-row-open:focus-visible{outline:2px solid var(--muted);outline-offset:2px}
+@media(max-width:760px){.timeline-day{margin-bottom:14px!important;padding-bottom:12px!important}.timeline-day>h2{padding:8px 8px 3px!important}.timeline-day-items{gap:7px!important}.timeline-item,.timeline-day-items>.timeline-item:last-child{min-height:60px!important;padding:8px!important}}
+@media(prefers-reduced-motion:reduce){.timeline-item,.release-row-open{transition:none!important}.timeline-item:hover,.timeline-item:focus-within{transform:none}}
