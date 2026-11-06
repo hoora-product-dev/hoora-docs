@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   markdown,
+  markdownWithOutline,
   slugify,
   filterPages,
   canEdit,
@@ -23,6 +24,16 @@ test("Markdown renders headings, lists, code, and private attachment references"
   assert.ok(html.replace(/\s+/g, "").includes("<ul><li>One</li>"));
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes('data-file="abc/report.pdf"'));
+});
+test("Document outline links to unique, sanitized Markdown headings", () => {
+  const result = markdownWithOutline("# Overview\n\n## Details\n\n# Overview\n\n<script>alert(1)</script>");
+  assert.deepEqual(result.outline.map((item) => item.id), [
+    "section-overview",
+    "section-details",
+    "section-overview-2",
+  ]);
+  assert.ok(result.html.includes('id="section-overview-2"'));
+  assert.ok(!result.html.includes("<script>"));
 });
 test("Roles keep edit and publish permissions distinct", () => {
   assert.equal(canEdit("editor"), false);

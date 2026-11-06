@@ -1,6 +1,6 @@
 # GitBook Open evaluation for Hoora
 
-Checked 5 November 2026 against `GitbookIO/gitbook` main, cloned read-only into `research/gitbook-upstream`.
+Checked 6 November 2026 against `GitbookIO/gitbook` main, cloned read-only into the ignored `research/gitbook-source` directory.
 
 ## Decision
 
@@ -18,6 +18,10 @@ The repository is GPL-3.0. Its README instructs operators who distribute the cod
 - Navigation by application, version and section, plus an on-page outline.
 - A calm content-first layout with reliable formatting and responsive reading.
 - A version archive for each application and a company-wide chronological update feed.
+
+## Implemented reader
+
+Hoora's published SOP and documentation pages now use collection navigation, a full-width reading page, an outline generated from sanitized Markdown headings, and previous/next page links. Draft preview uses the same reader layout. Release pages already have application version navigation and contributor sections. This is an adaptation of GitBook's reading patterns; no GitBook source files are shipped in the Hoora app.
 
 ## Migration boundary
 

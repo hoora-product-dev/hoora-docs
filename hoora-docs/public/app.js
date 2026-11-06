@@ -4,6 +4,7 @@ import {
   escapeHtml as e,
   slugify,
   markdown,
+  markdownWithOutline,
   canEdit,
   canPublish, versionKey, compareVersions,
   filterPages,
@@ -277,13 +278,45 @@ function artifactFrame(page, draft = false, full = false) {
       ?.replace(/^[a-f0-9-]{37}/, "") || "HTML artifact",
   )}</span><span class="isolation-label">Isolated preview</span><button class="iconbtn" data-action="reload-artifact" aria-label="Reload artifact">${icon("reload")}</button>${!draft && !full ? `<a class="iconbtn" href="#/artifact/${e(page.slug)}" aria-label="Open artifact in full page">${icon("expand")}</a>` : ""}<button class="iconbtn" data-action="download-artifact" aria-label="Download original HTML">${icon("download")}</button></div><div class="artifact-viewport" data-artifact="${page.id}" data-draft="${draft}"><div class="artifact-loading">${icon("code")}<span>Opening your artifact…</span></div></div><div class="artifact-bottom"><span>HTML artifact</span><span>Interactive content runs separately from Hoora Docs.</span></div></section>`;
 }
+function documentReaderSidebar(page, peers, draft = false) {
+  const type = state.types.find((item) => item.key === page.kind);
+  return `<aside class="sidebar document-reader-sidebar" aria-label="Document navigation">
+    <a class="document-nav-home" href="#/browse">${icon("back")} All documents</a>
+    <div class="document-nav-collection">${toneIcon(type?.icon || "documentation", type?.color || "slate")}<span>${e(type?.name || names[page.kind] || "Documents")}</span></div>
+    <nav aria-label="Collection pages">${peers.map((item) => `<a class="document-nav-page ${item.id === page.id ? "active" : ""}" ${item.id === page.id ? 'aria-current="page"' : ""} href="${draft && item.id === page.id ? `#/preview/${item.id}` : `#/doc/${e(item.slug)}`}">${e(item.title)}</a>`).join("")}</nav>
+    <div class="document-nav-footer"><a href="#/browse?kind=${encodeURIComponent(page.kind)}">Browse this collection ${icon("chevron")}</a></div>
+  </aside>`;
+}
+function documentOutline(outline, draft = false) {
+  const links = outline.map((item) => `<button type="button" class="document-outline-link level-${item.level}" data-scroll-section="${e(item.id.slice(8))}">${e(item.title)}</button>`).join("");
+  return {
+    desktop: `<aside class="document-outline" aria-label="On this page"><div class="document-outline-inner"><h2>On this page</h2>${links || '<p>No sections on this page.</p>'}${draft?'':`<div class="document-outline-share"><button type="button" data-action="copy-link">${icon("link")} Copy page link</button></div>`}</div></aside>`,
+    mobile: outline.length ? `<details class="document-mobile-outline"><summary>On this page</summary>${links}</details>` : "",
+  };
+}
+function documentPage(p, draft = false) {
+ const content=markdownWithOutline(p.body),outline=documentOutline(content.outline,draft);
+ const peers=state.published.filter(item=>item.kind===p.kind&&(!draft||item.id!==p.id));
+ if(draft)peers.push(p);
+ peers.sort((a,b)=>a.title.localeCompare(b.title));
+ const index=peers.findIndex(item=>item.id===p.id),previous=peers[index-1],next=peers[index+1];
+ const type=state.types.find(item=>item.key===p.kind);
+ const folder=state.folders.find(item=>item.id===p.folder_id);
+ return `<div class="layout document-reader-layout">${documentReaderSidebar(p,peers,draft)}<main id="main" class="document-reader">
+   <div class="document-article"><nav class="document-breadcrumbs" aria-label="Breadcrumb"><a href="#/browse">Library</a>${icon('chevron')}<a href="#/browse?kind=${encodeURIComponent(p.kind)}">${e(type?.name||names[p.kind]||'Documents')}</a>${folder?`${icon('chevron')}<span>${e(folder.name)}</span>`:''}</nav>
+   <div class="document-article-actions">${draft?'<span class="badge draft">Saved draft preview</span>':`<span class="access-label">${icon(pageAccess(p)==='private'?'lock':'web')}${pageAccess(p)==='private'?'Team only':'Public'}</span>`}<div>${draft?`<a class="btn outline" href="#/edit/${p.id}">Back to editing</a>`:`<button class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit page</a>`:''}`}</div></div>
+   <header class="document-article-heading"><h1>${e(p.title)}</h1>${p.summary?`<p>${e(p.summary)}</p>`:''}<div class="document-article-meta"><span>${draft?'Saved':'Published'} ${date(draft?p.updated_at:p.published_at)}</span>${p.version?`<span>${e(p.version)}</span>`:''}${!draft&&p.published_by_name?`<span>By ${e(p.published_by_name)}</span>`:''}</div></header>
+   ${customFieldList(p)}${outline.mobile}${p.format==='html'?`${draft?'':`<a class="open-artifact" href="#/artifact/${e(p.slug)}">${icon('expand')}Open full-page HTML preview</a>`}${artifactFrame(p,draft)}`:''}<div class="prose document-prose">${content.html}</div>
+   <nav class="document-pagination" aria-label="More in this collection">${previous?`<a href="#/doc/${e(previous.slug)}"><small>Previous page</small><span>${icon('back')}${e(previous.title)}</span></a>`:'<span></span>'}${next?`<a href="#/doc/${e(next.slug)}"><small>Next page</small><span>${e(next.title)}${icon('chevron')}</span></a>`:'<span></span>'}</nav>
+   </div>${outline.desktop}</main></div>`;
+}
 function article(slug,full=false){
  const p=state.published.find(p=>p.slug===slug);
  if(!p){if(!state.member){sessionStorage.setItem('hoora-return-to',location.hash);return `<main id="main" class="access-gate">${icon('lock')}<h1>Sign in to continue</h1><p>This link may belong to your team’s private library. Sign in with your work account to check access.</p><a class="btn dark" href="#/login">Sign in with your work account</a><a href="#/releases">Browse public releases</a></main>`;}return `<main id="main" class="article">${empty('Document unavailable','This page may have been removed or unpublished.','<a class="btn outline" href="#/workspace">Open library</a>')}</main>`;}
  document.title=p.title+' — Hoora Docs';
  if(full&&p.format==='html')return nativeArtifact(p,false);
  if(p.kind==='release')return releaseDocumentNew(p);
- return `<div class="layout">${sidebar(!!state.member)}<main id="main" class="reading-content"><div class="reading-toolbar"><span class="access-label">${icon(pageAccess(p)==='private'?'lock':'web')}${pageAccess(p)==='private'?'Team only':'Public document'}</span><div><button class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn outline" href="#/edit/${p.id}">Edit</a>`:''}</div></div><h1>${e(p.title)}</h1>${p.summary?`<p class="reading-summary">${e(p.summary)}</p>`:''}<p class="reading-meta">Published ${date(p.published_at)}${p.version?' · '+e(p.version):''}</p>${customFieldList(p)}${p.format==='html'?`<a class="open-artifact" href="#/artifact/${e(p.slug)}">${icon('expand')}Open full-page HTML preview</a>${artifactFrame(p)}`:''}<div class="prose">${markdown(p.body)}</div></main></div>`;
+ return documentPage(p);
 }
 
 function options(items, selected, placeholder) {
@@ -1469,7 +1502,7 @@ function contributionGroups(notes,editable=false){
 }
 function releaseDocument(p){const records=releaseRecords(true),record=records.find(r=>r.page.id===p.id)||{page:p,project:{id:'other',name:p.title,icon:'release',color:'violet'},notes:[],published:p,draft:false};return `<div class="layout release-layout">${releaseRail(records,record.version,record.project.id,true)}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">Published release</p><h1>${e(p.version?'Version '+versionKey(p.version):p.title)}</h1><p>Published ${date(p.published_at)}</p></div><div class="toolbar-actions"><button class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn dark" href="#/edit/${p.id}">Edit release</a>`:''}</div></div>${releaseApplication(record)}${!p.release_snapshot?`<div class="prose">${markdown(p.body)}</div>`:''}</main></div>`;}
 function nativeArtifact(page,draft){state.nativeTitle=page.title;state.nativeBack=draft?'#/edit/'+page.id:'#/doc/'+page.slug;state.nativeDraft=draft;return `<main id="main" class="native-artifact">${artifactFrame(page,draft,true)}</main>`;}
-function draftPreview(id){const page=state.pages.find(p=>p.id===id);if(!page||!canEdit(state.member?.role))throw new Error('Publisher access is required to preview drafts.');if(page.format==='html')return nativeArtifact(page,true);if(state.releases.some(r=>r.id===id)){const record=releaseRecords(false).find(r=>r.page.id===id);return `<div class="layout release-layout">${releaseRail(releaseRecords(false),record.version,record.project.id,false)}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">Saved draft preview · not published</p><h1>${e(page.title)}</h1></div><a class="btn outline" href="#/edit/${id}">Back to editing</a></div>${contributionGroups(record.notes.filter(n=>n.submitted))}</main></div>`;}return `<main class="reading-content draft-reading" id="main"><div class="reading-toolbar"><span class="badge draft">Saved draft preview</span><a class="btn outline" href="#/edit/${id}">Back to editing</a></div><h1>${e(page.title)}</h1><p class="reading-summary">${e(page.summary)}</p>${customFieldList(page)}<div class="prose">${markdown(page.body)}</div></main>`;}
+function draftPreview(id){const page=state.pages.find(p=>p.id===id);if(!page||!canEdit(state.member?.role))throw new Error('Publisher access is required to preview drafts.');if(page.format==='html')return nativeArtifact(page,true);if(state.releases.some(r=>r.id===id)){const record=releaseRecords(false).find(r=>r.page.id===id);return `<div class="layout release-layout">${releaseRail(releaseRecords(false),record.version,record.project.id,false)}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">Saved draft preview · not published</p><h1>${e(page.title)}</h1></div><a class="btn outline" href="#/edit/${id}">Back to editing</a></div>${contributionGroups(record.notes.filter(n=>n.submitted))}</main></div>`;}return documentPage(page,true);}
 function publicView(){const docs=filterPages(state.published,state);return `<div class="layout">${sidebar(!!state.member)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind]||'Published documents')}</h1><p>${state.member?'Published knowledge available to your team.':'Public documents. Internal knowledge requires sign-in.'}</p></div></div><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label><div id="document-list" class="document-table">${docs.map(p=>row(p)).join('')||empty('No public documents in this collection','Sign in with your company account to view internal documents.','<a class="btn dark" href="#/workspace">Open team library</a>')}</div></main></div>`;}
 function projectSectionSettings(){
  if(state.projectSections===null)return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Configuration becomes available after the project sections migration is applied.</p></div></div></section>`;
@@ -1698,7 +1731,9 @@ window.addEventListener("keydown", (ev) => {
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-scroll-section]');
   if(!button)return;
-  document.getElementById('section-'+button.dataset.scrollSection)?.scrollIntoView({block:'start',behavior:'smooth'});
+  const target=document.getElementById('section-'+button.dataset.scrollSection);
+  target?.scrollIntoView({block:'start',behavior:'smooth'});
+  target?.focus({preventScroll:true});
 });
 window.addEventListener("storage", (ev) => {
   if (ev.key === "hoora-session") {

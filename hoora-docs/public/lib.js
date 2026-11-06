@@ -21,6 +21,22 @@ export function safeUrl(s) {
 export function markdown(input) {
   return renderMarkdown(input);
 }
+export function markdownWithOutline(input) {
+  const container = document.createElement("div");
+  container.innerHTML = markdown(input);
+  const counts = new Map();
+  const outline = [...container.querySelectorAll("h2, h3, h4")].map((heading) => {
+    const title = heading.textContent.trim();
+    const base = slugify(title) || "section";
+    const count = (counts.get(base) || 0) + 1;
+    counts.set(base, count);
+    const id = `section-${base}${count > 1 ? `-${count}` : ""}`;
+    heading.id = id;
+    heading.tabIndex = -1;
+    return { id, title, level: Number(heading.tagName.slice(1)) };
+  });
+  return { html: container.innerHTML, outline };
+}
 export const canEdit = (role) =>
   ["admin", "publisher"].includes(role);
 export const canPublish = (role) => ["admin", "publisher"].includes(role);
