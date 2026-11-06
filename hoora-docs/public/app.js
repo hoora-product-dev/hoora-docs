@@ -307,8 +307,9 @@ function enhanceRail(){
 
 function footer(){return '';}
 function siteFooter(className='site-footer'){
- return `<footer class="${className}"><span>Hoora Docs <span aria-hidden="true">·</span> Maintained by <a href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Rahul Tripathi</a></span><nav aria-label="Hoora Docs links">${isStandaloneApp()?'':`<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="footer-github" href="https://github.com/hoora-product-dev/hoora-docs" target="_blank" rel="noopener noreferrer" aria-label="Hoora Docs on GitHub"><svg class="github-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.08c-3.1.67-3.76-1.31-3.76-1.31-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15 1 .1.76 2.22 3.87 1.56.1-.72.4-1.22.7-1.5-2.47-.28-5.06-1.24-5.06-5.5 0-1.21.43-2.2 1.14-2.98-.12-.28-.5-1.41.11-2.94 0 0 .93-.3 3.05 1.14a10.5 10.5 0 0 1 5.55 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.53.23 2.66.11 2.94.71.78 1.14 1.77 1.14 2.98 0 4.27-2.6 5.22-5.08 5.5.4.35.76 1.02.76 2.06v3.07c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg>GitHub</a></nav></footer>`;
+ return `<footer class="${className}"><span>Hoora Docs · Maintained by <a href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Rahul Tripathi</a></span></footer>`;
 }
+function installPrompt(){return isStandaloneApp()?'':`<section class="install-prompt"><p>Install Hoora Docs on your phone or desktop for quick access.</p><a class="btn outline" href="#/install">${icon('download')}Install Hoora Docs</a></section>`;}
 
 function sidebar(workspace=false){
  const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
@@ -342,12 +343,21 @@ function installPage(){
  const primaryIcon=standalone?(signedIn?'bell':'microsoft'):'download';
  return `<main id="main" class="install-page"><section class="install-card"><div class="install-mark-wrap"><img class="install-mark" src="/hoora-mark.png" alt=""></div><h1>Hoora Docs</h1><p class="install-lede">Install on your phone or computer for faster access and a cleaner app experience.</p><button class="btn install-primary" type="button" data-action="${primaryAction}">${icon(primaryIcon)}${primaryLabel}</button><div class="install-divider"><span>OR</span></div><a class="btn install-browser" href="#/releases">Continue in Browser ${icon('arrow')}</a></section></main>`;
 }
-function home(){
+function homeLegacy(){
  const publicPages=state.published.filter(p=>p.visibility==='public');
  const releases=publicPages.filter(p=>p.kind==='release').slice(0,4);
  const documents=publicPages.filter(p=>p.kind!=='release').slice(0,4);
  const link=p=>publishedRoute(p,state.projects);
  return `<main id="main" class="home"><div class="home-intro"><span class="home-eyebrow">HOORA DOCS</span><h1>Everything Hoora teams need to know.</h1><p>Browse releases, product guides, team documentation, and SOPs—all in one searchable place.</p><button class="home-search" data-action="global-search">${icon('search')}Search knowledge <kbd>⌘ K</kbd></button></div><div class="home-cards"><a href="#/releases"><span>${icon('release')}</span><strong>Release notes</strong><small>See what changed across our platforms.</small>${icon('arrow')}</a><a href="#/browse"><span>${icon('book')}</span><strong>Documentation</strong><small>Explore guides, SOPs, and shared resources.</small>${icon('arrow')}</a></div>${releases.length?`<section class="home-list"><div><h2>Latest releases</h2><a href="#/releases">View all ${icon('chevron')}</a></div>${releases.map(p=>`<a href="${link(p)}"><span>${e(displayPlatformName(p.release_snapshot?.project||p.title))}</span><small>v${e(versionKey(p.version))} · ${date(p.published_at)}</small></a>`).join('')}</section>`:''}${documents.length?`<section class="home-list"><div><h2>Public documentation</h2><a href="#/browse">View all ${icon('chevron')}</a></div>${documents.map(p=>`<a href="${link(p)}"><span>${e(p.title)}</span><small>${e(names[p.kind]||'Document')}</small></a>`).join('')}</section>`:''}${siteFooter('home-footer')}</main>`;
+}
+
+function home(){
+ const html=homeLegacy();
+ const section=name=>html.match(new RegExp(`<section class="home-list"><div><h2>${name}<\\/h2>[\\s\\S]*?<\\/section>`))?.[0]||'';
+ const documents=section('Public documentation'),releases=section('Latest releases');
+ const content=html.replace(documents,'').replace(releases,'').replace(/<footer class="home-footer">[\s\S]*?<\/footer>/,'');
+ const end=content.lastIndexOf('</main>');
+ return `${content.slice(0,end)}${documents}${releases}${installPrompt()}${siteFooter('home-footer')}${content.slice(end)}`;
 }
 
 function artifactFrame(page, draft = false, full = false) {
@@ -1728,7 +1738,7 @@ function releaseDocumentNew(p){
  const sections=[...new Map(allNotes.map(note=>[note.vertical||'General',note])).entries()];
  const tabs=`<nav class="version-section-tabs" aria-label="Release sections"><button type="button" class="${!selectedSection?'active':''}" data-scroll-top>${icon('grid')}<span>All</span></button>${sections.map(([name,note])=>{const slug=slugify(name),vertical=state.verticals.find(item=>item.name===name);return `<button type="button" class="${selectedSection===slug?'active':''}" data-scroll-section="${e(slug)}">${toneIcon(note.vertical_icon||vertical?.icon||'grid',note.vertical_color||vertical?.color||'slate')}<span>${e(name)}</span></button>`;}).join('')}</nav>`;
 
- return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${allNotes.length?contributionGroups(allNotes,false,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+ return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><div class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version||p.version))}</span></div><div class="native-release-meta"><div class="native-release-facts"><time>${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({...p,project_id:project.id})==='public'?'web':'lock')}${e(accessText({...p,project_id:project.id}))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role)?`<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>`:''}</div></div></header>${tabs}<div class="native-release-body">${allNotes.length?contributionGroups(allNotes,false,false):`<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${installPrompt()}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record){
