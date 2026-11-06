@@ -307,7 +307,7 @@ function enhanceRail(){
 
 function footer(){return '';}
 function siteFooter(className='site-footer'){
- return `<footer class="${className}">${isStandaloneApp()?'':`<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="site-footer-credit" href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
+ return `<footer class="site-footer ${className}">${isStandaloneApp()?'':`<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="site-footer-credit" href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
 }
 function sidebar(workspace=false){
  const role=state.member?.role;const docs=(workspace?state.pages:state.published).filter(p=>!p.archived_at&&p.kind!=="release");
