@@ -37,8 +37,11 @@ body { color: var(--ink); }
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
-.product-brand { padding: 0; background: #fff; }
-.product-brand img { width: 150px; max-height: 43px; }
+.product-brand { padding: 0; background: transparent; }
+.product-brand img { width: 150px; height: auto; max-height: 50px; object-fit: contain; border-radius: 0; }
+.product-brand .logo-dark { display: none; }
+:root[data-theme=dark] .product-brand .logo-light { display: none; }
+:root[data-theme=dark] .product-brand .logo-dark { display: block; }
 .topbar nav a { color: var(--muted); font-size: 13px; }
 .topbar nav a:hover { color: var(--ink); }
 .topbar .compact-search {
