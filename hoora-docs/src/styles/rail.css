@@ -151,3 +151,24 @@ body.has-rail.rail-collapsed.rail-hover-suppressed .sidebar:hover .rail-person{d
 .native-release-actions .btn{min-height:32px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;color:var(--ink)}
 .native-release-actions .btn:hover{background:var(--raised)}
 @media(max-width:700px){.native-release-header{padding:17px 16px 13px;margin-bottom:17px}.native-release-title{gap:7px;margin-bottom:11px}.native-release-meta{align-items:flex-start}.native-release-facts,.native-release-actions{gap:9px}.native-release-actions{width:100%;padding-top:8px;border-top:1px solid var(--line)}}
+
+/* Unread notifications and actionable requests stay visible on every viewport. */
+.notification-bell{position:relative;overflow:visible}
+.notification-count,.nav-count{display:inline-flex!important;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;border:1.5px solid var(--surface);border-radius:999px;background:#d92d20;color:#fff!important;font-size:9px!important;font-weight:700;line-height:1;white-space:nowrap}
+.notification-count{position:absolute;top:-3px;right:-5px}
+.sidelink>.nav-count{margin-left:auto}
+.rail-menu .nav-count{float:right;margin:0 0 0 8px}
+.rail-collapsed .sidebar .sidelink{position:relative}
+.rail-collapsed .sidebar .sidelink>.nav-count{display:inline-flex!important;position:absolute;top:2px;right:2px;margin:0;padding:0 4px;min-width:15px;height:15px;font-size:8px!important}
+.notice-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.notice-actions .btn{min-height:34px}
+.notice-item.unread{background:color-mix(in srgb,#d92d20 5%,var(--surface));border-radius:8px}
+.notice-item.unread .notice-dot{background:#d92d20;box-shadow:0 0 0 3px color-mix(in srgb,#d92d20 15%,transparent)}
+.notice-item>div{min-width:0;flex:1}
+.notice-item>span:last-child{border-radius:999px;padding:3px 8px;background:var(--raised);font-size:10px}
+.notice-item.unread>span:last-child{background:color-mix(in srgb,#d92d20 12%,var(--surface));color:#d92d20}
+.notification-settings{margin-top:24px;border-top:1px solid var(--line);padding-top:16px}
+.notification-settings>summary{font-size:12px;color:var(--muted);cursor:pointer}
+.notification-settings>.toolbar-actions{margin-top:14px}
+.notification-settings>.small{margin-top:10px}
+@media(max-width:700px){.notice-actions{width:100%}.notice-actions .btn{flex:1}.notice-item{gap:10px}.notice-item>span:last-child{margin-top:1px}.notification-count{right:-3px}}
