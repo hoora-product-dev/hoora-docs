@@ -140,12 +140,12 @@ function assistantUI() {
           const tickets = m.tickets?.length
             ? `<nav class="assistant-actions" aria-label="Related Jira tickets"><span class="assistant-actions-label">Related tickets</span>${m.tickets.map((t) => `<a class="assistant-action assistant-ticket" href="${e(t.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}<span>${e(t.key)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
-          return `<div class="assistant-message ${m.role}"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div>`;
+          return `<div class="assistant-message ${m.role}"><img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar"><div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
         })
         .join('')
-    : `<div class="assistant-greeting"><strong>${e(
-        `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name.split(' ')[0]}` : ''}.`,
-      )}</strong><span>I’m Hoora Assist. I can help with releases, SOPs, tickets, and the documents you can access.</span></div>`;
+    : `<div class="assistant-message assistant assistant-welcome"><img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar"><div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
+        `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name}` : ''}!`,
+      )}</strong><span>How can I help you today with releases, SOPs, or documentation?</span></div></div></div>`;
   return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><div><strong>Hoora Assist</strong><small>Answers from documents you can access</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {

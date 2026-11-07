@@ -193,6 +193,35 @@ body:has(.rail-more[open]) .assistant-shell {
 }
 .assistant-message.assistant {
   align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.assistant-response-body {
+  min-width: 0;
+}
+.assistant-response-avatar {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: 10px;
+  flex: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
+  animation: assistant-avatar-idle 4s ease-in-out infinite;
+}
+.assistant-welcome {
+  max-width: min(100%, 360px);
+}
+.assistant-welcome .assistant-copy strong,
+.assistant-welcome .assistant-copy span {
+  display: block;
+}
+.assistant-welcome .assistant-copy strong {
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.assistant-messages:has(.assistant-welcome) {
+  justify-content: flex-end;
 }
 .assistant-message nav {
   display: flex;
@@ -492,6 +521,9 @@ body:has(.rail-more[open]) .assistant-shell {
   height: 24px;
   border-radius: 50%;
   animation: assistant-avatar-thinking 1.8s ease-in-out infinite;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, #00becd 22%, transparent),
+    0 0 18px color-mix(in srgb, #00becd 22%, transparent);
 }
 .assistant-working {
   display: inline-flex;
@@ -562,6 +594,15 @@ body:has(.rail-more[open]) .assistant-shell {
     transform: translateY(-1px) scale(1.035);
   }
 }
+@keyframes assistant-avatar-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-1px) rotate(-1deg);
+  }
+}
 .assistant-form button,
 .assistant-form button:hover,
 .assistant-form button:focus-visible {
@@ -595,6 +636,9 @@ body:has(.rail-more[open]) .assistant-shell {
   }
   .thinking-avatar {
     animation: assistant-avatar-thinking 1.8s ease-in-out infinite !important;
+  }
+  .assistant-response-avatar {
+    animation: assistant-avatar-idle 4s ease-in-out infinite !important;
   }
   .assistant-action {
     transition: none;
