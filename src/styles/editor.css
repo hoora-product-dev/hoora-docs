@@ -287,6 +287,21 @@
 .contribution-editor .editor-grid {
   display: block;
 }
+.contribution-editor .editor-heading {
+  display: none;
+}
+.editor-note-context {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 22px 0 8px;
+  color: var(--ink);
+}
+.editor-note-context span {
+  color: var(--muted);
+  font-size: 12px;
+}
 .editor-credit {
   margin: 18px 0;
   color: var(--muted);

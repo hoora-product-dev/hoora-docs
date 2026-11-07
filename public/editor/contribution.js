@@ -106,6 +106,9 @@ export function createContributionEditor({
     mounted = null;
     const form = document.querySelector('#contribution-form');
     if (!form) return;
+    // The note title is derived from the first Markdown heading; validation
+    // for the hidden legacy title field must not block a complete-note paste.
+    form.noValidate = true;
     document.querySelector('#editing-entry')?.addEventListener('change', (event) => {
       if (state.dirty) {
         event.target.value = form.dataset.id;
@@ -209,6 +212,9 @@ export function createContributionEditor({
         const releaseId = await ensureRelease(),
           snapshot = JSON.stringify([...new FormData(form)]),
           values = Object.fromEntries(new FormData(form)),
+          sectionName = form.querySelector('#entry-vertical')?.selectedOptions?.[0]?.textContent?.trim() || 'Release note',
+          firstHeading = String(values.body || '').match(/^#{1,2}\s+(.+)$/m)?.[1]?.trim(),
+          entryTitle = (firstHeading || sectionName).replace(/[*_`]/g, '').slice(0, 200),
           id = form.dataset.id;
         const result = await db(
           'docs_entries',
@@ -217,7 +223,7 @@ export function createContributionEditor({
             method: id ? 'PATCH' : 'POST',
             headers: { Prefer: 'return=representation' },
             body: {
-              title: values.title,
+              title: entryTitle,
               body: values.body,
               vertical_id: values.vertical_id,
               // Release notes are authored as one complete Markdown document.

@@ -236,6 +236,10 @@
   border-radius: var(--panel-radius);
   background: var(--surface);
 }
+.release-change-complete .release-change-copy,
+.release-change-complete .release-change-meta {
+  margin-left: 0;
+}
 .release-change-heading {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);

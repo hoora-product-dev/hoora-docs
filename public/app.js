@@ -2385,16 +2385,18 @@ function releaseChangeGroups(notes, showSectionHeading = true) {
     if (!groups.has(name)) groups.set(name, []);
     groups.get(name).push(note);
   }
-  let number = 0;
   return [...groups]
     .map(([name, entries]) => {
-      const items = entries
+      const body = entries
         .map((note) => {
-          number += 1;
-          return `<li class="release-change"><div class="release-change-heading"><span class="release-change-number" aria-hidden="true">${number}</span><div><h4>${e(note.title)}</h4></div></div><div class="prose release-change-copy">${markdown(note.body)}</div><div class="release-change-meta">Updated by <strong>${e(note.edited_by || note.author || 'Hoora team')}</strong></div></li>`;
+          const title = String(note.title || '').trim();
+          const content = String(note.body || '').trim();
+          return title && content ? `### ${title}\n\n${content}` : content;
         })
-        .join('');
-      return `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'change' : 'changes'}</span></div>` : ''}<ol class="release-change-list">${items}</ol></section>`;
+        .filter(Boolean)
+        .join('\n\n');
+      const authors = [...new Set(entries.map((note) => note.edited_by || note.author || 'Hoora team'))];
+      return `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>Complete release note</span></div>` : ''}<article class="release-change release-change-complete"><div class="prose release-change-copy">${markdown(body)}</div><div class="release-change-meta">Updated by <strong>${e(authors.join(', '))}</strong></div></article></section>`;
     })
     .join('');
 }
