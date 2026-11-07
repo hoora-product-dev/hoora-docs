@@ -27,7 +27,6 @@ export default async function handler(req, res) {
         ? { Authorization: req.headers.authorization }
         : {}),
     };
-    const query = encodeURIComponent(question);
     const search = await fetch(`${url}/rest/v1/rpc/docs_search`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -127,7 +126,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model,
         temperature: 0.2,
-        reasoning: { effort: 'low' },
+        // Keep the output budget available for the cited answer on this free model.
+        reasoning: { effort: 'none' },
         max_tokens: 2400,
         messages: [
           {
