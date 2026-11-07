@@ -35,15 +35,15 @@ npm run build
 
 Browser/integration tests need a running server. Set `HOORA_TEST_BASE_URL` to its address. Live tests create temporary accounts/content and clean up their own records; use an isolated test project when available. Migration and live-test scripts include Hoora project guards.
 
-| Command                        | Coverage                                                                         |
-| ------------------------------ | -------------------------------------------------------------------------------- |
-| `npm run test:browser`         | Teams, sharing, search, uploads, PDFs, HTML, notifications and archive workflows |
-| `npm run test:release-browser` | Release creation, full-page contributions, preview and publishing                |
-| `npm run test:editor`          | Clipboard compression, preview round trips and drawing export                    |
-| `npm run test:interactions`    | Hover, stable controls, sidebar, mobile drawer and assistant                     |
-| `npm run test:ui`              | Public/admin page geometry and screenshots at six viewport widths                |
-| `npm run test:workflows`       | Database permissions and content lifecycle integration                           |
-| `npm run db:migrate`           | Ordered, transactional migrations with a project guard and migration lock        |
+| Command                        | Coverage                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `npm run test:browser`         | Teams, sharing, search, uploads, PDFs, HTML, notifications and archive workflows                             |
+| `npm run test:release-browser` | Release creation, full-page contributions, preview and publishing                                            |
+| `npm run test:editor`          | Clipboard compression, preview round trips and drawing export                                                |
+| `npm run test:interactions`    | Hover, stable controls, sidebar, mobile drawer and assistant                                                 |
+| `npm run test:ui`              | Public/admin page geometry and screenshots at six viewport widths                                            |
+| `npm run test:workflows`       | Database permissions and content lifecycle integration                                                       |
+| `npm run db:migrate`           | Ordered, transactional migrations with a project guard and migration lock                                    |
 | `node scripts/reset-demo.mjs`  | Replace document/team content with the four-platform demo workspace (preserves schema and employee accounts) |
 
 ## Structure

@@ -3,7 +3,10 @@ export function sidebarAccount({ state, e, icon, avatar }) {
   const member = state.member;
   if (!member)
     return `<div class="rail-account signed-out"><a class="btn dark rail-sign-in" href="#/login" aria-label="Sign in">${icon('login')}<span>Sign in</span></a></div>`;
-  const items = [['account', 'user', 'Account settings'], ['teams', 'users', 'Teams']];
+  const items = [
+    ['account', 'user', 'Account settings'],
+    ['teams', 'users', 'Teams'],
+  ];
   if (member.role === 'admin')
     items.push(['folders', 'folder', 'Manage structure'], ['users', 'users', 'Manage people']);
   if (['admin', 'publisher'].includes(member.role)) items.push(['requests', 'clock', 'Requests']);
