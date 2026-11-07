@@ -2,11 +2,11 @@
 
 Hoora’s workspace for release notes, documentation and operating procedures.
 
-[Website](https://hoora-docs.vercel.app) · [Install](https://hoora-docs.vercel.app/install) · [Upcoming releases](docs/upcoming-releases.md) · [Verification](docs/UI-REFINEMENT.md)
+[Website](https://hoora-docs.vercel.app) · [Install](https://hoora-docs.vercel.app/install) · [Writing](docs/writing.md) · [Upcoming releases](docs/upcoming-releases.md) · [Verification](docs/UI-REFINEMENT.md)
 
 ## Features
 
-- Platform releases with readable version URLs, section filters and individually attributed contributions.
+- One-page release writing with platform, version and section selection, readable version URLs and individually attributed contributions.
 - Full-page Markdown writing, source and preview modes; clipboard/drop image uploads; private PDFs; standalone HTML artifacts; link previews; and editable Excalidraw diagrams.
 - Public, company, team and selected-email sharing, enforced by database and Storage policies.
 - Microsoft work-account sign-in, permission-aware search, an assistant with cited sources, opt-in browser push and an installable web app.

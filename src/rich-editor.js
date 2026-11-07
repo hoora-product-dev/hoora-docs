@@ -114,6 +114,9 @@ export function mountRichEditor({ root, textarea, onChange, resolveImage, onUplo
       attributes: {
         class: 'rich-content prose',
         'aria-label': 'Document content',
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'data-placeholder': 'Start writing, or paste text, images or a link…',
         spellcheck: 'true',
       },
       handlePaste(view, event) {
