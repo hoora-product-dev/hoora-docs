@@ -1,0 +1,453 @@
+/* Shared dimensions and states. Component files consume these tokens. */
+:root {
+  --ink: #171717;
+  --muted: #666;
+  --subtle: #757575;
+  --line: #e2e2e2;
+  --surface: #fff;
+  --canvas: #fff;
+  --rail: #fafafa;
+  --raised: #f5f5f5;
+  --accent: #171717;
+  --contrast: #171717;
+  --on-contrast: #fff;
+  --green: #525252;
+  --danger: #b42318;
+  --sidebar: 240px;
+  color-scheme: light;
+  font:
+    14px/1.6 Geist,
+    Arial,
+    sans-serif;
+  color: var(--ink);
+  background: var(--surface);
+}
+:root[data-theme='dark'] {
+  --ink: #f5f5f5;
+  --muted: #a3a3a3;
+  --subtle: #999;
+  --line: #2e2e2e;
+  --surface: #141414;
+  --canvas: #141414;
+  --rail: #111;
+  --raised: #202020;
+  --accent: #f5f5f5;
+  --contrast: #f5f5f5;
+  --on-contrast: #141414;
+  --green: #b5b5b5;
+  --danger: #f28b82;
+  color-scheme: dark;
+}
+.btn,
+.iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.btn {
+  border: 1px solid transparent;
+}
+.toolbar-actions {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.view-heading .toolbar-actions {
+  flex-shrink: 1;
+}
+.editor-mode-tabs button,
+.entry-write-tabs button,
+.document-type-picker button {
+  font-weight: 550;
+}
+:root {
+  --control-height: 38px;
+  --control-small: 32px;
+  --control-radius: 8px;
+  --panel-radius: 12px;
+  --page-width: 1360px;
+  --page-gutter: clamp(20px, 3.2vw, 48px);
+  --focus-ring: #858585;
+  --hover-surface: #f1f1f1;
+  --active-surface: #e9e9e9;
+  --header: 60px;
+  --rail-expanded: 240px;
+  --rail-compact: 64px;
+  --motion-fast: 140ms;
+  --accent-soft: #eeeeee;
+}
+:root[data-theme='dark'] {
+  --hover-surface: #242424;
+  --active-surface: #303030;
+  --accent-soft: #292929;
+  --focus-ring: #b8b8b8;
+}
+html {
+  scrollbar-gutter: stable;
+  scroll-padding-top: 84px;
+}
+body {
+  min-width: 320px;
+}
+body,
+button,
+input,
+select,
+textarea {
+  font-family: Geist, Arial, sans-serif;
+}
+main,
+section,
+article,
+form,
+fieldset {
+  min-width: 0;
+}
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+body .btn {
+  min-height: var(--control-height);
+  height: auto;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 20px;
+  gap: 7px;
+  border-width: 1px;
+  border-style: solid;
+  white-space: nowrap;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+body .btn:is(.dark, .primary) {
+  background: var(--contrast);
+  color: var(--on-contrast);
+  border-color: var(--contrast);
+  opacity: 1;
+  filter: none;
+}
+body .btn.outline {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+body .btn.text {
+  background: transparent;
+  color: var(--muted);
+  border-color: transparent;
+}
+body .btn.danger {
+  color: var(--danger);
+}
+body .iconbtn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 8px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: transparent;
+}
+body .btn .icon svg,
+body .iconbtn .icon svg {
+  width: 18px;
+  height: 18px;
+}
+:is(button, a, input, select, textarea, summary, [contenteditable='true']):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+:is(
+  .field input:not([type='checkbox'], [type='radio'], [type='file'], [type='color']),
+  .field select,
+  .search input
+) {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 9px 12px;
+  line-height: 22px;
+  width: 100%;
+}
+.field textarea {
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  width: 100%;
+  max-width: 100%;
+  resize: vertical;
+}
+.field > label {
+  display: block;
+  margin: 0 0 7px;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--ink);
+}
+.field {
+  margin-bottom: 18px;
+}
+.field > small {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.btn[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.7;
+}
+.btn[aria-busy='true'] .icon {
+  animation: control-pulse 1s ease-in-out infinite;
+}
+.btn[aria-busy='true']::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.btn:disabled,
+.iconbtn:disabled {
+  opacity: 0.45;
+  filter: none;
+  transform: none;
+}
+:is(
+  .timeline-item,
+  .document-row,
+  .upcoming-ticket,
+  .team-card,
+  .related-grid > a,
+  .home-cards > a,
+  .home-list > a,
+  .notice-item,
+  .global-results > a
+) {
+  border-radius: var(--control-radius);
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
+  transform: none;
+  box-shadow: none;
+}
+.home-list > a {
+  padding: 15px 14px;
+  border: 1px solid var(--line);
+  margin-top: 8px;
+  gap: 14px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.home-list > a > span {
+  font-weight: 550;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.document-row-content > a {
+  font-weight: 560;
+  line-height: 1.5;
+}
+.document-row-content > p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+body .timeline-item,
+body .timeline-day-items > .timeline-item:last-child {
+  transition:
+    background-color var(--motion-fast),
+    border-color var(--motion-fast);
+  transform: none;
+  box-shadow: none;
+}
+.timeline-item h3 a {
+  display: inline;
+}
+.timeline-item:hover h3 a,
+.timeline-item h3 a:hover {
+  text-decoration: none;
+}
+.home-list > a:hover,
+.document-row:hover,
+.upcoming-ticket:hover {
+  color: var(--ink);
+}
+.entry-write-tabs button,
+.editor-mode-tabs button {
+  min-height: 36px;
+  padding: 7px 12px;
+  line-height: 20px;
+  font-size: 12px;
+  border: 1px solid transparent;
+}
+.entry-write-tabs button.active,
+.editor-mode-tabs button.active {
+  border-color: var(--line);
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 550;
+}
+#toast {
+  position: fixed;
+  inset: auto auto 24px 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  display: none;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 12px 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  box-shadow: 0 8px 32px #0002;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+#toast.show {
+  display: flex;
+}
+#toast.error-toast {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--danger);
+}
+.toast-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 21px;
+  color: inherit;
+  opacity: 0.7;
+}
+.toast-close:hover {
+  opacity: 1;
+  background: #8882;
+}
+dialog {
+  max-height: calc(100dvh - 48px);
+  overscroll-behavior: contain;
+}
+dialog .dialog-actions {
+  gap: 8px;
+}
+dialog:has(form) {
+  width: min(640px, calc(100vw - 32px));
+}
+.dialog-actions {
+  align-items: center;
+}
+.dialog-actions .btn {
+  flex: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  body .btn:is(.dark, .primary):not(:disabled):hover,
+  body .signin-card .microsoft:not(:disabled):hover {
+    background: var(--contrast);
+    border-color: var(--contrast);
+    color: var(--on-contrast);
+    opacity: 0.86;
+    filter: none;
+  }
+  :is(
+    .timeline-item,
+    .document-row,
+    .upcoming-ticket,
+    .team-card,
+    .related-grid > a,
+    .home-cards > a,
+    .home-list > a,
+    .notice-item,
+    .global-results > a
+  ):hover {
+    background: var(--hover-surface);
+    border-color: var(--line);
+    color: var(--ink);
+    box-shadow: none;
+    transform: none;
+  }
+  .timeline-item .release-row-open:hover {
+    background: var(--active-surface);
+    color: var(--ink);
+  }
+  .version-section-tabs a:hover {
+    background: var(--hover-surface);
+    color: var(--ink);
+  }
+}
+@media (hover: none) {
+  .timeline-item:hover,
+  .timeline-item:focus-within {
+    background: var(--surface) !important;
+    border-color: var(--line) !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+@media (max-width: 600px) {
+  .btn {
+    max-width: 100%;
+  }
+  #toast {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    font-size: 12px;
+  }
+  .form-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  dialog:has(form) {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+    padding: 22px 18px;
+  }
+  .dialog-actions {
+    position: sticky;
+    bottom: -22px;
+    padding: 14px 0 max(14px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    z-index: 2;
+    justify-content: flex-end;
+  }
+}
+@keyframes control-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}

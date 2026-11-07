@@ -1,10 +1,60 @@
-.vehicle-loading{overflow:hidden}
-.vehicle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:var(--canvas);color:var(--ink);pointer-events:auto}
-.vehicle-loader[hidden]{display:none}
-.vehicle-loader-content{display:flex;flex-direction:column;align-items:center;justify-content:center;max-width:calc(100vw - 40px)}
-.vehicle-loader-word{display:flex;align-items:flex-end;justify-content:center;color:var(--muted);font-family:Geist,Arial,sans-serif;font-size:24px;font-weight:750;line-height:30px;letter-spacing:-.4px}
-.vehicle-loader-letter{display:inline-block;opacity:.38;animation:vehicle-letter-light 1.75s ease-in-out infinite;animation-delay:calc(var(--letter)*130ms)}
-.vehicle-loader-gap{width:7px;flex:none}
-@keyframes vehicle-letter-light{0%,100%{opacity:.38;transform:translateY(0);color:var(--muted)}17%,34%{opacity:1;transform:translateY(-1.5px);color:var(--ink)}48%{opacity:.38;transform:translateY(0);color:var(--muted)}}
-@media(max-width:420px){.vehicle-loader-word{font-size:21px;letter-spacing:-.5px}.vehicle-loader-gap{width:5px}}
-@media(prefers-reduced-motion:reduce){.vehicle-loader-letter{animation:none;opacity:1;color:var(--ink)}}
+.vehicle-loading {
+  overflow: hidden;
+}
+.vehicle-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--canvas);
+  color: var(--ink);
+  pointer-events: auto;
+}
+.vehicle-loader[hidden] {
+  display: none;
+}
+.vehicle-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: calc(100vw - 40px);
+}
+.vehicle-loader-word {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--muted);
+  font-family: Geist, Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 30px;
+  letter-spacing: -0.4px;
+}
+.vehicle-loader-letter {
+  display: inline-block;
+  opacity: 0.32;
+  color: var(--ink);
+}
+.vehicle-loader-gap {
+  width: 7px;
+  flex: none;
+}
+@media (max-width: 420px) {
+  .vehicle-loader-word {
+    font-size: 21px;
+    letter-spacing: -0.5px;
+  }
+  .vehicle-loader-gap {
+    width: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vehicle-loader-letter {
+    animation: none;
+    opacity: 1;
+    color: var(--ink);
+  }
+}

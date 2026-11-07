@@ -1,0 +1,265 @@
+/* Stable desktop panel and keyboard-aware mobile conversation sheet. */
+@media (max-width: 700px) {
+  body .assistant-panel {
+    width: 100vw;
+  }
+}
+.assistant-open {
+  overflow: hidden;
+}
+.assistant-trigger {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.assistant-header strong,
+.assistant-header small {
+  display: block;
+}
+.assistant-header small {
+  color: var(--muted);
+}
+.assistant-header {
+  border-bottom: 1px solid var(--line);
+}
+.assistant-messages {
+  display: flex;
+  flex-direction: column;
+}
+.assistant-message.user {
+  align-self: flex-end;
+  background: var(--raised);
+  color: var(--ink);
+}
+.assistant-message.assistant {
+  align-self: flex-start;
+}
+.assistant-message nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+.assistant-form {
+  border-top: 1px solid var(--line);
+}
+.assistant-form input {
+  flex: 1;
+  border: 0;
+  outline-offset: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.assistant-form button {
+  display: grid;
+  place-items: center;
+}
+.assistant-form button .icon {
+  transform: rotate(-90deg);
+}
+.assistant-message.thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+}
+.thinking-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: assistant-thinking 1.2s ease infinite;
+}
+.thinking-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.thinking-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.thinking > span:first-child {
+  background: linear-gradient(100deg, var(--muted) 30%, var(--ink) 50%, var(--muted) 70%);
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: assistant-shimmer 1.7s linear infinite;
+}
+.assistant-shell {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 75;
+}
+.assistant-trigger {
+  height: 42px;
+  min-height: 42px;
+  border-radius: 21px;
+  padding: 0 15px;
+  gap: 9px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  font-size: 12px;
+  line-height: 20px;
+  box-shadow: 0 4px 20px #0002;
+  transform: none;
+}
+.assistant-trigger:hover {
+  transform: none;
+}
+.assistant-panel {
+  position: absolute;
+  inset: auto 0 54px auto;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 40px));
+  height: min(620px, calc(100dvh - 120px));
+  max-height: calc(100dvh - 120px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 12px 40px #0003;
+}
+.assistant-panel[hidden] {
+  display: none;
+}
+.assistant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  flex: none;
+  min-height: 68px;
+}
+.assistant-header strong {
+  font-size: 14px;
+}
+.assistant-header small {
+  font-size: 11px;
+  margin-top: 4px;
+}
+.assistant-messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  gap: 16px;
+  padding: 18px;
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+.assistant-message {
+  overflow-wrap: anywhere;
+  max-width: 95%;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.assistant-message.user {
+  padding: 9px 12px;
+  border-radius: 12px;
+}
+.assistant-message.assistant {
+  padding-block: 4px;
+}
+.assistant-empty {
+  text-align: left;
+  margin: 0;
+  max-width: 32ch;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.assistant-form {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  background: var(--surface);
+}
+.assistant-form input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 0;
+  font-size: 13px;
+  line-height: 22px;
+}
+.assistant-form button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  flex: none;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  transform: none;
+  opacity: 1;
+}
+.assistant-form button:hover {
+  transform: none;
+  opacity: 0.85;
+}
+.assistant-form button:disabled {
+  opacity: 0.45;
+  cursor: progress;
+}
+.assistant-message.thinking {
+  min-height: 28px;
+}
+.assistant-message nav a {
+  font-size: 11px;
+  line-height: 1.6;
+  text-decoration: none;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+@media (max-width: 700px) {
+  .assistant-shell {
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .assistant-shell:has(.assistant-panel:not([hidden])) {
+    inset: 0;
+    z-index: 100;
+  }
+  .assistant-shell:has(.assistant-panel:not([hidden])) > .assistant-trigger {
+    display: none;
+  }
+  .assistant-panel {
+    position: fixed;
+    inset: var(--assistant-top, 0) 0 auto;
+    width: 100%;
+    height: var(--assistant-height, 100dvh);
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .assistant-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .assistant-messages {
+    padding: 20px 16px;
+  }
+  .assistant-form input {
+    font-size: 16px;
+  }
+  .assistant-trigger {
+    font-size: 11px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 13px;
+  }
+  .assistant-trigger .icon svg {
+    width: 17px;
+    height: 17px;
+  }
+}
