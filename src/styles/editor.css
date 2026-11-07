@@ -281,6 +281,17 @@
   padding: 4px 0 0 24px;
   background: transparent;
 }
+.contribution-editor .document-properties {
+  display: none;
+}
+.contribution-editor .editor-grid {
+  display: block;
+}
+.editor-credit {
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
 .editor-settings > summary {
   font-size: 13px;
   font-weight: 600;
