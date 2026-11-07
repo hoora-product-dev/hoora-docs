@@ -6,8 +6,7 @@ const idPattern = /^[a-f0-9-]{36}$/i;
 const ticketPattern = /\b[A-Z][A-Z0-9]{2,12}-\d{1,8}\b/g;
 const noDocumentMessage =
   'I could not find an accessible Hoora document for that question. Open a document you can read, or ask about a published release, SOP, or upcoming release.';
-const assistantIdentity =
-  'I’m Hoora Assist, Hoora Docs’ private knowledge assistant. I help you find and understand the releases, SOPs, tickets, and documents you are allowed to access. I do not use or reveal documents outside your permissions.';
+const assistantIdentity = 'I’m Hoora Assist. I can help with the releases, SOPs, tickets, and documentation you can access.';
 
 function conversationalAnswer(question) {
   const normalized = String(question || '')
@@ -20,13 +19,13 @@ function conversationalAnswer(question) {
       normalized,
     )
   )
-    return `${assistantIdentity}\n\nWhat would you like to look up today?`;
+    return 'Hi! What can I help you find today — releases, SOPs, or documentation?';
   if (
     /\b(?:who are you|what are you|what is hoora assist|your role|what can you do)\b/.test(
       normalized,
     )
   )
-    return `${assistantIdentity}\n\nAsk me about a release, an upcoming release, a ticket, or an SOP.`;
+    return `${assistantIdentity}\nAsk me about a release, an upcoming release, a ticket, or an SOP.`;
   return '';
 }
 

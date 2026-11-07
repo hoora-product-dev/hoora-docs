@@ -112,8 +112,9 @@ const navigation = createNavigation({ app, state, icon });
 const assistantMessages = [];
 let assistantOpen = false;
 let assistantBusy = false;
+let assistantMood = false;
 const assistantCache = new Map();
-const assistantAvatar = (className = '') => `<span class="assistant-inline-avatar ${className}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
+const assistantAvatar = (className = '') => `<span class="assistant-inline-avatar ${className} ${assistantMood ? 'assistant-mood' : ''}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
 function assistantUI() {
   const route = routeHash();
   if (
@@ -150,7 +151,7 @@ function assistantUI() {
     : `<div class="assistant-message assistant assistant-welcome">${assistantAvatar('assistant-response-avatar')}<div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
         `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name}` : ''}!`,
       )}</strong><span>How can I help you today with releases, SOPs, or documentation?</span></div></div></div>`;
-  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Hoora AI Assistant · Releases, SOPs and documentation</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
+  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Ask me about releases, SOPs and documentation.</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {
   const viewport = window.visualViewport;
@@ -3084,8 +3085,10 @@ document.addEventListener('click', async (event) => {
 
 document.addEventListener('click', (event) => {
   if (!event.target.closest('[data-assistant="toggle"]')) return;
+  assistantMood = true;
   assistantOpen = !assistantOpen;
   renderAssistant();
+  window.setTimeout(() => { assistantMood = false; }, 900);
   if (assistantOpen) document.querySelector('#assistant-question')?.focus({ preventScroll: true });
   else document.querySelector('.assistant-trigger')?.focus({ preventScroll: true });
 });
