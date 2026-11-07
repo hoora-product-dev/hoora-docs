@@ -1,3 +1,5 @@
+@import 'blobatar/motion.css';
+
 /* Stable desktop panel and keyboard-aware mobile conversation sheet. */
 @media (max-width: 700px) {
   body .assistant-panel {
@@ -181,7 +183,12 @@ body:has(.rail-more[open]) .assistant-shell {
 }
 .assistant-header {
   border-bottom: 1px solid var(--line);
+  min-height: 64px;
+  padding: 14px 16px;
 }
+.assistant-brand { gap: 10px; }
+.assistant-brand > .assistant-inline-avatar { width: 36px; height: 36px; }
+.assistant-header small { font-size: 10px; letter-spacing: .01em; }
 .assistant-messages {
   display: flex;
   flex-direction: column;
@@ -488,14 +495,14 @@ body:has(.rail-more[open]) .assistant-shell {
     0 3px 9px rgb(0 0 0 / 16%);
   transform: translateY(-1px);
 }
-.assistant-trigger .assistant-avatar,
-.assistant-brand .assistant-avatar {
+.assistant-trigger .assistant-inline-avatar,
+.assistant-brand .assistant-inline-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   box-shadow: none;
 }
-.assistant-trigger .assistant-avatar {
+.assistant-trigger .assistant-inline-avatar {
   width: 38px;
   height: 38px;
   padding: 0;
@@ -524,6 +531,13 @@ body:has(.rail-more[open]) .assistant-shell {
   box-shadow:
     0 0 0 2px color-mix(in srgb, #00becd 22%, transparent),
     0 0 18px color-mix(in srgb, #00becd 22%, transparent);
+}
+.assistant-response-avatar {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
 }
 .assistant-working {
   display: inline-flex;
@@ -643,4 +657,34 @@ body:has(.rail-more[open]) .assistant-shell {
   .assistant-action {
     transition: none;
   }
+}
+.assistant-inline-avatar {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+.assistant-inline-avatar svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.assistant-blobatar.mo-root,
+.assistant-blobatar.mo-root * {
+  animation-play-state: running !important;
+}
+/* Keep the assistant's small, informative eye/blink motion available even
+   when the OS has reduced-motion enabled; the avatar is decorative and never
+   drives navigation or content changes. */
+@media (prefers-reduced-motion: reduce) {
+  .assistant-blobatar.mo-root { animation: mo-shake .112s linear infinite !important; }
+  .assistant-blobatar .mo-breathe { animation: mo-breathe 2.8s ease-in-out infinite alternate !important; }
+  .assistant-blobatar .mo-bob { animation: mo-bob 3.4s ease-in-out infinite alternate !important; }
+  .assistant-blobatar .mo-eyes { animation: mo-saccade 5.6s linear infinite !important; }
+  .assistant-blobatar .mo-eye { animation: mo-rock .9s ease-in-out infinite !important; }
+  .assistant-blobatar .mo-eye > * { animation: mo-blink, mo-wrap; animation-duration: 4.8s, 5.6s; animation-iteration-count: infinite; animation-timing-function: linear; }
 }

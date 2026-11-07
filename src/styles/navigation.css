@@ -520,8 +520,14 @@ body.rail-collapsed {
   .rail-account.signed-out {
     display: none;
   }
+  .has-rail .topbar-left {
+    gap: 3px;
+  }
+  .has-rail .topbar .product-brand {
+    margin-left: -2px;
+  }
   .topbar .product-brand img {
-    width: 92px;
-    max-height: 27px;
+    width: 88px;
+    max-height: 25px;
   }
 }
