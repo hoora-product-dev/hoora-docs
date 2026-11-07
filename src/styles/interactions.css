@@ -1,33 +1,22 @@
-/* Shared hover states stay neutral, compact, and layout-stable. */
 a,
 button,
-.btn,
-.iconbtn,
-.sidelink,
-.version-link,
 .document-row,
 .team-card,
 .related-grid a,
 .notice-item,
 .home-cards > a,
 .home-list > a,
-.global-results a,
-.timeline-item,
-.release-row-open {
+.global-results a {
   transition-property: color, background-color, border-color, opacity;
   transition-duration: 140ms;
   transition-timing-function: ease;
 }
 
-a:hover,
-.timeline-item h3 a:hover,
-.timeline-item h3 a:focus-visible {
+a:hover {
   color: var(--ink);
   text-decoration: none;
 }
 
-.btn.dark:hover,
-.btn.primary:hover,
 .signin-card .microsoft:hover {
   background: var(--contrast);
   border-color: var(--contrast);
@@ -36,23 +25,11 @@ a:hover,
   opacity: 0.88;
 }
 
-.btn.outline:hover,
-.btn.text:hover,
-.iconbtn:hover,
-.account-menu a:hover,
-.account-menu button:hover,
-.rail-menu a:hover,
-.rail-menu button:hover,
-.editor-tools button:hover,
-.rich-toolbar button:hover,
-.release-outline button:hover,
 .document-outline-share button:hover {
   background-color: var(--raised);
   color: var(--ink);
 }
 
-.sidelink:hover,
-.version-link:hover,
 .document-row:hover,
 .team-card:hover,
 .related-grid a:hover,
@@ -65,68 +42,26 @@ a:hover,
 }
 
 .home-list > a:hover,
-.timeline-footer a:hover,
 .native-back:hover,
 .document-nav-home:hover,
 .document-nav-footer a:hover,
 .document-breadcrumbs a:hover,
 .document-pagination a:hover > span,
-.timeline-apps a:hover,
-.assistant-message nav a:hover,
 .site-footer a:hover {
   color: var(--ink);
   text-decoration: none;
 }
 
-.timeline-item:hover,
-.timeline-item:focus-within {
-  background-color: var(--raised) !important;
-  border-color: var(--muted) !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-.timeline-item h3 a:hover,
-.timeline-item h3 a:focus-visible {
-  text-decoration: none !important;
-}
-
-.release-row-open:hover,
-.timeline-item:hover .release-row-open,
-.timeline-item:focus-within .release-row-open {
-  background-color: var(--surface);
-  color: var(--ink);
-  opacity: 1;
-  transform: none !important;
-}
-
-.release-row-open:hover {
-  background-color: var(--raised);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .rail-collapsed .sidebar:hover {
-    width: var(--rail-expanded);
-    z-index: 55;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   a,
   button,
-  .btn,
-  .iconbtn,
-  .sidelink,
-  .version-link,
   .document-row,
   .team-card,
   .related-grid a,
   .notice-item,
   .home-cards > a,
   .home-list > a,
-  .global-results a,
-  .timeline-item,
-  .release-row-open {
+  .global-results a {
     transition: none !important;
   }
 }

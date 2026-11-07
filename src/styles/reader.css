@@ -39,7 +39,7 @@
   padding: 0 9px;
   font-size: 15px;
   font-weight: 650;
-  letter-spacing: -.025em;
+  letter-spacing: -0.025em;
 }
 
 .document-nav-collection .tone-icon {
@@ -92,10 +92,6 @@
   padding: 43px clamp(28px, 4vw, 70px) 96px;
 }
 
-.document-article {
-  min-width: 0;
-}
-
 .document-breadcrumbs {
   display: flex;
   align-items: center;
@@ -117,7 +113,7 @@
 .document-breadcrumbs .icon {
   display: inline-flex;
   width: 12px;
-  opacity: .65;
+  opacity: 0.65;
 }
 
 .document-article-actions {
@@ -134,10 +130,6 @@
   gap: 8px;
 }
 
-.document-article-actions .btn {
-  min-height: 32px;
-}
-
 .document-article-heading {
   padding: 14px 0 29px;
   border-bottom: 1px solid var(--line);
@@ -149,7 +141,7 @@
   font-size: clamp(31px, 3vw, 43px);
   font-weight: 665;
   line-height: 1.16;
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
   overflow-wrap: anywhere;
 }
 
@@ -178,8 +170,6 @@
 .document-prose {
   max-width: none;
   padding-top: 29px;
-  font-size: 15px;
-  line-height: 1.82;
 }
 
 .document-prose :is(h2, h3, h4) {
@@ -235,7 +225,6 @@
   padding: 7px 10px 7px 13px;
   border-left: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
   line-height: 1.5;
   text-align: left;
   overflow-wrap: anywhere;
@@ -385,11 +374,6 @@
 @media (max-width: 460px) {
   .document-article-actions {
     align-items: flex-start;
-  }
-
-  .document-article-actions .btn {
-    padding-inline: 8px;
-    font-size: 11px;
   }
 
   .document-pagination {

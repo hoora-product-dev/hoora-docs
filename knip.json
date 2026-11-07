@@ -5,24 +5,26 @@
     "public/sw.js",
     "api/*.js",
     "src/*.js",
-    "scripts/{build,dev,prepare,seed-demo}.mjs",
+    "scripts/*.mjs",
     "tests/*.{mjs,js}"
   ],
   "project": [
-    "public/*.js",
+    "public/**/*.js",
     "api/**/*.js",
     "server/**/*.js",
     "src/**/*.js",
     "scripts/**/*.{mjs,cjs}",
     "tests/**/*.{mjs,js}"
   ],
-  "ignoreDependencies": [
-    "@fontsource-variable/geist"
-  ],
+  "ignoreDependencies": ["@fontsource-variable/geist"],
   "ignoreExportsUsedInFile": true,
   "ignoreUnresolved": [
     "./config.js",
     "/vendor/rich-editor.js",
-    "/vendor/uploads.js"
+    "/vendor/uploads.js",
+    "/upcoming.js",
+    "/lib.js",
+    "/vendor/drawing/drawing.js",
+    "/ui/feedback.js"
   ]
 }

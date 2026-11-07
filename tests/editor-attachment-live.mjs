@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const page = await browser.newPage();
-  await page.goto(process.env.HOORA_TEST_BASE_URL||'http://localhost:3000/');
+  await page.goto(process.env.HOORA_TEST_BASE_URL || 'http://localhost:3000/');
   const result = await page.evaluate(async () => {
-    document.body.innerHTML = '<div id="editor"><div data-rich-canvas></div></div><textarea id="source"></textarea>';
+    document.body.innerHTML =
+      '<div id="editor"><div data-rich-canvas></div></div><textarea id="source"></textarea>';
     const textarea = document.querySelector('#source');
-    const source = '![Diagram](attachment:00000000-0000-0000-0000-000000000000/diagram.webp)\n\n[PDF](attachment:00000000-0000-0000-0000-000000000000/guide.pdf)';
+    const source =
+      '![Diagram](attachment:00000000-0000-0000-0000-000000000000/diagram.webp)\n\n[PDF](attachment:00000000-0000-0000-0000-000000000000/guide.pdf)';
     textarea.value = source;
     const { mountRichEditor } = await import('/vendor/rich-editor.js');
     const mounted = mountRichEditor({ root: document.querySelector('#editor'), textarea });

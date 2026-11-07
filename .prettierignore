@@ -1,0 +1,10 @@
+node_modules
+dist
+public/vendor
+public/fonts
+public/fonts.css
+test-results
+research
+.env*
+.credentials*
+.playwright-mcp
