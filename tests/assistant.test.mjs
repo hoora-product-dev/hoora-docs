@@ -38,7 +38,7 @@ function prepare(t, readable = true) {
               title: 'Booking guide',
               slug: 'booking-guide',
               kind: 'documentation',
-              body: 'Track booking progress in the customer app.',
+              body: 'Track booking progress in the customer app. Ticket HCUS-1592.',
             },
           ]
         : [];
@@ -78,6 +78,9 @@ test('The free assistant reserves its token budget for an answer and returns doc
   assert.equal(res.code, 200);
   assert.match(res.data.answer, /\[1\]/);
   assert.equal(res.data.sources[0].url, '/docs/booking-guide');
+  assert.deepEqual(res.data.tickets, [
+    { key: 'HCUS-1592', url: 'https://hooratechteam.atlassian.net/browse/HCUS-1592' },
+  ]);
   assert.equal(generations(), 1);
 });
 test('An inaccessible document never enters the generation context', async (t) => {

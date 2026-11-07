@@ -4,6 +4,135 @@
     width: 100vw;
   }
 }
+
+.assistant-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.assistant-avatar {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
+}
+.assistant-trigger .assistant-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+}
+.assistant-trigger .icon {
+  display: inline-grid;
+  place-items: center;
+}
+.assistant-copy {
+  white-space: normal;
+}
+.assistant-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.assistant-actions-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.assistant-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.35;
+  text-decoration: none;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.assistant-action .icon {
+  display: inline-flex;
+  flex: none;
+}
+.assistant-action .icon svg {
+  width: 14px;
+  height: 14px;
+}
+.assistant-action span:not(.icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-action .icon:last-child {
+  margin-left: auto;
+  color: var(--muted);
+}
+.assistant-action:hover,
+.assistant-action:focus-visible {
+  background: var(--raised);
+  border-color: var(--muted);
+  transform: translateY(-1px);
+}
+.assistant-ticket {
+  color: var(--accent, var(--ink));
+}
+.thinking-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(100deg, var(--muted) 24%, var(--ink) 50%, var(--muted) 76%);
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: assistant-shimmer 1.5s linear infinite;
+}
+.thinking-label .thinking-dots {
+  -webkit-text-fill-color: initial;
+}
+.thinking-skeleton {
+  display: grid;
+  gap: 6px;
+  width: min(230px, 80%);
+  margin-top: 8px;
+}
+.thinking-skeleton i {
+  display: block;
+  height: 7px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--raised), color-mix(in srgb, var(--ink) 18%, var(--raised)), var(--raised));
+  background-size: 220% 100%;
+  animation: assistant-skeleton 1.35s ease-in-out infinite;
+}
+.thinking-skeleton i:nth-child(2) { width: 82%; animation-delay: .12s; }
+.thinking-skeleton i:nth-child(3) { width: 61%; animation-delay: .24s; }
+@keyframes assistant-skeleton {
+  0%, 100% { background-position: 100% 0; opacity: .55; }
+  50% { background-position: 0 0; opacity: 1; }
+}
+.assistant-form button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 11px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking-label,
+  .thinking-skeleton i,
+  .thinking-dots i,
+  .assistant-action {
+    animation: none;
+    transition: none;
+  }
+}
 .assistant-open {
   overflow: hidden;
 }

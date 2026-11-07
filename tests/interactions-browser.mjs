@@ -58,7 +58,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('main').evaluate((el) => el.inert), false);
   assert.equal(await page.locator('[data-action=menu]').getAttribute('aria-expanded'), 'false');
-  await page.getByRole('button', { name: 'Hoora Assistant', exact: true }).click();
+  await page.getByRole('button', { name: 'Hoora Assist', exact: true }).click();
   assert.equal(
     await page
       .locator('.assistant-panel')
@@ -80,7 +80,7 @@ try {
   await page.locator('.thinking').waitFor();
   assert.equal(
     await page
-      .locator('.thinking>span:first-child')
+      .locator('.thinking-label')
       .evaluate((el) => getComputedStyle(el).animationName),
     'none',
   );
