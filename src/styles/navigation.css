@@ -48,10 +48,6 @@ body.rail-collapsed {
 .logo-dark {
   display: none;
 }
-.mobile-logo-light,
-.mobile-logo-dark {
-  display: none;
-}
 :root[data-theme='dark'] .logo-dark {
   display: block;
 }
@@ -524,19 +520,8 @@ body.rail-collapsed {
   .rail-account.signed-out {
     display: none;
   }
-  .topbar .product-brand .logo-light,
-  .topbar .product-brand .logo-dark {
-    display: none;
-  }
-  .topbar .product-brand .mobile-logo-light,
-  :root[data-theme='dark'] .topbar .product-brand .mobile-logo-dark {
-    display: block;
-    width: 112px;
-    height: 56px;
-    max-height: none;
-    object-fit: contain;
-  }
-  :root[data-theme='dark'] .topbar .product-brand .mobile-logo-light {
-    display: none;
+  .topbar .product-brand img {
+    width: 92px;
+    max-height: 27px;
   }
 }
