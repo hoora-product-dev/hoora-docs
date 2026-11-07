@@ -27,7 +27,8 @@ test('published releases use version and application URLs', () => {
         { id: 'app-1', slug: 'renamed-app' },
       ]),
     ),
-    '/release-notes/5.12.0/customer-app',
+    '/release-notes/5.12.0/renamed-app',
+    'The stored platform slug is the single source; display names never change URLs',
   );
   assert.equal(
     routeUrl(publishedRoute({ kind: 'sop', slug: 'operations-guide' }, [])),

@@ -13,15 +13,15 @@ export function publishedRoute(page, projects = []) {
     page?.version &&
     (page?.project_id || page?.release_snapshot?.project)
   ) {
+    // The platform's stored slug is the single source for release URLs.
     const project = projects.find((item) => item.id === page.project_id);
     const projectSlug =
-      page.release_snapshot?.project_slug ||
+      project?.slug ||
       String(page.release_snapshot?.project || '')
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') ||
-      project?.slug;
+        .replace(/^-|-$/g, '');
     const version = String(page.version).replace(/^v(?=\d)/i, '');
     if (projectSlug && /^[a-z0-9][a-z0-9.-]*$/.test(version))
       return `#/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}`;

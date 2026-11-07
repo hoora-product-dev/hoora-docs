@@ -947,27 +947,20 @@ async function users() {
         .slice(0, 2)
         .toUpperCase(),
     );
+  // Rows are compact so a team of hundreds stays readable on the board.
   const card = (m, team, role) =>
-    `<div class="person-card" draggable="true" data-email="${e(m.email)}" data-team="${team ? e(team.id) : ''}"><span class="person-avatar" aria-hidden="true">${initials(m)}</span><span class="person-text"><button type="button" class="person-name" data-member="${m.id}">${e(m.name || m.email)}</button><small>${e(m.email)}${m.role !== 'viewer' ? ` · ${roleName(m.role)}` : ''}${m.active ? '' : ' · Disabled'}</small></span>${team ? `<label class="sr-only" for="role-${e(team.id)}-${e(m.id)}">Role in ${e(team.name)}</label><select id="role-${e(team.id)}-${e(m.id)}" class="person-role" data-team-role="${e(team.id)}" data-email="${e(m.email)}">${teamRoles.map(([value, label]) => `<option value="${value}" ${role === value ? 'selected' : ''}>${label}</option>`).join('')}</select><button type="button" class="scope-remove" data-board-remove="${e(team.id)}" data-email="${e(m.email)}" aria-label="Remove ${e(m.name || m.email)} from ${e(team.name)}">${icon('close')}</button>` : ''}</div>`;
+    `<div class="person-card" draggable="true" data-email="${e(m.email)}" data-team="${team ? e(team.id) : ''}"><span class="person-avatar" aria-hidden="true">${initials(m)}</span><span class="person-text"><button type="button" class="person-name" data-member="${m.id}">${e(m.name || m.email)}</button><small>${e(m.email)}${m.role === 'admin' ? ' · Administrator' : ''}${m.active ? '' : ' · Disabled'}</small></span>${team ? `<select class="person-role" data-team-role="${e(team.id)}" data-email="${e(m.email)}" aria-label="Role of ${e(m.name || m.email)} in ${e(team.name)}">${teamRoles.map(([value, label]) => `<option value="${value}" ${role === value ? 'selected' : ''}>${label}</option>`).join('')}</select><button type="button" class="scope-remove" data-board-remove="${e(team.id)}" data-email="${e(m.email)}" aria-label="Remove ${e(m.name || m.email)} from ${e(team.name)}">${icon('close')}</button>` : ''}</div>`;
   const assigned = new Set(state.teamMembers.map((tm) => tm.email.toLowerCase()));
   const unassigned = state.members.filter((m) => !assigned.has(m.email.toLowerCase()));
-  const column = (team) => {
-    const rows = team
-      ? state.teamMembers.filter(
-          (tm) => tm.team_id === team.id && byEmail.has(tm.email.toLowerCase()),
-        )
-      : [];
-    const people = team
-      ? rows.map((tm) => card(byEmail.get(tm.email.toLowerCase()), team, tm.role))
-      : unassigned.map((m) => card(m));
-    const addable = team
-      ? state.members.filter(
-          (m) => !rows.some((tm) => tm.email.toLowerCase() === m.email.toLowerCase()),
-        )
-      : [];
-    return `<section class="board-column" data-drop-team="${team ? e(team.id) : ''}" aria-label="${team ? e(team.name) : 'Unassigned'}"><header><strong>${team ? e(team.name) : 'Unassigned'}</strong><span>${people.length}</span></header><div class="board-cards">${people.join('') || `<p class="board-empty">${team ? 'Drag people here' : 'Everyone has a team'}</p>`}</div>${team && addable.length ? `<label class="sr-only" for="add-${e(team.id)}">Add someone to ${e(team.name)}</label><select id="add-${e(team.id)}" class="board-add" data-board-add="${e(team.id)}"><option value="">Add person…</option>${addable.map((m) => `<option value="${e(m.email)}">${e(m.name || m.email)}</option>`).join('')}</select>` : ''}</section>`;
+  const table = (team) => {
+    const rows = state.teamMembers.filter(
+      (tm) => tm.team_id === team.id && byEmail.has(tm.email.toLowerCase()),
+    );
+    return `<section class="board-column team-table" data-drop-team="${e(team.id)}" aria-label="${e(team.name)}"><header><strong>${e(team.name)}</strong><span>${rows.length} ${rows.length === 1 ? 'person' : 'people'}</span></header><div class="board-cards">${rows.map((tm) => card(byEmail.get(tm.email.toLowerCase()), team, tm.role)).join('') || '<p class="board-empty">Drop people here</p>'}</div></section>`;
   };
-  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>New people join as viewers in Unassigned. Drag them into teams and choose their team role.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="people-board">${column(null)}${state.teams.map(column).join('')}</div><section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Viewer</strong> Reads release notes, upcoming releases and every document shared with them.</p><p><strong>Editor</strong> Writes and edits drafts for their team.</p><p><strong>Publisher</strong> Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</p><p><strong>Manager</strong> Everything a publisher can do, plus managing the team’s people and sharing its documents.</p><p><strong>Administrator</strong> Organization role with full control. Set it from a person’s name.</p></details></main></div>`;
+  const pool = `<aside class="people-pool board-column" data-drop-team="" aria-label="Unassigned"><header><strong>Unassigned</strong><span>${unassigned.length}</span></header><input class="people-search" type="search" placeholder="Find a person…" autocomplete="off" aria-label="Find a person" data-people-search><div class="board-cards">${unassigned.map((m) => card(m)).join('') || '<p class="board-empty">Everyone has a team</p>'}</div><form class="board-assign" data-board-assign><strong>Add to a team</strong><input name="email" list="people-emails" placeholder="Name or email" aria-label="Person" required><datalist id="people-emails">${state.members.map((m) => `<option value="${e(m.email)}">${e(m.name || '')}</option>`).join('')}</datalist><select name="team" aria-label="Team" required><option value="">Team…</option>${state.teams.map((t) => `<option value="${e(t.id)}">${e(t.name)}</option>`).join('')}</select><button class="btn outline" type="submit">Add</button></form></aside>`;
+  const canvas = `<div class="people-board team-board"><div class="team-board-toolbar" role="toolbar" aria-label="Board view"><button type="button" class="iconbtn" data-canvas-zoom="-0.1" aria-label="Zoom out">−</button><output data-canvas-level>100%</output><button type="button" class="iconbtn" data-canvas-zoom="0.1" aria-label="Zoom in">+</button><button type="button" class="btn text" data-canvas-fit>Fit</button><button type="button" class="btn text" data-canvas-full aria-pressed="false">Full screen</button></div>${pool}<div class="team-canvas" data-canvas tabindex="0" aria-label="Teams board. Drag empty space to move around."><div class="canvas-world">${state.teams.map(table).join('')}</div></div></div>`;
+  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>Everyone joins as a viewer in Unassigned. Drag people onto a team and set their role there.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div>${canvas}<section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Viewer</strong> Reads release notes, upcoming releases and every document shared with them.</p><p><strong>Editor</strong> Writes and edits drafts for their team.</p><p><strong>Publisher</strong> Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</p><p><strong>Manager</strong> Everything a publisher can do, plus managing the team’s people and sharing its documents.</p><p><strong>Administrator</strong> Organization role with full control. Set it from a person’s name.</p></details></main></div>`;
 }
 /** People board: drag between columns, or use the role and "Add person" menus. */
 function bindPeopleBoard() {
@@ -1065,15 +1058,93 @@ function bindPeopleBoard() {
           ),
         'Role updated.',
       );
-    const addSelect = event.target.closest('[data-board-add]');
-    if (addSelect?.value)
-      save(() => add(addSelect.dataset.boardAdd, addSelect.value), 'Added to team.');
+  });
+  board.addEventListener('input', (event) => {
+    if (!event.target.matches('[data-people-search]')) return;
+    const query = event.target.value.trim().toLowerCase();
+    board.querySelectorAll('.person-card').forEach((card) => {
+      card.hidden = query && !card.textContent.toLowerCase().includes(query);
+    });
   });
   board.addEventListener('click', (event) => {
     const button = event.target.closest('[data-board-remove]');
     if (button)
       save(() => remove(button.dataset.boardRemove, button.dataset.email), 'Removed from team.');
   });
+  board.querySelector('[data-board-assign]')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const email = String(form.get('email') || '')
+      .trim()
+      .toLowerCase();
+    if (!state.members.some((m) => m.email.toLowerCase() === email)) {
+      toast('Choose someone from the list.', true);
+      return;
+    }
+    save(() => add(form.get('team'), email), 'Added to team.');
+  });
+
+  // Whiteboard: drag empty space to move around, zoom with the toolbar or Ctrl + wheel.
+  const canvas = board.querySelector('[data-canvas]'),
+    world = canvas?.querySelector('.canvas-world'),
+    level = board.querySelector('[data-canvas-level]');
+  if (!canvas || !world) return;
+  const saved = Number(sessionStorage.getItem('hoora-board-zoom'));
+  let zoom = saved >= 0.4 && saved <= 1.5 ? saved : 1;
+  const setZoom = (value) => {
+    zoom = Math.min(1.5, Math.max(0.4, Math.round(value * 10) / 10));
+    world.style.zoom = String(zoom);
+    level.textContent = Math.round(zoom * 100) + '%';
+    sessionStorage.setItem('hoora-board-zoom', String(zoom));
+  };
+  setZoom(zoom);
+  board
+    .querySelectorAll('[data-canvas-zoom]')
+    .forEach((button) =>
+      button.addEventListener('click', () => setZoom(zoom + Number(button.dataset.canvasZoom))),
+    );
+  board.querySelector('[data-canvas-fit]').addEventListener('click', () => {
+    world.style.zoom = '1';
+    setZoom(
+      Math.min(canvas.clientWidth / world.scrollWidth, canvas.clientHeight / world.scrollHeight, 1),
+    );
+    canvas.scrollTo(0, 0);
+  });
+  const full = board.querySelector('[data-canvas-full]');
+  full.addEventListener('click', () => {
+    const on = !board.classList.contains('is-full');
+    board.classList.toggle('is-full', on);
+    document.body.classList.toggle('board-full', on);
+    full.setAttribute('aria-pressed', String(on));
+    full.textContent = on ? 'Exit full screen' : 'Full screen';
+  });
+  canvas.addEventListener(
+    'wheel',
+    (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom(zoom + (event.deltaY < 0 ? 0.1 : -0.1));
+    },
+    { passive: false },
+  );
+  let pan = null;
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest('.team-table')) return;
+    pan = { x: event.clientX, y: event.clientY, left: canvas.scrollLeft, top: canvas.scrollTop };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.classList.add('is-panning');
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    if (!pan) return;
+    canvas.scrollLeft = pan.left - (event.clientX - pan.x);
+    canvas.scrollTop = pan.top - (event.clientY - pan.y);
+  });
+  const stop = () => {
+    pan = null;
+    canvas.classList.remove('is-panning');
+  };
+  canvas.addEventListener('pointerup', stop);
+  canvas.addEventListener('pointercancel', stop);
 }
 function folders() {
   return structureView();

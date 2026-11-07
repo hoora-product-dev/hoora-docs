@@ -181,6 +181,53 @@ try {
       'Document owner retains access',
     );
   });
+  await ok('Sharing with another team grants exactly that team', async () => {
+    const otherTeam = crypto.randomUUID();
+    teams.push(otherTeam);
+    const created = await request('/rest/v1/docs_teams', other.token, {
+      id: otherTeam,
+      name: 'Temporary partner team',
+      slug: 'qa-partner-' + otherTeam,
+      manager_id: other.id,
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.data));
+    const shared = await rpc('docs_set_access', manager, {
+      document_id: doc,
+      access_mode: 'restricted',
+      team_ids: [otherTeam],
+    });
+    assert.equal(shared.status, 204, JSON.stringify(shared.data));
+    assert.equal(
+      (await request('/rest/v1/docs_published?id=eq.' + doc, other.token)).data.length,
+      1,
+      'Shared team reads the document',
+    );
+    assert.deepEqual(
+      (await request('/rest/v1/docs_published?id=eq.' + doc, viewer.token)).data,
+      [],
+      'Owning team members are excluded from restricted access unless listed',
+    );
+  });
+  await ok('Organization access reaches every member', async () => {
+    assert.equal(
+      (await rpc('docs_set_access', manager, { document_id: doc, access_mode: 'private' })).status,
+      204,
+    );
+    assert.equal(
+      (await request('/rest/v1/docs_published?id=eq.' + doc, other.token)).data.length,
+      1,
+    );
+    assert.equal(
+      (
+        await rpc('docs_set_access', manager, {
+          document_id: doc,
+          access_mode: 'restricted',
+          allowed_emails: [viewer.email],
+        })
+      ).status,
+      204,
+    );
+  });
   await ok('Team manager sends one notice; immediate repeat is denied', async () => {
     assert.equal((await rpc('docs_notify', manager, { document_id: doc })).status, 200);
     assert.ok((await rpc('docs_notify', manager, { document_id: doc })).status >= 400);

@@ -25,7 +25,7 @@ await Promise.all([
     outfile: 'public/vendor/ui.css',
     bundle: true,
     minify: true,
-    external: ['/fonts.css'],
+    external: ['/fonts.css', '/loader/*'],
   }),
   build({
     entryPoints: ['src/icons.js'],
