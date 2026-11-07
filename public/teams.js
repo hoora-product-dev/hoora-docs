@@ -2,19 +2,37 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
   const manages = (team) =>
     !!state.member &&
     (state.member.role === 'admin' ||
-      (state.member.role === 'manager' && team.manager_id === state.member.id));
+      team.manager_id === state.member.id ||
+      state.teamMembers.some(
+        (member) =>
+          member.team_id === team.id &&
+          member.email === state.member?.email?.toLowerCase() &&
+          member.role === 'manager',
+      ));
   const ownRole = (team) =>
     state.teamMembers.find(
       (member) => member.team_id === team.id && member.email === state.member?.email?.toLowerCase(),
     )?.role || '';
   const canGrant = (team, role) =>
-    manages(team) ||
-    ownRole(team) === 'publisher' ||
-    (ownRole(team) === 'viewer' && role === 'viewer');
+    state.member?.role === 'admin' ||
+    (manages(team) && role !== 'manager') ||
+    (ownRole(team) === 'publisher' && ['viewer', 'contributor'].includes(role)) ||
+    (ownRole(team) === 'contributor' && role === 'viewer');
   const canManagePeople = (team) => canGrant(team, 'viewer');
   const grantableRoles = (team) =>
-    ownRole(team) === 'viewer' && !manages(team) ? ['viewer'] : ['viewer', 'publisher'];
-  const roleLabel = (role) => (role === 'publisher' ? 'Publisher' : 'Viewer');
+    state.member?.role === 'admin'
+      ? ['viewer', 'contributor', 'publisher', 'manager']
+      : manages(team)
+        ? ['viewer', 'contributor', 'publisher']
+        : ownRole(team) === 'publisher'
+          ? ['viewer', 'contributor']
+          : ownRole(team) === 'contributor'
+            ? ['viewer']
+            : ['viewer'];
+  const roleLabel = (role) =>
+    ({ manager: 'Manager', publisher: 'Publisher', contributor: 'Contributor', viewer: 'Viewer' })[
+      role
+    ] || role;
   const teamFor = (id) => state.teams.find((team) => team.id === id || team.slug === id);
 
   function field(page) {
@@ -34,7 +52,10 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
 
   async function view(id) {
     const team = teamFor(id);
-    const canCreate = ['admin', 'manager'].includes(state.member?.role);
+    const canCreate =
+      state.member?.role === 'admin' ||
+      state.member?.role === 'manager' ||
+      state.teams.some((item) => manages(item));
     if (id && !team)
       return `<main class="settings-content"><h1>Team unavailable</h1><p>You may no longer belong to this team.</p><a href="#/teams">Back to teams</a></main>`;
     if (!team)
@@ -43,8 +64,8 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
     const docs = state.pages.filter((page) => page.team_id === team.id && !page.archived_at);
     const linkedDocs = state.pages.filter((page) => page.team_id === team.id);
     const members = state.teamMembers.filter((member) => member.team_id === team.id);
-    const canWrite = manages(team) || ownRole(team) === 'publisher';
-    return `<main id="main" class="settings-content"><a class="native-back" href="#/teams">All teams</a><div class="view-heading"><div><h1>${e(team.name)}</h1><p>Documents and people in this team.</p></div><div class="toolbar-actions">${manages(team) ? `<button class="btn outline" data-team-action="rename" data-id="${team.id}">Team settings</button>` : ''}${canManagePeople(team) ? `<button class="btn dark" data-team-action="invite" data-id="${team.id}">Add people</button>` : ''}${canWrite ? `<a class="btn outline" href="#/new?team=${e(team.slug)}">New team document</a>` : ''}${manages(team) ? `<button class="btn danger" data-team-action="delete" data-id="${team.id}" ${linkedDocs.length ? 'disabled title="Move or delete this team’s documents first"' : ''}>Delete team</button>` : ''}</div></div>${manages(team) && linkedDocs.length ? '<p class="small team-delete-hint">Move or delete this team’s documents before deleting the team.</p>' : ''}<h2 class="team-section-title">Documents</h2><div class="document-table">${docs.map((page) => row(page, true)).join('') || '<div class="empty"><h3>No documents yet</h3><p>Create a team document to start sharing knowledge.</p></div>'}</div><h2 class="team-section-title">People</h2><p class="small">Publishers can create and publish team documents. Viewers can read them. You can grant access at or below your own team role.</p><div class="tablewrap"><table><thead><tr><th>Work email</th><th>Team access</th><th></th></tr></thead><tbody>${members.map((member) => `<tr><td>${e(member.email)}</td><td>${e(roleLabel(member.role))}</td><td>${canGrant(team, member.role) ? `<button class="btn text" data-team-action="manage-member" data-id="${team.id}" data-email="${e(member.email)}" data-role="${e(member.role)}">Manage</button>` : ''}</td></tr>`).join('')}</tbody></table></div></main>`;
+    const canWrite = manages(team) || ['publisher', 'contributor'].includes(ownRole(team));
+    return `<main id="main" class="settings-content"><a class="native-back" href="#/teams">All teams</a><div class="view-heading"><div><h1>${e(team.name)}</h1><p>Documents and people in this team.</p></div><div class="toolbar-actions">${manages(team) ? `<button class="btn outline" data-team-action="rename" data-id="${team.id}">Team settings</button>` : ''}${canManagePeople(team) ? `<button class="btn dark" data-team-action="invite" data-id="${team.id}">Add people</button>` : ''}${canWrite ? `<a class="btn outline" href="#/new?team=${e(team.slug)}">New team document</a>` : ''}${manages(team) ? `<button class="btn danger" data-team-action="delete" data-id="${team.id}" ${linkedDocs.length ? 'disabled title="Move or delete this team’s documents first"' : ''}>Delete team</button>` : ''}</div></div>${manages(team) && linkedDocs.length ? '<p class="small team-delete-hint">Move or delete this team’s documents before deleting the team.</p>' : ''}<h2 class="team-section-title">Documents</h2><div class="document-table">${docs.map((page) => row(page, true)).join('') || '<div class="empty"><h3>No documents yet</h3><p>Create a team document to start sharing knowledge.</p></div>'}</div><h2 class="team-section-title">People</h2><p class="small">Managers manage their team. Publishers create and publish, contributors edit drafts, and viewers read. Access is limited to this team.</p><div class="tablewrap"><table><thead><tr><th>Work email</th><th>Team access</th><th></th></tr></thead><tbody>${members.map((member) => `<tr><td>${e(member.email)}</td><td>${e(roleLabel(member.role))}</td><td>${canGrant(team, member.role) ? `<button class="btn text" data-team-action="manage-member" data-id="${team.id}" data-email="${e(member.email)}" data-role="${e(member.role)}">Manage</button>` : ''}</td></tr>`).join('')}</tbody></table></div></main>`;
   }
 
   async function action(button) {
@@ -75,7 +96,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
       if (!canGrant(team, currentRole))
         throw new Error('You can only manage equal or lower team access.');
       dialog(
-        `<h2>Manage team access</h2><p class="small">${e(email)}</p><form><div class="field"><label for="team-member-role">Team role</label><select id="team-member-role" name="role">${roles.map((role) => `<option value="${role}" ${role === currentRole ? 'selected' : ''}>${role === 'publisher' ? 'Publisher · create and publish' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn text" data-team-action="remove" data-id="${id}" data-email="${e(email)}" data-role="${currentRole}">Remove</button><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
+        `<h2>Manage team access</h2><p class="small">${e(email)}</p><form><div class="field"><label for="team-member-role">Team role</label><select id="team-member-role" name="role">${roles.map((role) => `<option value="${role}" ${role === currentRole ? 'selected' : ''}>${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Contributor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn text" data-team-action="remove" data-id="${id}" data-email="${e(email)}" data-role="${currentRole}">Remove</button><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
         async (form) => {
           const role = form.get('role');
           if (!roles.includes(role))
@@ -112,7 +133,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
       if (!canManagePeople(team)) throw new Error('You cannot assign access for this team.');
       const roles = grantableRoles(team);
       dialog(
-        `<h2>Add people to ${e(team.name)}</h2><form><div class="field"><label for="team-emails">Hoora work emails</label><textarea id="team-emails" name="emails" rows="4" required placeholder="name@hoora.me, colleague@hoora.me"></textarea><small>Separate addresses with commas or spaces. They can sign in with Microsoft.</small></div><div class="field"><label for="team-access">Team access</label><select id="team-access" name="role">${roles.map((role) => `<option value="${role}">${role === 'publisher' ? 'Publisher · create and publish' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
+        `<h2>Add people to ${e(team.name)}</h2><form><div class="field"><label for="team-emails">Hoora work emails</label><textarea id="team-emails" name="emails" rows="4" required placeholder="name@hoora.me, colleague@hoora.me"></textarea><small>Separate addresses with commas or spaces. They can sign in with Microsoft.</small></div><div class="field"><label for="team-access">Team access</label><select id="team-access" name="role">${roles.map((role) => `<option value="${role}">${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Contributor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
         async (form) => {
           const emails = [
             ...new Set(

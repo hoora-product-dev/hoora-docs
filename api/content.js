@@ -52,22 +52,37 @@ export default async function handler(req, res) {
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-    if (!['delete', 'delete-project', 'cleanup'].includes(body.action))
+    if (!['delete', 'purge', 'delete-project', 'cleanup'].includes(body.action))
       return res.status(400).json({ error: 'Invalid content action.' });
     if (body.action !== 'cleanup') {
       if (!/^[a-f0-9-]{36}$/i.test(body.id || ''))
         return res.status(400).json({ error: 'Invalid document.' });
       if (body.action === 'delete-project')
-        await call('/rest/v1/rpc/docs_delete_project', {
+        await call('/rest/v1/rpc/docs_trash_project', {
           method: 'POST',
           headers: { Authorization: req.headers.authorization },
           body: JSON.stringify({ project: body.id }),
         });
-      else
+      else if (body.action === 'purge')
         await call('/rest/v1/docs_pages?id=eq.' + body.id, {
           method: 'DELETE',
           headers: { Authorization: req.headers.authorization },
         });
+      else
+        await call('/rest/v1/rpc/docs_trash', {
+          method: 'POST',
+          headers: { Authorization: req.headers.authorization },
+          body: JSON.stringify({ document_id: body.id }),
+        });
+    }
+    // Purging is deliberately separate from trashing. The database function
+    // only removes items whose 30-day retention window has elapsed and queues
+    // their document folder for Storage cleanup through the existing trigger.
+    if (body.action === 'cleanup') {
+      await call('/rest/v1/rpc/docs_purge_expired_trash', {
+        method: 'POST',
+        body: '{}',
+      });
     }
     let cleaned = 0;
     try {
