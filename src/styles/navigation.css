@@ -186,8 +186,7 @@ body.rail-collapsed {
   color: var(--ink);
   font-weight: 550;
 }
-.user-avatar,
-.mini-avatar {
+.user-avatar {
   display: grid;
   place-items: center;
   flex: none;

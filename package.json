@@ -10,9 +10,6 @@
     "check": "node scripts/check.mjs",
     "test:browser": "node tests/browser-hub.mjs",
     "test:releases": "node tests/live-hub.mjs",
-    "seed:demo": "node scripts/seed-demo.mjs",
-    "import:production": "node scripts/import-production-docs.mjs",
-    "seed:longform": "node scripts/seed-longform-demo.mjs",
     "test:workflows": "node tests/live-hub.mjs",
     "knip": "knip",
     "db:migrate": "node scripts/migrate.mjs",
@@ -25,7 +22,8 @@
     "test:ui": "node tests/ui-audit.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:pwa": "node tests/pwa-browser.mjs"
+    "test:pwa": "node tests/pwa-browser.mjs",
+    "release-notes:rebuild": "node scripts/rebuild-release-notes.mjs"
   },
   "engines": {
     "node": ">=22"

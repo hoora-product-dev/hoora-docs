@@ -6,7 +6,7 @@ Hoora’s workspace for release notes, documentation and operating procedures.
 
 ## Features
 
-- One-page release writing with platform, version and section selection, readable version URLs and individually attributed contributions.
+- Release notes per platform and version, with one complete Markdown note per section (Auto Care, Car Services & Repair, Products, Value Added Services), each owned and published by its team.
 - Full-page Markdown writing, source and preview modes; clipboard/drop image uploads; private PDFs; standalone HTML artifacts; link previews; and editable Excalidraw diagrams.
 - Organization-only, team and selected-email sharing, enforced by database and Storage policies. Every document requires authenticated organization access.
 - Microsoft work-account sign-in, permission-aware search, Hoora Assist with cited sources and Jira actions, opt-in browser push and an installable web app.
@@ -35,16 +35,16 @@ npm run build
 
 Browser/integration tests need a running server. Set `HOORA_TEST_BASE_URL` to its address. Live tests create temporary accounts/content and clean up their own records; use an isolated test project when available. Migration and live-test scripts include Hoora project guards.
 
-| Command                        | Coverage                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `npm run test:browser`         | Teams, sharing, search, uploads, PDFs, HTML, notifications and archive workflows                             |
-| `npm run test:release-browser` | Release creation, full-page contributions, preview and publishing                                            |
-| `npm run test:editor`          | Clipboard compression, preview round trips and drawing export                                                |
-| `npm run test:interactions`    | Hover, stable controls, sidebar, mobile drawer and assistant                                                 |
-| `npm run test:ui`              | Public/admin page geometry and screenshots at six viewport widths                                            |
-| `npm run test:workflows`       | Database permissions and content lifecycle integration                                                       |
-| `npm run db:migrate`           | Ordered, transactional migrations with a project guard and migration lock                                    |
-| `node scripts/reset-demo.mjs`  | Replace document/team content with the four-platform demo workspace (preserves schema and employee accounts) |
+| Command                         | Coverage                                                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:browser`          | Teams, sharing, search, uploads, PDFs, HTML, notifications and archive workflows                                      |
+| `npm run test:release-browser`  | Release creation, full-page contributions, preview and publishing                                                     |
+| `npm run test:editor`           | Clipboard compression, preview round trips and drawing export                                                         |
+| `npm run test:interactions`     | Hover, stable controls, sidebar, mobile drawer and assistant                                                          |
+| `npm run test:ui`               | Public/admin page geometry and screenshots at six viewport widths                                                     |
+| `npm run test:workflows`        | Database permissions and content lifecycle integration                                                                |
+| `npm run db:migrate`            | Ordered, transactional migrations with a project guard and migration lock                                             |
+| `npm run release-notes:rebuild` | Rebuild releases from a reviewed plan: one Markdown note per section, published through the normal database functions |
 
 ## Structure
 
@@ -72,14 +72,14 @@ The application lives directly at the repository root. Dependencies, local fonts
 
 ## Content and storage
 
-| Data                             | Location                                                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Markdown and document metadata   | Postgres `docs_pages` draft row                                                                            |
-| Published document               | `docs_published`, a separate published snapshot                                                            |
-| Individual release contributions | `docs_entries`; ready contributions enter the published release snapshot                                   |
-| Images, PDFs, HTML and drawings  | Private Storage bucket `hoora-docs`, under the owning document/release ID                                  |
-| Retrieval index                  | Postgres `docs_ai_chunks`: pgvector embeddings with 1,536 dimensions, section text and revision references |
-| Jira tickets                     | Read from Jira on demand; not copied into Supabase or the assistant index                                  |
+| Data                            | Location                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Markdown and document metadata  | Postgres `docs_pages` draft row                                                                            |
+| Published document              | `docs_published`, a separate published snapshot                                                            |
+| Release section notes           | `docs_entries`, one row per release and section; ready notes enter the published release snapshot          |
+| Images, PDFs, HTML and drawings | Private Storage bucket `hoora-docs`, under the owning document/release ID                                  |
+| Retrieval index                 | Postgres `docs_ai_chunks`: pgvector embeddings with 1,536 dimensions, section text and revision references |
+| Jira tickets                    | Read from Jira on demand; not copied into Supabase or the assistant index                                  |
 
 Pasted Markdown is database text, rather than a second `.md` object. Drafts, published snapshots and retrieval chunks serve different purposes. Index refresh replaces a document’s previous chunks. Images become WebP at a maximum dimension of 1,920px before upload; the final file limit is 10 MB. Drawings keep private editable source alongside a raster preview.
 

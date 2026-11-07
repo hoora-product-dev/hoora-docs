@@ -30,10 +30,6 @@ select:focus-visible {
   color: var(--muted);
   font-size: 14px;
 }
-.reader-context {
-  color: var(--muted);
-  font-size: 12px;
-}
 .library-tools :is(input, select) {
   background: var(--surface);
   border-color: var(--line);

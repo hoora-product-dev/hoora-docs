@@ -186,9 +186,17 @@ body:has(.rail-more[open]) .assistant-shell {
   min-height: 64px;
   padding: 14px 16px;
 }
-.assistant-brand { gap: 10px; }
-.assistant-brand > .assistant-inline-avatar { width: 36px; height: 36px; }
-.assistant-header small { font-size: 10px; letter-spacing: .01em; }
+.assistant-brand {
+  gap: 10px;
+}
+.assistant-brand > .assistant-inline-avatar {
+  width: 36px;
+  height: 36px;
+}
+.assistant-header small {
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
 .assistant-messages {
   display: flex;
   flex-direction: column;
@@ -678,22 +686,67 @@ body:has(.rail-more[open]) .assistant-shell {
   animation-play-state: running !important;
 }
 .assistant-mood .assistant-blobatar {
-  animation: assistant-avatar-mood 760ms cubic-bezier(.22,.8,.32,1) both !important;
+  animation: assistant-avatar-mood 760ms cubic-bezier(0.22, 0.8, 0.32, 1) both !important;
 }
 @keyframes assistant-avatar-mood {
-  0% { transform: rotate(0deg) scale(1); filter: saturate(1); }
-  35% { transform: rotate(-7deg) scale(1.1); filter: saturate(1.35) brightness(1.08); }
-  70% { transform: rotate(5deg) scale(1.04); }
-  100% { transform: rotate(0deg) scale(1); filter: saturate(1); }
+  0% {
+    transform: rotate(0deg) scale(1);
+    filter: saturate(1);
+  }
+  35% {
+    transform: rotate(-7deg) scale(1.1);
+    filter: saturate(1.35) brightness(1.08);
+  }
+  70% {
+    transform: rotate(5deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+    filter: saturate(1);
+  }
 }
 /* Keep the assistant's small, informative eye/blink motion available even
    when the OS has reduced-motion enabled; the avatar is decorative and never
    drives navigation or content changes. */
 @media (prefers-reduced-motion: reduce) {
-  .assistant-blobatar.mo-root { animation: mo-shake .112s linear infinite !important; }
-  .assistant-blobatar .mo-breathe { animation: mo-breathe 2.8s ease-in-out infinite alternate !important; }
-  .assistant-blobatar .mo-bob { animation: mo-bob 3.4s ease-in-out infinite alternate !important; }
-  .assistant-blobatar .mo-eyes { animation: mo-saccade 5.6s linear infinite !important; }
-  .assistant-blobatar .mo-eye { animation: mo-rock .9s ease-in-out infinite !important; }
-  .assistant-blobatar .mo-eye > * { animation: mo-blink, mo-wrap; animation-duration: 4.8s, 5.6s; animation-iteration-count: infinite; animation-timing-function: linear; }
+  .assistant-blobatar.mo-root {
+    animation: mo-shake 0.112s linear infinite !important;
+  }
+  .assistant-blobatar .mo-breathe {
+    animation: mo-breathe 2.8s ease-in-out infinite alternate !important;
+  }
+  .assistant-blobatar .mo-bob {
+    animation: mo-bob 3.4s ease-in-out infinite alternate !important;
+  }
+  .assistant-blobatar .mo-eyes {
+    animation: mo-saccade 5.6s linear infinite !important;
+  }
+  .assistant-blobatar .mo-eye {
+    animation: mo-rock 0.9s ease-in-out infinite !important;
+  }
+  .assistant-blobatar .mo-eye > * {
+    animation: mo-blink, mo-wrap;
+    animation-duration: 4.8s, 5.6s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+}
+
+/* Phones: the assistant becomes a compact avatar so it never covers reading content. */
+@media (max-width: 700px) {
+  .assistant-trigger,
+  .assistant-trigger:hover,
+  .assistant-trigger:focus-visible {
+    width: 48px;
+    padding: 4px;
+    justify-content: center;
+  }
+  .assistant-trigger > span:not(.assistant-inline-avatar) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

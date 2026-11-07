@@ -55,25 +55,8 @@ h3 {
 .reader-heading h1 {
   font-size: 36px;
 }
-.application-release {
-  background: var(--surface);
-  border-color: var(--line);
-  box-shadow: none;
-}
-.application-heading h2 {
-  letter-spacing: -0.035em;
-}
 .release-section-heading h3 {
   letter-spacing: -0.025em;
-}
-.contribution {
-  box-shadow: none;
-}
-.contribution-heading h4 {
-  font-size: 18px;
-}
-.contributor-line {
-  border-color: var(--line);
 }
 .prose {
   font-size: 15px;

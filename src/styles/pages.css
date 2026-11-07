@@ -9,10 +9,6 @@
   }
 }
 
-.contributor-line {
-  color: var(--muted);
-}
-
 .home {
   width: min(calc(100% - 48px), 1240px);
   margin: 0 auto;

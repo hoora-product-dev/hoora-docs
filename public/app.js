@@ -12,7 +12,7 @@ import { config } from './config.js';
 import { teamsFeature } from './teams.js';
 import { upcomingFeature } from './upcoming.js';
 import { createFeedback } from './ui/feedback.js';
-import { createContributionEditor } from './editor/contribution.js';
+import { createContributionEditor, sectionStatus } from './editor/contribution.js';
 import { bindEditorAssets } from './editor/assets.js';
 import { bindResourcePreviews } from './ui/previews.js';
 import { createNavigation } from './ui/navigation.js';
@@ -114,7 +114,8 @@ let assistantOpen = false;
 let assistantBusy = false;
 let assistantMood = false;
 const assistantCache = new Map();
-const assistantAvatar = (className = '') => `<span class="assistant-inline-avatar ${className} ${assistantMood ? 'assistant-mood' : ''}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
+const assistantAvatar = (className = '') =>
+  `<span class="assistant-inline-avatar ${className} ${assistantMood ? 'assistant-mood' : ''}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
 function assistantUI() {
   const route = routeHash();
   if (
@@ -141,10 +142,7 @@ function assistantUI() {
           const tickets = m.tickets?.length
             ? `<nav class="assistant-actions" aria-label="Related Jira tickets"><span class="assistant-actions-label">Related tickets</span>${m.tickets.map((t) => `<a class="assistant-action assistant-ticket" href="${e(t.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}<span>${e(t.key)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
-          const avatar =
-            m.role === 'assistant'
-              ? assistantAvatar('assistant-response-avatar')
-              : '';
+          const avatar = m.role === 'assistant' ? assistantAvatar('assistant-response-avatar') : '';
           return `<div class="assistant-message ${m.role}">${avatar}<div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
         })
         .join('')
@@ -249,8 +247,10 @@ const contributionEditor = createContributionEditor({
   state,
   e,
   icon,
-  sidebar,
+  toneIcon,
+  date: (value) => date(value),
   options,
+  editorMenu,
   richToolbar,
   markdown,
   loadRichEditor,
@@ -512,7 +512,29 @@ function header() {
   const route = routeHash().split('?')[0];
   const auth = route === '#/login' || route === '#/app-welcome';
   const native = route.startsWith('#/artifact/') || route.startsWith('#/preview/');
-  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a></div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
+  const section = route.split('/')[1] || 'home';
+  const area = ['releases', 'release-notes', 'contribute', 'upcoming'].includes(section)
+    ? 'releases'
+    : ['workspace', 'browse', 'doc', 'edit', 'new', 'contributions'].includes(section)
+      ? new URLSearchParams(routeHash().split('?')[1]).get('kind') === 'release' ||
+        (section === 'edit' && state.releases.some((r) => r.id === route.split('/')[2]))
+        ? 'releases'
+        : 'library'
+      : section;
+  const primary =
+    state.member && !auth && !native
+      ? `<nav class="topbar-nav" aria-label="Primary">${[
+          ['home', '#/home', 'Home'],
+          ['releases', '#/releases', 'Release notes'],
+          ['library', canEdit(state.member.role) ? '#/workspace' : '#/browse', 'Library'],
+        ]
+          .map(
+            ([key, href, label]) =>
+              `<a href="${href}" class="${area === key ? 'active' : ''}" ${area === key ? 'aria-current="page"' : ''}>${label}</a>`,
+          )
+          .join('')}</nav>`
+      : '';
+  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${primary}</div><div class="topbar-right">${primary ? `<a class="iconbtn" href="#/search" aria-label="Search">${icon('search')}</a>` : ''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
 }
 function enhanceRail() {
   navigation.prepare();
@@ -527,6 +549,18 @@ function enhanceRail() {
   document.body.classList.toggle('rail-collapsed', collapsed);
   const railLogo =
     document.documentElement.dataset.theme === 'dark' ? '/hoora-dark.png' : '/hoora-light.png';
+  // Phones hide the topbar links, so the drawer repeats them (hidden on desktop).
+  const primary = app.querySelector('.topbar-nav');
+  if (primary && !rail.classList.contains('workspace-sidebar'))
+    rail.insertAdjacentHTML(
+      'afterbegin',
+      `<nav class="drawer-primary" aria-label="Primary">${[...primary.querySelectorAll('a')]
+        .map(
+          (link) =>
+            `<a class="sidelink ${link.classList.contains('active') ? 'active' : ''}" href="${link.getAttribute('href')}">${e(link.textContent)}</a>`,
+        )
+        .join('')}</nav>`,
+    );
   rail.insertAdjacentHTML(
     'afterbegin',
     `<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="rail-logo" src="${railLogo}" alt="Hoora"><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-toggle" aria-label="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}" title="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}">${icon(pinned ? 'panelClose' : 'panelOpen')}</button></div>`,
@@ -712,9 +746,9 @@ function documentPage(p, draft = false) {
   const type = state.types.find((item) => item.key === p.kind);
   const folder = state.folders.find((item) => item.id === p.folder_id);
   return `<div class="layout document-reader-layout">${documentReaderSidebar(p, peers, draft)}<main id="main" class="document-reader">
-   <div class="document-article"><nav class="document-breadcrumbs" aria-label="Breadcrumb"><a href="#/browse">Library</a>${icon('chevron')}<a href="#/browse?kind=${encodeURIComponent(p.kind)}">${e(type?.name || names[p.kind] || 'Documents')}</a>${folder ? `${icon('chevron')}<span>${e(folder.name)}</span>` : ''}</nav>
+   <div class="document-article"><nav class="document-breadcrumbs" aria-label="Breadcrumb"><a href="#/browse">Library</a>${icon('chevron')}<a href="#/browse?kind=${encodeURIComponent(p.kind)}">${e(type?.name || names[p.kind] || 'Documents')}</a>${folder && folder.name !== (type?.name || names[p.kind]) ? `${icon('chevron')}<span>${e(folder.name)}</span>` : ''}</nav>
    <div class="document-article-actions">${draft ? '<span class="badge draft">Saved draft preview</span>' : `<span class="access-label">${icon(pageAccess(p) === 'public' ? 'web' : 'lock')}${e(accessText(p))}</span>`}<div>${draft ? `<a class="btn outline" href="#/edit/${p.id}">Back to editing</a>` : `<button class="btn text" data-action="share">${icon('link')}Share</button>${state.pages.some((d) => d.id === p.id && !d._readOnly) && canEdit(state.member?.role) ? `<a class="btn outline" href="#/edit/${p.id}">Edit page</a>` : ''}`}</div></div>
-   <header class="document-article-heading"><h1>${e(p.title)}</h1>${p.summary ? `<p>${e(p.summary)}</p>` : ''}<div class="document-article-meta"><span>${draft ? 'Saved' : 'Published'} ${date(draft ? p.updated_at : p.published_at)}</span>${p.version ? `<span>${e(p.version)}</span>` : ''}${p.owner_name ? `<span>Owner: ${e(p.owner_name)}</span>` : ''}${!draft && p.published_by_name ? `<span>By ${e(p.published_by_name)}</span>` : ''}</div></header>
+   <header class="document-article-heading"><h1>${e(p.title)}</h1>${p.summary ? `<p>${e(p.summary)}</p>` : ''}<div class="document-article-meta"><span>${draft ? 'Saved' : 'Published'} ${date(draft ? p.updated_at : p.published_at)}</span>${p.version ? `<span>${e(p.version)}</span>` : ''}${p.owner_name ? `<span>Owner: ${e(p.owner_name)}</span>` : ''}${!draft && p.published_by_name && p.published_by_name !== p.owner_name ? `<span>By ${e(p.published_by_name)}</span>` : ''}</div></header>
    ${customFieldList(p)}${sources.preview(p)}${outline.mobile}${p.format === 'html' ? `${draft ? '' : `<a class="open-artifact" href="#/artifact/${e(p.slug)}">${icon('expand')}Open full-page HTML preview</a>`}${artifactFrame(p, draft)}` : ''}<div class="prose document-prose">${content.html}</div>
    ${draft ? '' : features.pageTools(p)}<nav class="document-pagination" aria-label="More in this collection">${previous ? `<a href="#/doc/${e(previous.slug)}"><small>Previous page</small><span>${icon('back')}${e(previous.title)}</span></a>` : '<span></span>'}${next ? `<a href="#/doc/${e(next.slug)}"><small>Next page</small><span>${e(next.title)}${icon('chevron')}</span></a>` : '<span></span>'}</nav>
    </div>${outline.desktop}</main></div>`;
@@ -758,16 +792,7 @@ function editor(id) {
   if (state.releases.some((r) => r.id === id)) {
     const params = new URLSearchParams(routeHash().split('?')[1]);
     if (params.has('settings')) return releaseDetails(id);
-    if (params.has('overview')) return releaseDetail(id);
-    const editable = state.entries.filter(
-      (entry) => entry.release_id === id && canEditEntry(entry),
-    );
-    const requested = params.get('entry');
-    const entry = requested
-      ? editable.find((entry) => entry.id === requested)
-      : editable.find((entry) => entry.author_id === state.member.id) || editable[0];
-    if (requested && !entry) throw Error('You do not have permission to edit this section.');
-    return contributionEditor.view(id, entry?.id);
+    return contributionEditor.view(id, params.get('section') || params.get('entry'));
   }
   const p = state.pages.find((x) => x.id === id) || {
     id: crypto.randomUUID(),
@@ -799,7 +824,7 @@ function editor(id) {
   if (!canEdit(state.member.role) || p._readOnly)
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === 'html' ? artifactFrame(p, true) : ''}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === 'html';
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: isNew ? canPublish(state.member.role) : p._canPublish === true })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: isNew ? canPublish(state.member.role) : p._canPublish === true, html: p.format === 'html' })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon('code')}<span>${e(
           p.artifact_path
@@ -1042,7 +1067,7 @@ async function render() {
         view = releaseHub();
         break;
       case 'contribute':
-        view = contributionEditor.view(id, params.get('entry'));
+        view = contributionEditor.view(id, params.get('section') || params.get('entry'));
         break;
       case 'upcoming':
         view = await upcoming.view(id, params, {
@@ -1976,22 +2001,8 @@ function releaseHub() {
   return releaseTimeline();
 }
 
-function releaseDetail(id) {
-  const record = releaseRecords(false).find((r) => r.page.id === id);
-  if (!record || record.page._readOnly)
-    return empty('Release unavailable', 'You need publisher access to this release.');
-  const versions = releaseRecords(false)
-    .filter((r) => r.project.id === record.project.id && !r.page._readOnly)
-    .sort((a, b) => compareVersions(a.version, b.version));
-  const rail = `<aside class="sidebar"><a class="sidelink" href="#/workspace">${icon('back')}Library</a><div class="rail-heading">${e(record.project.name)}</div><div class="rail-label">Release drafts</div>${versions.map((r) => `<a class="version-link ${r.page.id === id ? 'active' : ''}" href="#/edit/${r.page.id}"><span>v${e(r.version)}</span><small>${r.published ? 'Published' : 'Draft'}</small></a>`).join('')}</aside>`;
-  return `<div class="layout release-layout">${rail}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">${e(record.project.name)} · Release workspace</p><h1>Version ${e(record.version)}</h1><p>Complete Markdown release notes, organized by section.</p></div></div>${releaseApplication(record)}</main></div>`;
-}
-
 function requestsView() {
   return `<div class="layout">${sidebar(true)}<main class="content" id="main"><div class="page-location">Workspace ${icon('chevron')} Requests</div><h1>Requests & approvals</h1><p class="subtitle">Review publication requests and manage access to your workspace.</p>${state.requests.map((r) => `<article class="request-card"><div class="section-top"><h2>${r.kind === 'access' ? 'Editor access' : 'Publication approval'}</h2><span class="badge ${r.status === 'approved' ? 'published' : 'draft'}">${e(r.status)}</span></div><p class="small">Requested by ${e(r.requester_name)} · ${date(r.created_at)}</p>${r.page_id ? `<a class="request-document" href="#/edit/${r.page_id}">${e(state.pages.find((p) => p.id === r.page_id)?.title || 'Document')}</a>` : ''}<p>${e(r.reason)}</p>${r.resolution ? `<p class="small">Reviewer response: ${e(r.resolution)}</p>` : ''}${r.status === 'pending' && (state.member.role === 'admin' || (r.kind === 'publish' && state.member.role === 'publisher')) ? `<div class="toolbar-actions"><button class="btn primary" data-action="resolve-request" data-id="${r.id}" data-approve="true">${r.kind === 'publish' ? 'Approve & publish' : 'Approve publisher access'}</button><button class="btn outline" data-action="resolve-request" data-id="${r.id}" data-approve="false">Decline</button></div>` : ''}</article>`).join('') || empty('No requests yet', 'Your access and publication requests will appear here.')}</main></div>`;
-}
-function entryDialog(releaseId, entryId) {
-  location.hash = contributionEditor.route(releaseId, entryId);
 }
 async function emailPreview(id) {
   const preview = await appApi('/api/notifications', { id, action: 'preview' });
@@ -2111,22 +2122,16 @@ document.addEventListener('click', async (ev) => {
       });
     return;
   }
-  if (a === 'add-entry' || a === 'edit-entry') {
-    entryDialog(
-      a === 'add-entry' ? id : state.entries.find((n) => n.id === id).release_id,
-      a === 'edit-entry' ? id : null,
-    );
-    return;
-  }
   if (a === 'delete-entry') {
     confirmAction(
-      'Delete this contribution?',
-      'This removes the current contribution permanently. A published release stays unchanged until republished.',
+      'Remove this section note?',
+      'The note is removed from the editor. The published release keeps showing it until you publish an update.',
       async () => {
         await db('docs_entries', '?id=eq.' + id, { method: 'DELETE' });
+        state.dirty = false;
         await load();
         await render();
-        toast('Contribution deleted.');
+        toast('Section note removed. Publish an update to remove it from the published release.');
       },
     );
     return;
@@ -2304,12 +2309,28 @@ function releaseRecords(publishedOnly = false) {
       };
     });
 }
-function releaseRail(records, version, project = '', publishedOnly = false) {
-  const filtered = records
-    .filter((r) => !project || r.project.id === project)
-    .sort((a, b) => compareVersions(a.version, b.version));
-  const application = filtered[0]?.project;
-  return `<aside class="sidebar release-sidebar" aria-label="Release versions"><a class="sidelink" href="#/releases${application ? '?project=' + encodeURIComponent(application.slug || slugify(application.name)) : ''}">${icon('back')}Published updates</a><div class="rail-heading">${e(application?.name || 'Release notes')}</div><div class="rail-label">Versions <span>Newest first</span></div><nav class="version-nav">${filtered.map((r) => `<a class="version-link ${r.version === version ? 'active' : ''}" href="${publishedOnly || r.page._readOnly ? '#/doc/' + e(r.page.slug) : '#/preview/' + r.page.id}"><span>v${e(r.version)}</span><small>${r.published ? 'Published' : 'Draft'}</small></a>`).join('')}</nav></aside>`;
+/** Releases an editor can still act on: never published, or with sections not yet published. */
+function releaseWorkQueue(projectId = '') {
+  if (!state.member || !canEdit(state.member.role)) return [];
+  return state.pages
+    .filter((page) => page.kind === 'release' && !page._readOnly && !page.archived_at)
+    .map((page) => {
+      const release = state.releases.find((item) => item.id === page.id);
+      const project = state.projects.find((item) => item.id === release?.project_id);
+      const published = state.published.find((item) => item.id === page.id);
+      const entries = state.entries.filter((item) => item.release_id === page.id);
+      const statuses = entries.map((entry) => sectionStatus(entry, published).key);
+      const waiting = statuses.filter((key) => key !== 'published').length;
+      return { page, release, project, published, entries, waiting };
+    })
+    .filter(
+      (item) =>
+        item.release &&
+        item.project &&
+        (!projectId || item.project.id === projectId) &&
+        (!item.published || item.waiting),
+    )
+    .sort((a, b) => compareVersions(versionKey(a.page.version), versionKey(b.page.version)));
 }
 
 function releaseTimeline() {
@@ -2330,21 +2351,26 @@ function releaseTimeline() {
     days.get(day).push(record);
   }
   const platformName = (p) => displayPlatformName(p.name);
-  const rail = `<aside class="sidebar release-sidebar" aria-label="Release navigation">${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<a class="sidelink ${!current ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${applications.map((p) => `<a class="sidelink ${current?.id === p.id ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}</aside>`;
-  return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current ? e(platformName(current)) : 'All updates'}</h1></div>${['admin', 'publisher'].includes(state.member?.role) ? `<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>` : ''}</div><div class="timeline-list">${
+  const queue = releaseWorkQueue(current?.id);
+  const canStart = ['admin', 'publisher'].includes(state.member?.role);
+  const rail = `<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink ${!current ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${applications.map((p) => `<a class="sidelink ${current?.id === p.id ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}${state.member ? `<div class="rail-label">Planning</div><a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
+  const work = queue.length
+    ? `<section class="release-queue" aria-labelledby="release-queue-title"><div class="release-queue-heading"><h2 id="release-queue-title">In progress</h2></div>${queue
+        .map(
+          (item) =>
+            `<a class="release-queue-item" href="#/contribute/${e(item.page.id)}">${toneIcon(item.project.icon, item.project.color)}<span><strong>${e(platformName(item.project))} · v${e(versionKey(item.page.version))}</strong><small>${item.published ? `${item.waiting} unpublished` : `Draft · ${item.entries.length}/${contributionEditor.sections(item.project.id).length} sections`}</small></span>${icon('chevron')}</a>`,
+        )
+        .join('')}</section>`
+    : '';
+  return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current ? e(platformName(current)) : 'Release notes'}</h1></div>${canStart ? `<button class="btn dark" data-action="new-release">${icon('plus')}New release</button>` : ''}</div>${work}<div class="timeline-list">${
     [...days]
       .map(
         ([day, items]) =>
           `<section class="timeline-day"><h2><time datetime="${day}">${date(day)}</time></h2><div class="timeline-day-items">${items
             .map((r) => {
               const version = r.version === 'Unversioned' ? 'Update' : 'v' + r.version,
-                link = publishedRoute(r.page, state.projects),
-                access = pageAccess({ ...r.page, project_id: r.project.id }),
-                accessLabel =
-                  access === 'public'
-                    ? ''
-                    : `<span class="access-label">${icon('lock')}${e(accessText({ ...r.page, project_id: r.project.id }))}</span>`;
-              return `<article class="timeline-item">${toneIcon(r.project.icon, r.project.color)}<div class="release-row-copy"><h3><a href="${link}">${e(platformName(r.project))} <span>· ${e(version)}</span></a></h3>${accessLabel ? `<div class="release-row-meta">${accessLabel}</div>` : ''}</div><span class="release-row-open" aria-hidden="true">${icon('chevron')}</span></article>`;
+                link = publishedRoute(r.page, state.projects);
+              return `<a class="timeline-item" href="${link}">${toneIcon(r.project.icon, r.project.color)}<div class="release-row-copy"><h3>${e(platformName(r.project))} <span>· ${e(version)}</span></h3></div><span class="release-row-open" aria-hidden="true">${icon('chevron')}</span></a>`;
             })
             .join('')}</div></section>`,
       )
@@ -2378,27 +2404,14 @@ function updateReleaseSectionTabs() {
 }
 window.addEventListener('scroll', updateReleaseSectionTabs, { passive: true });
 
-function releaseChangeGroups(notes, showSectionHeading = true) {
-  const groups = new Map();
-  for (const note of notes) {
-    const name = note.vertical || 'General';
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push(note);
-  }
-  return [...groups]
-    .map(([name, entries]) => {
-      const body = entries
-        .map((note) => {
-          const title = String(note.title || '').trim();
-          const content = String(note.body || '').trim();
-          return title && content ? `### ${title}\n\n${content}` : content;
-        })
-        .filter(Boolean)
-        .join('\n\n');
-      const authors = [...new Set(entries.map((note) => note.edited_by || note.author || 'Hoora team'))];
-      return `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>Complete release note</span></div>` : ''}<article class="release-change release-change-complete"><div class="prose release-change-copy">${markdown(body)}</div><div class="release-change-meta">Updated by <strong>${e(authors.join(', '))}</strong></div></article></section>`;
-    })
-    .join('');
+/** One published section: the complete Markdown note its owner pasted. */
+function releaseSection(note, { heading = true, editHref = '' } = {}) {
+  const name = note.vertical || 'General';
+  const vertical = state.verticals.find(
+    (item) => item.id === note.vertical_id || item.name === name,
+  );
+  const by = note.edited_by || note.author || 'Hoora team';
+  return `<section class="release-section" id="section-${slugify(name)}" tabindex="-1">${heading ? `<div class="release-section-heading">${toneIcon(note.vertical_icon || vertical?.icon || 'grid', note.vertical_color || vertical?.color || 'slate')}<h2>${e(name)}</h2><span class="release-section-meta">${e(by)}${note.updated_at ? ' · ' + date(note.updated_at) : ''}</span>${editHref ? `<a class="btn text release-section-edit" href="${editHref}" aria-label="Edit ${e(name)} note">${icon('edit')}<span>Edit</span></a>` : ''}</div>` : ''}<article class="release-change release-change-complete"><div class="prose release-change-copy">${markdown(note.body || '')}</div></article></section>`;
 }
 
 function releaseDocumentNew(p) {
@@ -2422,53 +2435,33 @@ function releaseDocumentNew(p) {
   const versions = records
     .filter((r) => r.project.id === project.id)
     .sort((a, b) => compareVersions(a.version, b.version));
-  const rail = `<aside class="sidebar release-sidebar" aria-label="Application versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug || slugify(project.name))}">${icon('back')}<span>All updates</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map((r) => `<a class="version-link ${r.page.id === p.id ? 'active' : ''}" href="${publishedRoute(r.page, state.projects)}"><span>${e(r.version === 'Unversioned' ? r.version : 'v' + r.version)}</span></a>`).join('')}</nav></aside>`;
-  const ownEntry = state.entries.find(
-    (entry) => entry.release_id === p.id && entry.author_id === state.member?.id,
-  );
-  const editHref =
-    state.member?.role === 'admin'
-      ? '#/edit/' + e(p.id)
-      : '#/contribute/' + e(p.id) + (ownEntry ? '?entry=' + encodeURIComponent(ownEntry.id) : '');
+  const rail = `<aside class="sidebar release-sidebar" aria-label="Platform versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug || slugify(project.name))}">${icon('back')}<span>${e(project.name)}</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map((r) => `<a class="version-link ${r.page.id === p.id ? 'active' : ''}" href="${publishedRoute(r.page, state.projects)}" ${r.page.id === p.id ? 'aria-current="page"' : ''}><span>${e(r.version === 'Unversioned' ? r.version : 'v' + r.version)}</span><small>${date(r.page.published_at)}</small></a>`).join('')}</nav></aside>`;
+  const editable =
+    canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly);
+  const editHref = (name) =>
+    '#/contribute/' + e(p.id) + (name ? '?section=' + encodeURIComponent(slugify(name)) : '');
   const releaseLink = publishedRoute(p, state.projects);
-  const sections = [
-    ...new Map(allNotes.map((note) => [note.vertical || 'General', note])).entries(),
-  ];
-  const tabs = `<nav class="version-section-tabs" data-filtered="${selectedSection ? 'true' : 'false'}" aria-label="Release sections"><a class="${!selectedSection ? 'active' : ''}" data-section-key="" href="${releaseLink}">${icon('grid')}<span>All</span></a>${sections
-    .map(([name, note]) => {
-      const slug = slugify(name),
-        vertical = state.verticals.find((item) => item.name === name);
-      return `<a class="${selectedSection === slug ? 'active' : ''}" data-section-key="${e(slug)}" href="${releaseLink}?section=${encodeURIComponent(slug)}">${toneIcon(note.vertical_icon || vertical?.icon || 'grid', note.vertical_color || vertical?.color || 'slate')}<span>${e(name)}</span></a>`;
-    })
-    .join('')}</nav>`;
-
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? releaseChangeGroups(notes, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
-}
-
-function releaseApplication(record) {
-  const { page, project, notes, draft, published } = record,
-    editable = draft && canEdit(state.member?.role),
-    canPublishRelease = editable && page._canPublish === true;
-  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon, project.color)}<div><h2>Release notes</h2><span class="access-label">${icon(pageAccess({ ...page, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...page, project_id: project.id }))}${draft ? `<span class="badge ${published ? 'published' : 'draft'}">${published ? (published.revision === page.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span></div>${editable ? `<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('edit')}${notes.length ? 'Edit release note' : 'Add release note'}</button>` : ''}</div>${editable ? `<div class="release-controls">${canPublishRelease ? `<button class="btn dark" data-action="publish-release" data-id="${page.id}">${published ? 'Publish changes' : 'Publish release'}</button>` : ''}</div>${canPublishRelease ? '<p class="release-help">Review the complete Markdown note, then publish it.</p>' : ''}` : ''}${notes.length ? contributionGroups(notes, editable) : empty('Add a release note', 'Paste one complete Markdown note for the selected section.')}</section>`;
-}
-function contributionGroups(notes, editable = false, showSectionHeading = true) {
-  const groups = new Map();
-  for (const note of notes) {
-    const name = note.vertical || 'General';
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push(note);
-  }
-  return [...groups]
-    .map(
-      ([name, entries]) =>
-        `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries
-          .map((n) => {
-            const canEditThis = editable && canEditEntry(n);
-            return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div><div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`;
+  const configured = editable
+    ? contributionEditor
+        .sections(project.id)
+        .filter((section) => !allNotes.some((note) => note.vertical === section.name))
+    : [];
+  const tabs =
+    allNotes.length > 1
+      ? `<nav class="version-section-tabs" data-filtered="${selectedSection ? 'true' : 'false'}" aria-label="Release sections"><a class="${!selectedSection ? 'active' : ''}" data-section-key="" href="${releaseLink}">${icon('grid')}<span>All</span></a>${allNotes
+          .map((note) => {
+            const name = note.vertical || 'General',
+              slug = slugify(name),
+              vertical = state.verticals.find((item) => item.name === name);
+            return `<a class="${selectedSection === slug ? 'active' : ''}" data-section-key="${e(slug)}" href="${releaseLink}?section=${encodeURIComponent(slug)}">${toneIcon(note.vertical_icon || vertical?.icon || 'grid', note.vertical_color || vertical?.color || 'slate')}<span>${e(name)}</span></a>`;
           })
-          .join('')}</section>`,
-    )
-    .join('');
+          .join('')}</nav>`
+      : '';
+  const missing =
+    configured.length && !selectedSection
+      ? `<section class="release-missing" aria-label="Sections without a note"><h2>Not in this release yet</h2>${configured.map((section) => `<a href="${editHref(section.name)}">${toneIcon(section.icon, section.color)}<span>${e(section.name)}</span><small>${icon('plus')}Add note</small></a>`).join('')}</section>`
+      : '';
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${editable ? `<a class="btn outline" href="${editHref(selectedSection ? notes[0]?.vertical : '')}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function nativeArtifact(page, draft) {
@@ -2482,10 +2475,8 @@ function draftPreview(id) {
   if (!page || page._readOnly || !canEdit(state.member?.role))
     throw new Error('Publisher access is required to preview drafts.');
   if (page.format === 'html') return nativeArtifact(page, true);
-  if (state.releases.some((r) => r.id === id)) {
-    const record = releaseRecords(false).find((r) => r.page.id === id);
-    return `<div class="layout release-layout">${releaseRail(releaseRecords(false), record.version, record.project.id, false)}<main id="main" class="release-reader"><div class="reader-heading"><div><p class="reader-context">Saved draft preview · not published</p><h1>${e(page.title)}</h1></div><a class="btn outline" href="#/edit/${id}">Back to editing</a></div>${contributionGroups(record.notes.filter((n) => n.submitted))}</main></div>`;
-  }
+  // Release sections are previewed inside the release editor.
+  if (state.releases.some((r) => r.id === id)) return contributionEditor.view(id);
   return documentPage(page, true);
 }
 function publicView() {
@@ -3078,7 +3069,9 @@ document.addEventListener('click', (event) => {
   assistantMood = true;
   assistantOpen = !assistantOpen;
   renderAssistant();
-  window.setTimeout(() => { assistantMood = false; }, 900);
+  window.setTimeout(() => {
+    assistantMood = false;
+  }, 900);
   if (assistantOpen) document.querySelector('#assistant-question')?.focus({ preventScroll: true });
   else document.querySelector('.assistant-trigger')?.focus({ preventScroll: true });
 });
@@ -3142,7 +3135,9 @@ document.addEventListener('submit', async (event) => {
       if (!response.ok) throw Error(data.error || 'The assistant is unavailable.');
       assistantCache.set(cacheKey, { data, createdAt: Date.now() });
     }
-    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 450 - (performance.now() - thinkingStartedAt))));
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, 450 - (performance.now() - thinkingStartedAt))),
+    );
     assistantMessages.pop();
     assistantMessages.push({
       role: 'assistant',

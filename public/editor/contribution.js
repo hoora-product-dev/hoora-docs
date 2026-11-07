@@ -1,12 +1,31 @@
-/** Release contributions share the document editor's page, modes and upload pipeline. */
+/**
+ * Release editor: one complete Markdown note per section (vertical).
+ * Each section owner pastes their whole note in one go; tickets, evidence and
+ * testing notes live inside the Markdown. Publishing publishes every section
+ * that is ready.
+ */
 import { bindSourceFiles } from './clipboard.js';
-import { routeUrl } from '../router.js';
+import { publishedRoute } from '../router.js';
+import { slugify } from '../lib.js';
+
+/** Section status relative to the published release snapshot. */
+export function sectionStatus(entry, published) {
+  if (!entry) return { key: 'empty', label: 'No note yet' };
+  if (!entry.submitted) return { key: 'draft', label: 'Draft' };
+  const live = published?.release_snapshot?.entries?.find((item) => item.id === entry.id);
+  if (live && Date.parse(live.updated_at) >= Date.parse(entry.updated_at))
+    return { key: 'published', label: 'Published' };
+  return { key: 'ready', label: published ? 'Not published yet' : 'Ready to publish' };
+}
+
 export function createContributionEditor({
   state,
   e,
   icon,
-  sidebar,
+  toneIcon,
+  date,
   options,
+  editorMenu,
   richToolbar,
   markdown,
   loadRichEditor,
@@ -22,50 +41,115 @@ export function createContributionEditor({
   onPublished,
 }) {
   let mounted = null;
-  const route = (releaseId, entryId) =>
-    '#/contribute/' + releaseId + (entryId ? '?entry=' + encodeURIComponent(entryId) : '');
-  function sections(projectId, entry) {
+  const route = (releaseId, sectionKey) =>
+    '#/contribute/' + releaseId + (sectionKey ? '?section=' + encodeURIComponent(sectionKey) : '');
+  /** Active sections configured for a platform, in their configured order. */
+  function sections(projectId, include = []) {
     let choices =
       state.projectSections === null
-        ? state.verticals
+        ? [...state.verticals]
         : (state.projectSections || [])
             .filter((section) => section.project_id === projectId && section.active)
+            .sort((a, b) => a.sort_order - b.sort_order)
             .map((section) =>
               state.verticals.find((vertical) => vertical.id === section.vertical_id),
             )
             .filter(Boolean);
-    if (entry?.vertical_id && !choices.some((choice) => choice.id === entry.vertical_id))
-      choices = [
-        ...choices,
-        ...state.verticals.filter((vertical) => vertical.id === entry.vertical_id),
-      ];
+    for (const id of include)
+      if (id && !choices.some((choice) => choice.id === id))
+        choices = [...choices, ...state.verticals.filter((vertical) => vertical.id === id)];
     return choices;
   }
-  function view(releaseId, entryId, setup = {}) {
-    const creating = setup.create === true,
-      release = state.releases.find((item) => item.id === releaseId),
-      entry = state.entries.find((item) => item.id === entryId && item.release_id === releaseId);
-    if (!creating && (!release || (entryId && !entry)))
-      throw Error('This release contribution is unavailable.');
-    if (
-      !canEdit(state.member?.role) ||
-      (creating && !['admin', 'publisher'].includes(state.member?.role)) ||
-      state.pages.find((page) => page.id === releaseId)?._readOnly ||
-      (entry && !canEditEntry(entry))
-    )
-      throw Error('You do not have permission to edit this release.');
-    const publishable =
-      creating || state.pages.find((item) => item.id === releaseId)?._canPublish === true;
-    const projectId = release?.project_id || setup.projectId || '',
-      choices = sections(projectId, entry),
-      page = state.pages.find((item) => item.id === releaseId),
-      project = state.projects.find((item) => item.id === projectId);
-    if (!creating && !choices.length)
-      throw Error('An administrator needs to configure release sections first.');
-    return `<div class="layout editor-layout contribution-editor-layout">${sidebar(true)}<main id="main" class="editor contribution-editor"><div class="editor-top"><nav class="breadcrumbs"><a href="${creating ? '#/releases' : '#/edit/' + e(releaseId) + '?overview=1'}">${icon('back')}<span>${creating ? 'Releases' : e(project?.name || 'Release') + ' ' + e(page?.version || '')}</span></a><span>${creating ? 'New release' : entry ? 'Edit' : 'New section'}</span></nav><div class="editor-top-actions"><button class="btn outline" type="submit" name="intent" value="draft" form="contribution-form">Save draft</button><button class="btn primary" type="submit" name="intent" value="${publishable ? 'publish' : 'ready'}" form="contribution-form">${publishable ? 'Publish' : 'Mark ready'}</button></div></div>${
-      ''
-    }<form id="contribution-form" data-release-id="${e(releaseId || '')}" data-id="${e(entry?.id || '')}" data-revision="${entry?.revision || 0}">${creating ? `<div class="release-setup"><div class="field"><label for="release-project">Platform</label><select id="release-project" required>${options(state.projects, projectId, 'Choose a platform')}</select></div><div class="field"><label for="release-version">Version</label><input id="release-version" required maxlength="80" placeholder="5.12.0"></div><div class="field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div></div>` : `<div class="editor-section-choice field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div>`}<div class="editor-grid"><section class="editor-main entry-writing"><div class="editor-heading"><label class="sr-only" for="entry-title">Release note title</label><input id="entry-title" name="title" maxlength="200" required value="${e(entry?.title || '')}" placeholder="Release note title"></div><p class="editor-guidance">Paste one complete Markdown release note for this section. Include the change summary, ticket titles, evidence, Figma links, and testing notes in the note itself.</p><div class="editor-mode-tabs entry-write-tabs"><div><button type="button" data-entry-view="visual" class="active">Write</button><button type="button" data-entry-view="split">Split view</button><button type="button" data-entry-view="preview">Preview</button><button type="button" data-entry-view="source">Markdown source</button></div><span class="editor-upload-status" role="status"></span></div><div class="contribution-writing" data-view="visual"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="entry-body">Markdown source</label><textarea id="entry-body" name="body" class="rich-source" maxlength="100000" placeholder="Paste the complete Markdown note here…">${e(entry?.body || '')}</textarea></div><div id="entry-preview" class="prose live-preview" hidden></div></div><input id="entry-attachment" type="file" hidden accept="image/png,image/jpeg,image/webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><p class="error" role="alert"></p><p class="statusbar" id="contribution-save-status" role="status">${entry ? (entry.submitted ? 'Ready for publishing' : 'Draft saved') : 'Not saved yet'}</p></section><aside class="document-properties"><h2>Details</h2><input type="hidden" name="submitted" value="${entry?.submitted ? 'true' : 'false'}"><p class="small">One complete note per section. Ticket references belong in the Markdown content, not in a separate field.</p><p class="small">Credited to ${e(entry?.author_name || state.member?.name || 'your account')}.</p></aside></div></form></main></div>`;
+  const releaseLabel = (project, page) =>
+    `${project?.name || 'Release'} v${String(page?.version || '').replace(/^v/i, '')}`;
+
+  function sectionNav(releaseId, choices, current, published) {
+    return choices
+      .map((section) => {
+        const entry = state.entries.find(
+            (item) => item.release_id === releaseId && item.vertical_id === section.id,
+          ),
+          status = sectionStatus(entry, published);
+        return `<a class="section-link ${section.id === current.id ? 'active' : ''}" href="${route(releaseId, slugify(section.name))}" ${section.id === current.id ? 'aria-current="page"' : ''}>${toneIcon(section.icon, section.color)}<span><strong>${e(section.name)}</strong><small class="section-status status-${status.key}">${e(status.label)}</small></span></a>`;
+      })
+      .join('');
   }
+
+  function newRelease(projectId) {
+    const choices = sections(projectId);
+    return `<div class="layout editor-layout release-editor-layout"><aside class="sidebar release-sidebar" aria-label="Release navigation"><div class="rail-label">New release</div></aside><main id="main" class="editor release-editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/releases">Release notes</a>${icon('chevron')}<span>New release</span></nav><div class="editor-top-actions"><button class="btn outline" type="submit" name="intent" value="draft" form="contribution-form">Save draft</button><button class="btn primary" type="submit" name="intent" value="publish" form="contribution-form">Publish</button></div></div><form id="contribution-form" data-release-id="" data-id="" data-revision="0"><div class="release-setup"><div class="field"><label for="release-project">Platform</label><select id="release-project" required>${options(state.projects, projectId, 'Choose a platform')}</select></div><div class="field"><label for="release-version">Version</label><input id="release-version" required maxlength="80" placeholder="5.12.0" inputmode="decimal" autocomplete="off"></div><div class="field"><label for="entry-vertical">Your section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, '', 'Choose a section')}</select></div></div>${writing('', '')}</form></main></div>`;
+  }
+
+  function writing(body, sectionName) {
+    return `<section class="editor-main entry-writing"><div class="editor-mode-tabs entry-write-tabs"><div role="tablist" aria-label="Editor view"><button type="button" role="tab" data-entry-view="visual" class="active" aria-selected="true">Write</button><button type="button" role="tab" data-entry-view="source" aria-selected="false">Markdown</button><button type="button" role="tab" data-entry-view="preview" aria-selected="false">Preview</button></div><span class="editor-upload-status" role="status"></span></div><div class="contribution-writing" data-view="visual"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="entry-body">Markdown source</label><textarea id="entry-body" name="body" class="rich-source" maxlength="100000" spellcheck="false" placeholder="Paste the complete Markdown note here…">${e(body)}</textarea></div><div id="entry-preview" class="prose live-preview" hidden></div></div><input id="entry-attachment" type="file" hidden accept="image/png,image/jpeg,image/webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><p class="error" role="alert"></p></section>`;
+  }
+
+  function view(releaseId, sectionKey, setup = {}) {
+    if (setup.create === true) {
+      if (!['admin', 'publisher'].includes(state.member?.role))
+        throw Error('Publisher access is required to start a new release.');
+      return newRelease(setup.projectId || '');
+    }
+    const release = state.releases.find((item) => item.id === releaseId),
+      page = state.pages.find((item) => item.id === releaseId);
+    if (!release || !page) throw Error('This release is unavailable.');
+    if (!canEdit(state.member?.role) || page._readOnly)
+      throw Error('You do not have permission to edit this release.');
+    const project = state.projects.find((item) => item.id === release.project_id),
+      published = state.published.find((item) => item.id === releaseId),
+      entries = state.entries.filter((item) => item.release_id === releaseId),
+      choices = sections(
+        release.project_id,
+        entries.map((item) => item.vertical_id),
+      );
+    if (!choices.length) throw Error('An administrator needs to configure release sections first.');
+    // Legacy links used ?entry=<id>; current links use ?section=<slug>.
+    const byEntry = entries.find((item) => item.id === sectionKey);
+    const current =
+      choices.find((item) => item.id === byEntry?.vertical_id) ||
+      choices.find((item) => slugify(item.name) === sectionKey) ||
+      choices.find((item) =>
+        entries.some(
+          (entry) => entry.vertical_id === item.id && entry.author_id === state.member.id,
+        ),
+      ) ||
+      choices[0];
+    const entry = entries.find((item) => item.vertical_id === current.id);
+    const status = sectionStatus(entry, published),
+      editable = !entry || canEditEntry(entry),
+      publishable = page._canPublish === true,
+      label = releaseLabel(project, page),
+      publishedLink = published ? publishedRoute(published, state.projects) : '',
+      pending =
+        published &&
+        entries.some((item) => item.submitted && sectionStatus(item, published).key === 'ready');
+    const menu =
+      (publishedLink
+        ? `<a href="${publishedLink}${'?section=' + encodeURIComponent(slugify(current.name))}">${icon('link')}<span>View published</span></a>`
+        : '') +
+      (state.member.role === 'admin'
+        ? `<a href="#/edit/${e(releaseId)}?settings=1">${icon('settings')}<span>Release settings</span></a>`
+        : '') +
+      (entry && editable
+        ? `<button type="button" class="danger" data-action="delete-entry" data-id="${e(entry.id)}">${icon('trash')}<span>Remove ${e(current.name)} note</span></button>`
+        : '') +
+      (state.member.role === 'admin'
+        ? `<button type="button" class="danger" data-action="delete-release" data-id="${e(releaseId)}">${icon('trash')}<span>Delete release</span></button>`
+        : '');
+    const actions = editable
+      ? `<button class="btn outline" type="submit" name="intent" value="draft" form="contribution-form">Save draft</button><button class="btn primary" type="submit" name="intent" value="${publishable ? 'publish' : 'ready'}" form="contribution-form">${publishable ? (published ? 'Publish update' : 'Publish release') : 'Submit for publishing'}</button>`
+      : publishable && pending
+        ? `<button class="btn primary" type="button" data-action="publish-release" data-id="${e(releaseId)}">Publish update</button>`
+        : '';
+    const meta = entry
+      ? `${e(status.label)} · Updated by ${e(entry.updated_name || entry.author_name || 'a teammate')} on ${date(entry.updated_at)}`
+      : 'No note yet for this section';
+    const body = editable
+      ? `<form id="contribution-form" data-release-id="${e(releaseId)}" data-id="${e(entry?.id || '')}" data-revision="${entry?.revision || 0}" data-section="${e(slugify(current.name))}"><input type="hidden" name="vertical_id" value="${e(current.id)}"><input type="hidden" name="submitted" value="${entry?.submitted ? 'true' : 'false'}">${writing(entry?.body || '', current.name)}<p class="statusbar" id="contribution-save-status" role="status">${entry ? '' : 'Not saved yet'}</p></form>`
+      : `<div class="notice">${icon('lock')}<span>${e(entry.author_name || 'Another teammate')} owns this section. They or an administrator can edit it.</span></div><div class="prose release-readonly-note">${markdown(entry.body)}</div>`;
+    return `<div class="layout editor-layout release-editor-layout"><aside class="sidebar release-sidebar" aria-label="Release sections"><a class="sidelink" href="${publishedLink || '#/releases'}">${icon('back')}<span>${e(label)}</span></a><div class="rail-label">Sections</div><nav class="section-nav">${sectionNav(releaseId, choices, current, published)}</nav></aside><main id="main" class="editor release-editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/releases">Release notes</a>${icon('chevron')}<a href="${publishedLink || '#/releases'}">${e(label)}</a></nav><div class="editor-top-actions">${actions}${menu ? editorMenu(icon, menu) : ''}</div></div><nav class="section-tabs" aria-label="Release sections">${choices.map((section) => `<a class="${section.id === current.id ? 'active' : ''}" href="${route(releaseId, slugify(section.name))}">${e(section.name)}</a>`).join('')}</nav><header class="release-editor-heading">${toneIcon(current.icon, current.color)}<div><h1>${e(current.name)}</h1><p>${meta}</p></div></header>${body}</main></div>`;
+  }
+
   const releaseCreations = new WeakMap();
   async function ensureRelease() {
     const form = document.querySelector('#contribution-form');
@@ -77,6 +161,15 @@ export function createContributionEditor({
       section = form.querySelector('#entry-vertical');
     for (const field of [project, version, section])
       if (!field?.reportValidity()) throw Error('Choose a platform, version and section first.');
+    const existing = state.releases.find(
+      (item) =>
+        item.project_id === project.value &&
+        item.version === version.value.trim().replace(/^v(?=\d)/i, ''),
+    );
+    if (existing) {
+      form.dataset.releaseId = existing.id;
+      return existing.id;
+    }
     project.disabled = true;
     version.readOnly = true;
     const creatingRelease = (async () => {
@@ -86,7 +179,7 @@ export function createContributionEditor({
       });
       form.dataset.releaseId = id;
       if (!form.isConnected)
-        throw Error('This editor was closed. Your draft is available in releases.');
+        throw Error('This editor was closed. Your draft is available in release notes.');
       state.dirty = true;
       return id;
     })();
@@ -101,22 +194,13 @@ export function createContributionEditor({
       releaseCreations.delete(form);
     }
   }
+
   function mount() {
     mounted?.destroy();
     mounted = null;
     const form = document.querySelector('#contribution-form');
     if (!form) return;
-    // The note title is derived from the first Markdown heading; validation
-    // for the hidden legacy title field must not block a complete-note paste.
     form.noValidate = true;
-    document.querySelector('#editing-entry')?.addEventListener('change', (event) => {
-      if (state.dirty) {
-        event.target.value = form.dataset.id;
-        toast('Save your draft before switching sections.', true);
-        return;
-      }
-      location.hash = route(form.dataset.releaseId, event.target.value);
-    });
     form.querySelector('#release-project')?.addEventListener('change', (event) => {
       form.querySelector('#entry-vertical').innerHTML = options(
         sections(event.target.value),
@@ -128,12 +212,15 @@ export function createContributionEditor({
       source = form.querySelector('#entry-body'),
       layout = form.querySelector('.contribution-writing'),
       preview = form.querySelector('#entry-preview');
+    const renderPreview = () => {
+      preview.innerHTML = source.value.trim()
+        ? markdown(source.value)
+        : '<p class="preview-placeholder">Nothing to preview yet.</p>';
+      hydrateImages();
+    };
     const update = () => {
       state.dirty = true;
-      if (!preview.hidden) {
-        preview.innerHTML = markdown(source.value);
-        hydrateImages();
-      }
+      if (!preview.hidden) renderPreview();
     };
     loadRichEditor()
       .then(({ mountRichEditor }) => {
@@ -151,13 +238,10 @@ export function createContributionEditor({
     const modes = () => {
       const mode = layout.dataset.view || 'visual';
       source.hidden = mode !== 'source';
-      root.querySelector('[data-rich-canvas]').hidden = !['visual', 'split'].includes(mode);
-      root.querySelector('.rich-toolbar').hidden = !['visual', 'split'].includes(mode);
-      preview.hidden = !['preview', 'split'].includes(mode);
-      if (!preview.hidden) {
-        preview.innerHTML = markdown(source.value);
-        hydrateImages();
-      }
+      root.querySelector('[data-rich-canvas]').hidden = mode !== 'visual';
+      root.querySelector('.rich-toolbar').hidden = mode !== 'visual';
+      preview.hidden = mode !== 'preview';
+      if (!preview.hidden) renderPreview();
     };
     modes();
     form.querySelectorAll('[data-entry-view]').forEach((b) =>
@@ -165,9 +249,10 @@ export function createContributionEditor({
         if (layout.dataset.view === 'source' && b.dataset.entryView !== 'source')
           mounted?.setMarkdown(source.value);
         layout.dataset.view = b.dataset.entryView;
-        form
-          .querySelectorAll('[data-entry-view]')
-          .forEach((x) => x.classList.toggle('active', x === b));
+        form.querySelectorAll('[data-entry-view]').forEach((x) => {
+          x.classList.toggle('active', x === b);
+          x.setAttribute('aria-selected', String(x === b));
+        });
         modes();
       }),
     );
@@ -182,10 +267,10 @@ export function createContributionEditor({
     form.addEventListener('change', () => (state.dirty = true));
     form.querySelector('#entry-attachment').addEventListener('change', (event) => {
       const files = [...event.target.files];
-      if (mounted && layout.dataset.view !== 'source') mounted.insertFiles(files);
+      if (mounted && layout.dataset.view === 'visual') mounted.insertFiles(files);
       else
         (async () => {
-          for (const file of files) await upload(file, form.dataset.releaseId);
+          for (const file of files) await upload(file, await ensureRelease());
           update();
         })().catch((error) => toast(error.message, true));
       event.target.value = '';
@@ -194,89 +279,81 @@ export function createContributionEditor({
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (saving) return;
+      const error = form.querySelector('.error');
       if (form.querySelector('[data-uploading=true]')) {
-        form.querySelector('.error').textContent = 'Wait for the upload to finish before saving.';
+        error.textContent = 'Wait for the upload to finish before saving.';
         return;
       }
       const intent = event.submitter?.value || 'draft';
-      if (intent === 'publish' && !canPublish(state.member?.role)) return;
+      if (layout.dataset.view === 'source') mounted?.setMarkdown(source.value);
+      if (!source.value.trim()) {
+        error.textContent = 'Paste the release note before saving.';
+        return;
+      }
       saving = true;
       const buttons = [...document.querySelectorAll('[form="contribution-form"]')];
       buttons.forEach((button) => {
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
       });
-      if (intent === 'publish') form.inert = true;
-      form.querySelector('.error').textContent = '';
+      error.textContent = '';
       try {
         const releaseId = await ensureRelease(),
-          snapshot = JSON.stringify([...new FormData(form)]),
           values = Object.fromEntries(new FormData(form)),
-          sectionName = form.querySelector('#entry-vertical')?.selectedOptions?.[0]?.textContent?.trim() || 'Release note',
-          firstHeading = String(values.body || '').match(/^#{1,2}\s+(.+)$/m)?.[1]?.trim(),
-          entryTitle = (firstHeading || sectionName).replace(/[*_`]/g, '').slice(0, 200),
-          id = form.dataset.id;
-        const result = await db(
-          'docs_entries',
-          id ? '?id=eq.' + id + '&revision=eq.' + form.dataset.revision : '',
-          {
-            method: id ? 'PATCH' : 'POST',
-            headers: { Prefer: 'return=representation' },
-            body: {
-              title: entryTitle,
-              body: values.body,
-              vertical_id: values.vertical_id,
-              // Release notes are authored as one complete Markdown document.
-              // Keep the legacy column empty for compatibility with old rows.
-              tickets: '',
-              submitted: intent === 'draft' ? values.submitted === 'true' : true,
-              ...(!id ? { release_id: releaseId } : {}),
-            },
+          verticalId = values.vertical_id;
+        // A section holds one note: continue an existing note instead of adding a second one.
+        let id = form.dataset.id,
+          revision = form.dataset.revision;
+        if (!id) {
+          const existing = await db(
+            'docs_entries',
+            `?release_id=eq.${releaseId}&vertical_id=eq.${verticalId}&select=id,revision,author_id`,
+          );
+          if (existing[0] && !canEditEntry(existing[0]))
+            throw Error('Another teammate already owns this section in this release.');
+          if (existing[0]) [id, revision] = [existing[0].id, existing[0].revision];
+        }
+        const submitted = intent === 'draft' ? values.submitted === 'true' : true;
+        const result = await db('docs_entries', id ? `?id=eq.${id}&revision=eq.${revision}` : '', {
+          method: id ? 'PATCH' : 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: {
+            body: source.value,
+            vertical_id: verticalId,
+            title: 'Release note',
+            submitted,
+            ...(!id ? { release_id: releaseId } : {}),
           },
-        );
+        });
         if (!result?.length)
-          throw Error('This contribution changed elsewhere. Copy your edits before reloading.');
-        if (!form.isConnected) return;
-        form.dataset.id = result[0].id;
-        form.dataset.revision = result[0].revision;
-        history.replaceState(null, '', routeUrl(route(releaseId, form.dataset.id)));
-        state.dirty = snapshot !== JSON.stringify([...new FormData(form)]);
-        if (form.elements.submitted.value === values.submitted)
-          form.elements.submitted.value = String(result[0].submitted);
-        const status = form.querySelector('#contribution-save-status');
-        status.textContent = state.dirty
-          ? 'New changes not saved'
-          : intent === 'draft'
-            ? 'Draft saved'
-            : 'Ready for publishing';
+          throw Error('This note changed elsewhere. Copy your edits, then reload the page.');
+        state.dirty = false;
         if (intent === 'publish') {
-          if (state.dirty)
-            throw Error('Your draft was saved. Save the latest edits before publishing.');
           await db('rpc/docs_publish', '', { method: 'POST', body: { page_id: releaseId } });
           onPublished?.(releaseId);
         }
         await load();
-        if (!form.isConnected) return;
-        if (intent !== 'draft' && !state.dirty) {
-          const published = state.published.find((page) => page.id === releaseId);
-          location.hash =
-            intent === 'publish' && published
-              ? '#/doc/' + encodeURIComponent(published.slug)
-              : '#/edit/' + releaseId + '?overview=1';
-          toast(intent === 'publish' ? 'Release published.' : 'Contribution ready for publishing.');
-        } else {
-          toast(
-            state.dirty
-              ? 'Earlier edits saved. Your latest changes are still unsaved.'
-              : 'Draft saved.',
-          );
-        }
-      } catch (error) {
-        if (form.isConnected) form.querySelector('.error').textContent = error.message;
-        else toast(error.message, true);
+        const section = state.verticals.find((item) => item.id === verticalId);
+        const published = state.published.find((page) => page.id === releaseId);
+        // Routes are canonicalised to paths, so assigning the hash always re-renders.
+        location.hash =
+          intent === 'publish' && published
+            ? publishedRoute(published, state.projects) +
+              '?section=' +
+              encodeURIComponent(slugify(section?.name || ''))
+            : route(releaseId, slugify(section?.name || ''));
+        toast(
+          intent === 'publish'
+            ? 'Release published. Share the link with your team.'
+            : intent === 'ready'
+              ? 'Saved. A publisher can now publish this section.'
+              : 'Draft saved. It is not published until you publish the release.',
+        );
+      } catch (failure) {
+        if (form.isConnected) error.textContent = failure.message;
+        else toast(failure.message, true);
       } finally {
         saving = false;
-        form.inert = false;
         buttons.forEach((button) => {
           button.disabled = false;
           button.removeAttribute('aria-busy');
@@ -288,6 +365,7 @@ export function createContributionEditor({
     view,
     mount,
     route,
+    sections,
     ensureRelease,
     get editor() {
       return mounted;

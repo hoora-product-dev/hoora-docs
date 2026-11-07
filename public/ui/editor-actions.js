@@ -2,11 +2,21 @@
 export function editorMenu(icon, items) {
   return `<details class="editor-more"><summary class="iconbtn" aria-label="More actions" title="More actions">${icon('more')}</summary><div class="editor-menu">${items}</div></details>`;
 }
-export function documentActions({ icon, published, publishedLink, isNew, id, role, canPublish }) {
+export function documentActions({
+  icon,
+  published,
+  publishedLink,
+  isNew,
+  id,
+  role,
+  canPublish,
+  html = false,
+}) {
   const item = (glyph, label, attrs) =>
     `<button type="button" ${attrs}>${icon(glyph)}<span>${label}</span></button>`;
+  // Markdown has an in-editor Preview tab; only HTML artifacts need a full-page preview.
   const menu =
-    item('web', 'Open preview', 'data-action="open-draft-preview"') +
+    (html ? item('web', 'Open full preview', 'data-action="open-draft-preview"') : '') +
     (published ? `<a href="${publishedLink}">${icon('link')}<span>View published</span></a>` : '') +
     (!isNew && !canPublish
       ? item('clock', 'Request approval', `data-action="request-publish" data-id="${id}"`)

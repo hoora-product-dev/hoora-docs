@@ -295,9 +295,6 @@ body .home {
   max-width: 88ch;
   line-height: 1.8;
 }
-.native-release-body .contribution {
-  min-width: 0;
-}
 .prose pre,
 .prose table {
   max-width: 100%;
