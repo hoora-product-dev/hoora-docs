@@ -1,6 +1,10 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { loadEnvFile } from 'node:process';
+loadEnvFile();
 const base = process.env.HOORA_TEST_BASE_URL || 'http://localhost:5174';
+const testEmail = process.env.HOORA_TEST_EMAIL;
+const testPassword = process.env.HOORA_TEST_PASSWORD;
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const page = await browser.newPage({
@@ -9,6 +13,27 @@ try {
     }),
     errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  if (!testEmail || !testPassword) {
+    await page.goto(base + '/releases');
+    await page.getByRole('heading', { name: 'Continue to Hoora Docs', exact: true }).waitFor();
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    console.log('PASS Anonymous release routes show the responsive sign-in gate');
+    process.exitCode = 0;
+    await browser.close();
+    process.exit(0);
+  }
+  const auth = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: { apikey: process.env.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testEmail, password: testPassword }),
+    },
+  );
+  const session = await auth.json();
+  assert.ok(auth.ok && session.access_token, 'HOORA_TEST_EMAIL/PASSWORD must be a valid member');
+  await page.addInitScript((value) => localStorage.setItem('hoora-session', JSON.stringify(value)), session);
   await page.goto(base + '/releases');
   await page.locator('.timeline-item').first().waitFor();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
