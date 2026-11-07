@@ -71,6 +71,15 @@ const descriptions = {
   sop: 'Clear, repeatable processes. Everything you need to get it right.',
   documentation: 'Explore guides, references, and the details behind our work.',
 };
+const sharedDocumentTarget = (value = routeHash()) => {
+  const target = String(value || '').split('?')[0];
+  return /^#\/(?:doc|artifact|release-notes)\//.test(target) ? String(value) : '';
+};
+const completeLoginRoute = () => {
+  const target = sharedDocumentTarget(sessionStorage.getItem('hoora-return-to'));
+  sessionStorage.removeItem('hoora-return-to');
+  return target || '#/home';
+};
 const state = {
   session: null,
   member: null,
@@ -510,7 +519,7 @@ function sidebar(workspace = false) {
           `<a class="sidelink ${state.folder === f.id ? 'active' : ''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug || f.id)}">${toneIcon(f.icon, f.color)}<span>${e(f.name)}</span>${f.visibility === 'private' ? icon('lock') : ''}</a>${depth < 12 ? folderLinks(f.id, depth + 1) : ''}`,
       )
       .join('');
-  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${workspace ? '#/workspace' : '#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member ? `${canEdit(role) ? `<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}${['admin', 'publisher'].includes(role) ? `<a class="sidelink" href="#/requests">${icon('clock')}<span>Requests</span>${state.pendingRequestCount ? `<small class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</small>` : ''}</a>` : ''}` : ''}${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<div class="rail-label">Collections</div>${state.types
+  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${workspace ? '#/workspace' : '#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member ? `${canEdit(role) ? `<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}${['admin', 'publisher'].includes(role) ? `<a class="sidelink" href="#/requests">${icon('clock')}<span>Requests</span>${state.pendingRequestCount ? `<small class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</small>` : ''}</a>` : ''}` : ''}<div class="rail-label">Collections</div>${state.types
     .filter((t) => t.key !== 'release')
     .map(
       (t) =>
@@ -567,7 +576,7 @@ function appWelcome() {
   const available =
       'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator,
     denied = available && Notification.permission === 'denied';
-  return `<main id="main" class="signin-page app-welcome-page"><section class="signin-card app-welcome-card"><span class="app-welcome-icon">${icon('bell')}</span><h1>${denied ? 'Notifications are off' : 'Stay in the loop'}</h1><p>${denied ? 'Notifications are blocked in this browser. You can enable them later in browser settings.' : 'Get a small alert when your team shares a release or document update.'}</p><button type="button" class="btn dark app-welcome-primary" data-action="${available && !denied ? 'app-enable-notifications' : 'app-continue'}">${available && !denied ? 'Turn on notifications' : 'Continue to releases'}</button>${available && !denied ? '<button type="button" class="app-welcome-dismiss" data-action="app-continue">Not now</button>' : ''}</section></main>`;
+  return `<main id="main" class="signin-page app-welcome-page"><section class="signin-card app-welcome-card"><span class="app-welcome-icon">${icon('bell')}</span><h1>${denied ? 'Notifications are off' : 'Stay in the loop'}</h1><p>${denied ? 'Notifications are blocked in this browser. You can enable them later in browser settings.' : 'Get a small alert when your team shares a release or document update.'}</p><button type="button" class="btn dark app-welcome-primary" data-action="${available && !denied ? 'app-enable-notifications' : 'app-continue'}">${available && !denied ? 'Turn on notifications' : 'Continue to Hoora Docs'}</button>${available && !denied ? '<button type="button" class="app-welcome-dismiss" data-action="app-continue">Not now</button>' : ''}</section></main>`;
 }
 function isStandaloneApp() {
   return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -577,8 +586,7 @@ function finishAppWelcome() {
     localStorage.setItem(`hoora-pwa-onboarding:${state.member.id}`, 'complete');
     localStorage.setItem('hoora-pwa-onboarding-complete', 'true');
   }
-  sessionStorage.removeItem('hoora-return-to');
-  location.hash = '#/releases';
+  location.hash = completeLoginRoute();
 }
 function installPage() {
   const standalone =
@@ -867,9 +875,10 @@ async function render() {
       if (route !== 'login') {
         sessionStorage.setItem(
           'hoora-return-to',
-          localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
-            ? '#/releases'
-            : '#/app-welcome',
+            sharedDocumentTarget(routeHash()) ||
+              (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
+                ? '#/home'
+                : '#/app-welcome'),
         );
         location.hash = '#/login';
         return render();
@@ -877,16 +886,17 @@ async function render() {
       if (!sessionStorage.getItem('hoora-return-to'))
         sessionStorage.setItem(
           'hoora-return-to',
-          localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
-            ? '#/releases'
-            : '#/app-welcome',
+            sharedDocumentTarget(routeHash()) ||
+              (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
+                ? '#/home'
+                : '#/app-welcome'),
         );
     } else if (
       route === 'login' ||
       (!setupDone && route !== 'app-welcome') ||
       (setupDone && (route === 'app-welcome' || route === 'install'))
     ) {
-      location.hash = setupDone ? '#/releases' : '#/app-welcome';
+      location.hash = setupDone ? completeLoginRoute() : '#/app-welcome';
       return render();
     }
   }
@@ -910,7 +920,9 @@ async function render() {
   ].includes(route);
   const authExempt = ['login', 'install', 'app-welcome'];
   if (!state.member && !authExempt.includes(route)) {
-    sessionStorage.setItem('hoora-return-to', routeHash() || '#/home');
+    const target = sharedDocumentTarget(routeHash());
+    if (target) sessionStorage.setItem('hoora-return-to', target);
+    else sessionStorage.removeItem('hoora-return-to');
     if (route !== 'login') {
       location.hash = '#/login';
       return render();
@@ -1333,7 +1345,7 @@ async function completeMicrosoftSignIn() {
       '',
       outlookReturn
         ? '/#/edit/' + outlookReturn
-        : '/' + (sessionStorage.getItem('hoora-return-to') || '#/workspace'),
+        : '/' + completeLoginRoute(),
     );
   } catch (err) {
     saveSession(null);
@@ -1707,8 +1719,7 @@ function bind() {
         sessionStorage.removeItem('hoora-avatar');
         saveSession({ ...session, expires_at: Date.now() / 1000 + session.expires_in });
         await load();
-        location.hash = sessionStorage.getItem('hoora-return-to') || '#/workspace';
-        sessionStorage.removeItem('hoora-return-to');
+        location.hash = completeLoginRoute();
         await render();
       } catch (error) {
         const message = String(error?.message || '');
@@ -1895,8 +1906,7 @@ function bindWorkspace() {
       await appApi('/api/onboarding', Object.fromEntries(f));
       await load();
       state.dirty = false;
-      location.hash = sessionStorage.getItem('hoora-return-to') || '#/workspace';
-      sessionStorage.removeItem('hoora-return-to');
+      location.hash = completeLoginRoute();
       await render();
       toast('Your Hoora Docs password is set.');
     });

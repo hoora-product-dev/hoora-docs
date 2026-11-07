@@ -32,7 +32,7 @@ export function createNavigation({ app, state, icon }) {
         const layout = document.createElement('div');
         layout.className = 'layout app-layout';
         main.before(layout);
-        layout.innerHTML = `<aside class="sidebar workspace-sidebar" aria-label="Workspace navigation"><a class="sidelink" href="#/home">${icon('grid')}<span>Home</span></a><a class="sidelink" href="#/releases">${icon('release')}<span>Releases</span></a><a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a><a class="sidelink" href="#/workspace">${icon('book')}<span>Library</span></a></aside>`;
+        layout.innerHTML = `<aside class="sidebar workspace-sidebar" aria-label="Workspace navigation"><a class="sidelink" href="#/home">${icon('grid')}<span>Home</span></a><a class="sidelink" href="#/releases">${icon('release')}<span>Releases</span></a><a class="sidelink" href="#/workspace">${icon('book')}<span>Library</span></a></aside>`;
         layout.append(main);
         rail = layout.querySelector('.sidebar');
       }
