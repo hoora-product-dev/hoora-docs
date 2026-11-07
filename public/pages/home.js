@@ -1,7 +1,34 @@
-/** The signed-in landing page shares one structure and four recent releases. */
+/** Home: one search, the latest releases and recently updated documents. */
 export function homePage({ state, e, icon, platformName, versionKey, date, link, siteFooter }) {
   const pages = state.member ? state.published : [];
-  const releases = pages.filter((page) => page.kind === 'release').slice(0, 4),
-    documents = pages.filter((page) => page.kind !== 'release').slice(0, 4);
-  return `<main id="main" class="home"><div class="home-intro"><h1>Hoora knowledge, in one place.</h1><p>Release notes, guides and team documentation.</p><form id="home-search-form" class="home-search" action="/search" method="get" role="search">${icon('search')}<label class="sr-only" for="home-query">Search knowledge</label><input id="home-query" name="q" type="search" placeholder="Search Hoora Docs…" maxlength="200" autocomplete="off" aria-controls="home-search-results"></form></div><section class="home-search-results" id="home-search-results" aria-label="Search results" hidden><p id="home-search-status" class="search-status" role="status" aria-live="polite"></p><div id="home-results" class="search-result-list"></div></section><div id="home-content">${state.member ? `<div class="home-cards"><a href="#/releases"><span>${icon('release')}</span><strong>Release notes</strong><small>Updates across our platforms.</small>${icon('arrow')}</a><a href="#/browse"><span>${icon('book')}</span><strong>Documentation</strong><small>Guides, SOPs and shared resources.</small>${icon('arrow')}</a></div>` : ''}${documents.length ? `<section class="home-list"><div><h2>Documentation</h2><a href="#/browse">View all ${icon('chevron')}</a></div>${documents.map((page) => `<a href="${link(page)}"><span>${e(page.title)}</span><small>${e(state.types.find((type) => type.key === page.kind)?.name || 'Document')}</small></a>`).join('')}</section>` : ''}${releases.length ? `<section class="home-list"><div><h2>Latest releases</h2><a href="#/releases">View all ${icon('chevron')}</a></div>${releases.map((page) => `<a href="${link(page)}"><span>${e(platformName(page.release_snapshot?.project || page.title))}</span><small>v${e(versionKey(page.version))} · ${date(page.published_at)}</small></a>`).join('')}</section>` : ''}</div>${siteFooter('home-footer')}</main>`;
+  const releases = pages.filter((page) => page.kind === 'release').slice(0, 5),
+    documents = pages
+      .filter((page) => page.kind !== 'release')
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at || b.published_at) - new Date(a.updated_at || a.published_at),
+      )
+      .slice(0, 5);
+  const list = (title, href, items, row) =>
+    items.length
+      ? `<section class="home-list"><div><h2>${title}</h2><a href="${href}">View all ${icon('chevron')}</a></div>${items.map(row).join('')}</section>`
+      : '';
+  const firstName = String(state.member?.name || '')
+    .trim()
+    .split(/\s+/)[0];
+  return `<main id="main" class="home"><div class="home-intro"><h1>${firstName ? `Hi ${e(firstName)}, what are you looking for?` : 'Hoora knowledge, in one place.'}</h1><form id="home-search-form" class="home-search" action="/search" method="get" role="search">${icon('search')}<label class="sr-only" for="home-query">Search knowledge</label><input id="home-query" name="q" type="search" placeholder="Search releases, SOPs and documentation…" maxlength="200" autocomplete="off" aria-controls="home-search-results"></form></div><section class="home-search-results" id="home-search-results" aria-label="Search results" hidden><p id="home-search-status" class="search-status" role="status" aria-live="polite"></p><div id="home-results" class="search-result-list"></div></section><div id="home-content" class="home-columns">${list(
+    'Latest releases',
+    '#/releases',
+    releases,
+    (page) =>
+      `<a href="${link(page)}"><span>${e(platformName(page.release_snapshot?.project || page.title))} <em>v${e(versionKey(page.version))}</em></span><small>${date(page.published_at)}</small></a>`,
+  )}${list(
+    'Recently updated',
+    state.member && ['admin', 'publisher', 'manager'].includes(state.member.role)
+      ? '#/workspace'
+      : '#/browse',
+    documents,
+    (page) =>
+      `<a href="${link(page)}"><span>${e(page.title)}</span><small>${e(state.types.find((type) => type.key === page.kind)?.name || 'Document')}</small></a>`,
+  )}</div>${siteFooter('home-footer')}</main>`;
 }

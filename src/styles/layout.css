@@ -62,48 +62,6 @@ body .topbar {
   max-height: 32px;
   object-fit: contain;
 }
-.rail-account {
-  position: sticky;
-  bottom: -12px;
-  background: var(--surface);
-  padding: 12px 0 max(4px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-  min-height: 66px;
-  flex-shrink: 0;
-  z-index: 2;
-}
-.rail-person {
-  min-height: 42px;
-}
-.rail-person > span:nth-child(2) {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.rail-person strong,
-.rail-person small {
-  display: block;
-  max-width: 148px;
-  line-height: 1.35;
-}
-.rail-person .user-avatar {
-  width: 32px;
-  height: 32px;
-}
-.rail-person small {
-  margin: 0;
-}
-.rail-menu {
-  left: calc(var(--rail-current) - 18px);
-  max-width: calc(100vw - 32px);
-  border-radius: 10px;
-  padding: 6px;
-}
-.rail-more summary {
-  min-width: 32px;
-  height: 36px;
-  border-radius: 8px;
-}
 .navigation-backdrop {
   display: none;
 }
@@ -163,9 +121,6 @@ body .home {
 .home-search {
   width: 100%;
   max-width: none;
-}
-.home-cards {
-  margin-bottom: 32px;
 }
 .home-list {
   margin-top: 30px;
@@ -416,37 +371,16 @@ body .home {
   .has-rail .topbar {
     z-index: 60;
   }
-  .rail-menu,
-  .rail-collapsed .rail-menu {
-    left: 20px;
-    bottom: 84px;
-    width: 240px;
-  }
-  .rail-account {
-    bottom: -12px;
-  }
-  .rail-collapsed .rail-person {
-    display: flex !important;
-    flex: 1;
-  }
   .rail-collapsed .sidebar .rail-heading,
   .rail-collapsed .sidebar .rail-label,
   .rail-collapsed .sidebar .rail-empty,
-  .rail-collapsed .sidebar .sidelink > span:not(.icon):not(.tone-icon),
-  .rail-collapsed .rail-person > span:nth-child(2) {
+  .rail-collapsed .sidebar .sidelink > span:not(.icon):not(.tone-icon) {
     display: initial !important;
-  }
-  .rail-collapsed .rail-person > span:nth-child(2) {
-    display: flex !important;
   }
   .rail-collapsed .sidebar .sidelink {
     justify-content: flex-start;
     padding: 8px 12px;
     gap: 10px;
-  }
-  .rail-collapsed .rail-account {
-    justify-content: flex-start;
-    flex-wrap: nowrap;
   }
   .document-outline {
     display: none;
@@ -498,13 +432,6 @@ body .home {
   }
   .home h1 {
     font-size: 31px;
-  }
-  .home-cards {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-  }
-  .home-cards > a {
-    padding: 20px;
   }
   .home-list > a {
     align-items: flex-start;

@@ -1,5 +1,5 @@
 import { routeUrl } from './router.js';
-export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, render }) {
+export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, render, rail }) {
   let releases = [],
     configured = false,
     current = null,
@@ -20,8 +20,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
         })
       : 'Date not set';
   const empty = (text) => `<div class="upcoming-empty">${icon('clock')}<p>${e(text)}</p></div>`;
-  const aside = () =>
-    `<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink active" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a><a class="sidelink" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${state.projects.map((project) => `<a class="sidelink" href="#/releases?project=${encodeURIComponent(project.slug || project.id)}">${icon(project.icon || 'release')}<span>${e(project.name)}</span></a>`).join('')}</aside>`;
+  const aside = () => rail();
   const frame = (body) =>
     `<div class="layout">${aside()}<main id="main" class="upcoming-page">${body}</main></div>`;
   const query = () => {
@@ -95,7 +94,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
     current = slug ? releases.find((release) => release.slug === slug) : releases[0];
     if (!current)
       return frame(
-        `<div class="reader-heading"><h1>Upcoming releases</h1>${admin() ? '<a class="btn outline" href="#/upcoming?create=1">' + icon('plus') + 'New release</a>' : ''}</div>${empty(slug ? 'This release is unavailable or access has not been granted.' : 'No upcoming releases are available to your account.')}`,
+        `<div class="reader-heading"><h1>Upcoming releases</h1>${admin() ? '<a class="btn outline" href="#/upcoming?create=1">' + icon('plus') + 'Add upcoming release</a>' : ''}</div>${empty(slug ? 'This release is unavailable or access has not been granted.' : 'No upcoming releases are available to your account.')}`,
       );
     if (screen.settings) return settingsPage(current);
     if (screen.ticket) return ticketPage(screen.ticket, generation);
@@ -113,7 +112,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
       content = `<div class="upcoming-load-error" role="alert"><p>${e(error.message)}</p><button class="btn outline" data-upcoming="refresh">Try again</button></div>`;
     }
     return frame(
-      `<header class="upcoming-release-header"><div><p class="upcoming-release-version">Upcoming · ${e(release.version)}</p><h1>${e(release.title)}</h1><p>Target release · ${e(date(release.releaseDate))}</p></div><div class="toolbar-actions"><button class="btn outline" data-upcoming="copy">${icon('link')}Copy link</button>${admin() ? `<a class="btn outline" href="${path(release)}/settings">${icon('settings')}Manage</a><a class="btn outline" href="#/upcoming?create=1">${icon('plus')}New release</a>` : ''}</div></header>${releases.length > 1 ? `<div class="field upcoming-release-select"><label for="upcoming-release-select">Release</label><select id="upcoming-release-select">${releases.map((r) => `<option value="${e(r.slug)}" ${r.id === release.id ? 'selected' : ''}>${e(r.title)} · ${e(r.version)}</option>`).join('')}</select></div>` : ''}${content}`,
+      `<header class="upcoming-release-header"><div><p class="upcoming-release-version">Upcoming · ${e(release.version)}</p><h1>${e(release.title)}</h1><p>Target release · ${e(date(release.releaseDate))}</p></div><div class="toolbar-actions"><button class="btn outline" data-upcoming="copy">${icon('link')}Copy link</button>${admin() ? `<a class="btn outline" href="${path(release)}/settings">${icon('settings')}Manage</a>` : ''}</div></header>${releases.length > 1 ? `<div class="field upcoming-release-select"><label for="upcoming-release-select">Release</label><select id="upcoming-release-select">${releases.map((r) => `<option value="${e(r.slug)}" ${r.id === release.id ? 'selected' : ''}>${e(r.title)} · ${e(r.version)}</option>`).join('')}</select></div>` : ''}${content}`,
     );
   }
   // Render Jira's document format with an explicit element allowlist; never insert Jira HTML.

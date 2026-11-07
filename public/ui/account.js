@@ -1,16 +1,32 @@
-/** One account entry in the sidebar; every action has a consistent icon. */
-export function sidebarAccount({ state, e, icon, avatar }) {
-  const member = state.member;
-  if (!member)
-    return `<div class="rail-account signed-out"><a class="btn dark rail-sign-in" href="#/login" aria-label="Sign in">${icon('login')}<span>Sign in</span></a></div>`;
-  const items = [
-    ['account', 'user', 'Account settings'],
+/** Account and administration live in one avatar menu in the topbar. */
+export const settingsLinks = (member, pendingRequests = 0) => {
+  if (!member) return [];
+  const links = [
+    ['account', 'user', 'Account'],
     ['teams', 'users', 'Teams'],
   ];
+  if (['admin', 'publisher'].includes(member.role))
+    links.push(['requests', 'clock', 'Requests', pendingRequests]);
   if (member.role === 'admin')
-    items.push(['folders', 'folder', 'Manage structure'], ['users', 'users', 'Manage people']);
-  if (['admin', 'publisher'].includes(member.role)) items.push(['requests', 'clock', 'Requests']);
-  if (member.role === 'admin')
-    items.push(['archive', 'archive', 'Archive'], ['activity', 'list', 'Activity']);
-  return `<div class="rail-account"><a href="#/account" class="rail-person"><span class="user-avatar">${avatar}</span><span><strong>${e(member.name || member.email)}</strong><small>${e(member.email)}</small></span></a><details class="rail-more"><summary aria-label="Workspace options" title="Workspace options">${icon('more')}</summary><div class="rail-menu"><div class="rail-menu-identity"><strong>${e(member.name || member.email)}</strong><small>${e(member.email)}</small></div>${items.map(([route, glyph, label]) => `<a href="#/${route}">${icon(glyph)}<span>${label}</span>${route === 'requests' && state.pendingRequestCount ? `<span class="nav-count">${Math.min(99, state.pendingRequestCount)}</span>` : ''}</a>`).join('')}${member.role === 'admin' ? `<button type="button" data-action="reindex-knowledge">${icon('reload')}<span>Refresh AI index</span></button>` : ''}<button type="button" data-action="logout">${icon('logout')}<span>Sign out</span></button></div></details></div>`;
+    links.push(
+      ['users', 'users', 'People & access'],
+      ['folders', 'folder', 'Structure'],
+      ['activity', 'list', 'Activity'],
+      ['archive', 'archive', 'Recycle bin'],
+    );
+  return links;
+};
+
+export function accountMenu({ state, e, icon, avatar, theme }) {
+  const member = state.member;
+  if (!member) return '';
+  const links = settingsLinks(member, state.pendingRequestCount);
+  return `<details class="account-menu"><summary aria-label="Account and settings" title="${e(member.name || member.email)}"><span class="user-avatar">${avatar}</span>${state.pendingRequestCount && ['admin', 'publisher'].includes(member.role) ? '<span class="account-dot" aria-hidden="true"></span>' : ''}</summary><div class="account-menu-panel"><div class="account-menu-identity"><strong>${e(member.name || member.email)}</strong><small>${e(member.email)}</small></div>${links
+    .map(
+      ([route, glyph, label, count]) =>
+        `<a href="#/${route}">${icon(glyph)}<span>${label}</span>${count ? `<span class="nav-count">${Math.min(99, count)}</span>` : ''}</a>`,
+    )
+    .join(
+      '',
+    )}<div class="account-menu-divider"></div><button type="button" data-action="theme">${icon(theme === 'dark' ? 'sun' : 'moon')}<span>${theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>${member.role === 'admin' ? `<button type="button" data-action="reindex-knowledge">${icon('reload')}<span>Refresh AI index</span></button>` : ''}<button type="button" data-action="logout">${icon('logout')}<span>Sign out</span></button></div></details>`;
 }

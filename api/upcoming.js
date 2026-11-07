@@ -139,7 +139,7 @@ export default async function handler(req, res) {
         if (!saved) throw failure('This release changed. Refresh it before saving.', 409);
       } else {
         const slug =
-          (input.title + '-' + input.version)
+          (input.title.includes(input.version) ? input.title : input.title + '-' + input.version)
             .toLowerCase()
             .normalize('NFKD')
             .replace(/[^a-z0-9]+/g, '-')

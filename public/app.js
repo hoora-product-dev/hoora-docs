@@ -1,7 +1,7 @@
 import { icon } from './vendor/icons.js';
 import { assistantAvatarMarkup } from './assistant-avatar.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
-import { sidebarAccount } from './ui/account.js';
+import { accountMenu, settingsLinks } from './ui/account.js';
 import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
 import { pwaFeature } from './pwa.js';
 import { sourcesFeature } from './sources.js';
@@ -108,7 +108,16 @@ const state = {
   dirty: false,
 };
 let renderId = 0;
-const navigation = createNavigation({ app, state, icon });
+const navigation = createNavigation({
+  app,
+  state,
+  contextRail: (route) =>
+    settingsRoutes.includes(route)
+      ? settingsSidebar(route)
+      : route === 'contributions'
+        ? sidebar(true)
+        : '',
+});
 const assistantMessages = [];
 let assistantOpen = false;
 let assistantBusy = false;
@@ -242,7 +251,17 @@ const features = workspaceFeatures({
   appApi,
   pwa,
 });
-const upcoming = upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, render });
+const upcoming = upcomingFeature({
+  state,
+  appApi,
+  e,
+  icon,
+  dialog,
+  modal,
+  toast,
+  render,
+  rail: () => releaseSidebar({ upcomingActive: true }),
+});
 const contributionEditor = createContributionEditor({
   state,
   e,
@@ -502,6 +521,20 @@ async function hydrateRoute(route, id) {
     }
   }
 }
+/** The primary area (home, releases, library, search…) the current route belongs to. */
+function primaryArea() {
+  const [path, query = ''] = routeHash().replace(/^#/, '').split('?');
+  const [section = 'home', id] = path.split('/').filter(Boolean);
+  if (['releases', 'release-notes', 'contribute', 'upcoming'].includes(section)) return 'releases';
+  if (section === 'doc' && state.published.some((p) => p.slug === id && p.kind === 'release'))
+    return 'releases';
+  if (['workspace', 'browse', 'doc', 'edit', 'new', 'contributions', 'preview'].includes(section))
+    return new URLSearchParams(query).get('kind') === 'release' ||
+      (['edit', 'preview'].includes(section) && state.releases.some((r) => r.id === id))
+      ? 'releases'
+      : 'library';
+  return section;
+}
 function header() {
   if (
     (routeHash().startsWith('#/artifact/') || routeHash().startsWith('#/preview/')) &&
@@ -512,29 +545,27 @@ function header() {
   const route = routeHash().split('?')[0];
   const auth = route === '#/login' || route === '#/app-welcome';
   const native = route.startsWith('#/artifact/') || route.startsWith('#/preview/');
-  const section = route.split('/')[1] || 'home';
-  const area = ['releases', 'release-notes', 'contribute', 'upcoming'].includes(section)
-    ? 'releases'
-    : ['workspace', 'browse', 'doc', 'edit', 'new', 'contributions'].includes(section)
-      ? new URLSearchParams(routeHash().split('?')[1]).get('kind') === 'release' ||
-        (section === 'edit' && state.releases.some((r) => r.id === route.split('/')[2]))
-        ? 'releases'
-        : 'library'
-      : section;
-  const primary =
-    state.member && !auth && !native
-      ? `<nav class="topbar-nav" aria-label="Primary">${[
-          ['home', '#/home', 'Home'],
-          ['releases', '#/releases', 'Release notes'],
-          ['library', canEdit(state.member.role) ? '#/workspace' : '#/browse', 'Library'],
-        ]
-          .map(
-            ([key, href, label]) =>
-              `<a href="${href}" class="${area === key ? 'active' : ''}" ${area === key ? 'aria-current="page"' : ''}>${label}</a>`,
-          )
-          .join('')}</nav>`
-      : '';
-  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${primary}</div><div class="topbar-right">${primary ? `<a class="iconbtn" href="#/search" aria-label="Search">${icon('search')}</a>` : ''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
+  const area = primaryArea();
+  const signedIn = state.member && !auth && !native;
+  const primary = signedIn
+    ? `<nav class="topbar-nav" aria-label="Primary">${[
+        ['home', '#/home', 'Home'],
+        ['releases', '#/releases', 'Release notes'],
+        ['library', canEdit(state.member.role) ? '#/workspace' : '#/browse', 'Library'],
+      ]
+        .map(
+          ([key, href, label]) =>
+            `<a href="${href}" class="${area === key ? 'active' : ''}" ${area === key ? 'aria-current="page"' : ''}>${label}</a>`,
+        )
+        .join('')}</nav>`
+    : '';
+  const theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  const unread = state.unreadNoticeCount;
+  const bell = `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${unread ? `, ${unread} unread` : ''}">${icon('bell')}${unread ? `<span class="notification-count" aria-hidden="true">${unread > 99 ? '99+' : unread}</span>` : ''}</a>`;
+  const right = signedIn
+    ? `${['home', 'search'].includes(area) ? '' : `<a class="topbar-search" href="#/search" aria-label="Search Hoora Docs">${icon('search')}<span>Search</span><kbd>Ctrl K</kbd></a>`}${bell}${accountMenu({ state, e, icon, avatar: memberAvatar(), theme })}`
+    : `<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(theme === 'dark' ? 'sun' : 'moon')}</button>${!state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}`;
+  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Open section navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${primary}</div><div class="topbar-right">${right}</div></header>`;
 }
 function enhanceRail() {
   navigation.prepare();
@@ -545,22 +576,9 @@ function enhanceRail() {
     return;
   }
   const pinned = localStorage.getItem('hoora-rail-pinned') !== 'false';
-  const collapsed = !pinned;
-  document.body.classList.toggle('rail-collapsed', collapsed);
+  document.body.classList.toggle('rail-collapsed', !pinned);
   const railLogo =
     document.documentElement.dataset.theme === 'dark' ? '/hoora-dark.png' : '/hoora-light.png';
-  // Phones hide the topbar links, so the drawer repeats them (hidden on desktop).
-  const primary = app.querySelector('.topbar-nav');
-  if (primary && !rail.classList.contains('workspace-sidebar'))
-    rail.insertAdjacentHTML(
-      'afterbegin',
-      `<nav class="drawer-primary" aria-label="Primary">${[...primary.querySelectorAll('a')]
-        .map(
-          (link) =>
-            `<a class="sidelink ${link.classList.contains('active') ? 'active' : ''}" href="${link.getAttribute('href')}">${e(link.textContent)}</a>`,
-        )
-        .join('')}</nav>`,
-    );
   rail.insertAdjacentHTML(
     'afterbegin',
     `<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="rail-logo" src="${railLogo}" alt="Hoora"><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-toggle" aria-label="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}" title="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}">${icon(pinned ? 'panelClose' : 'panelOpen')}</button></div>`,
@@ -577,48 +595,92 @@ function enhanceRail() {
       { passive: true },
     );
   }
-  rail.insertAdjacentHTML(
-    'beforeend',
-    sidebarAccount({ state, e, icon, avatar: state.member ? memberAvatar() : '' }),
-  );
 }
 
+/** Settings pages share one sidebar: personal items first, administration after. */
+const settingsRoutes = ['account', 'teams', 'requests', 'users', 'folders', 'activity', 'archive'];
+function settingsSidebar(route) {
+  const links = settingsLinks(state.member, state.pendingRequestCount);
+  const personal = links.filter(([key]) => ['account', 'teams', 'requests'].includes(key));
+  const admin = links.filter(([key]) => !['account', 'teams', 'requests'].includes(key));
+  const link = ([key, glyph, label, count]) =>
+    `<a class="sidelink ${route === key ? 'active' : ''}" href="#/${key}" ${route === key ? 'aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span>${count ? `<small class="nav-count">${Math.min(99, count)}</small>` : ''}</a>`;
+  return `<aside class="sidebar settings-sidebar" aria-label="Settings"><div class="rail-label">Settings</div>${personal.map(link).join('')}${admin.length ? `<div class="rail-label">Administration</div>${admin.map(link).join('')}` : ''}</aside>`;
+}
+
+/** Phones and the installed app: primary destinations in a bottom tab bar. */
 function footer() {
-  return '';
+  const route = routeHash().split('?')[0].split('/')[1] || 'home';
+  // Writing screens keep the full height; their breadcrumbs lead back.
+  if (
+    !state.member ||
+    [
+      'login',
+      'install',
+      'app-welcome',
+      'artifact',
+      'preview',
+      'new',
+      'edit',
+      'contribute',
+    ].includes(route)
+  )
+    return '';
+  const area = primaryArea();
+  const library = canEdit(state.member.role) ? '#/workspace' : '#/browse';
+  const tabs = [
+    ['#/home', 'grid', 'Home'],
+    ['#/releases', 'release', 'Releases'],
+    [library, 'book', 'Library'],
+    ['#/search', 'search', 'Search'],
+  ];
+  return `<nav class="tabbar" aria-label="Primary">${tabs.map(([href, glyph, label]) => `<a href="${href}" class="${area === { Home: 'home', Releases: 'releases', Library: 'library', Search: 'search' }[label] ? 'active' : ''}">${icon(glyph)}<span>${label}</span></a>`).join('')}</nav>`;
 }
 function siteFooter(className = 'site-footer') {
   return `<footer class="site-footer ${className}">${isStandaloneApp() ? '' : `<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="site-footer-credit" href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
 }
 function sidebar(workspace = false) {
   const role = state.member?.role;
+  const base = workspace ? '#/workspace' : '#/browse';
   const docs = (workspace ? state.pages : state.published).filter(
     (p) => !p.archived_at && p.kind !== 'release',
   );
+  const count = (kind) => docs.filter((p) => p.kind === kind).length;
   const folderLinks = (parent = null, depth = 0) =>
     state.folders
       .filter((f) => f.parent_id === parent)
       .map(
         (f) =>
-          `<a class="sidelink ${state.folder === f.id ? 'active' : ''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug || f.id)}">${toneIcon(f.icon, f.color)}<span>${e(f.name)}</span>${f.visibility === 'private' ? icon('lock') : ''}</a>${depth < 12 ? folderLinks(f.id, depth + 1) : ''}`,
+          `<a class="sidelink ${state.folder === f.id ? 'active' : ''}" style="--depth:${depth}" href="${base}?folder=${e(f.slug || f.id)}">${icon('folder')}<span>${e(f.name)}</span></a>${depth < 12 ? folderLinks(f.id, depth + 1) : ''}`,
       )
       .join('');
-  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${workspace ? '#/workspace' : '#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member ? `${canEdit(role) ? `<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}${['admin', 'publisher'].includes(role) ? `<a class="sidelink" href="#/requests">${icon('clock')}<span>Requests</span>${state.pendingRequestCount ? `<small class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</small>` : ''}</a>` : ''}` : ''}<div class="rail-label">Collections</div>${state.types
+  const collections = state.types
     .filter((t) => t.key !== 'release')
     .map(
       (t) =>
-        `<a class="sidelink ${state.kind === t.key ? 'active' : ''}" href="#/${workspace ? 'workspace' : 'browse'}?kind=${t.key}">${toneIcon(t.icon, t.color)}<span>${e(t.name)}</span>${!state.member && t.default_visibility === 'private' ? icon('lock') : ''}</a>`,
+        `<a class="sidelink ${state.kind === t.key ? 'active' : ''}" href="${base}?kind=${t.key}">${toneIcon(t.icon, t.color)}<span>${e(t.name)}</span><small>${count(t.key)}</small></a>`,
     )
-    .join(
-      '',
-    )}${workspace ? `<div class="rail-label">Folders${role === 'admin' ? '<button class="iconbtn" data-action="add-folder" aria-label="Add folder">+</button>' : ''}</div>${folderLinks()}${!state.folders.length ? '<p class="rail-empty">Organize documents in folders.</p>' : ''}` : ''}</aside>`;
+    .join('');
+  const folders = folderLinks();
+  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${base}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${collections}${folders ? `<div class="rail-label">Folders</div>${folders}` : ''}${workspace && canEdit(role) ? `<a class="sidelink my-contributions" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}</aside>`;
 }
 
 function row(p, internal = false) {
   const pub = state.published.find((x) => x.id === p.id),
     type = state.types.find((t) => t.key === p.kind) || {};
   const edit = internal && canEdit(state.member?.role) && !p._readOnly;
-  const access = pageAccess(p);
-  return `<div class="document-row">${toneIcon(p.format === 'html' ? 'code' : type.icon, type.color)}<div class="document-row-content"><a href="#/${edit ? 'edit/' + p.id : 'doc/' + p.slug}">${e(p.title)}</a><p>${e(p.summary || (p.format === 'html' ? 'HTML artifact' : type.name || 'Document'))}</p></div><span class="document-row-status">${internal ? `<span class="badge ${pub ? 'published' : 'draft'}">${pub ? (pub.revision === p.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span><span class="access-label">${icon(access === 'public' ? 'web' : 'lock')}${e(accessText(p))}</span><time>${date(p.updated_at || p.published_at)}</time><a class="iconbtn" href="#/${edit ? 'edit/' + p.id : 'doc/' + p.slug}" aria-label="${edit ? 'Edit' : 'Read'} ${e(p.title)}">${icon('chevron')}</a></div>`;
+  const href = `#/${edit ? 'edit/' + p.id : 'doc/' + p.slug}`;
+  // Only exceptions are labelled: drafts, unpublished edits and restricted access.
+  const status = internal
+    ? !pub
+      ? 'Draft'
+      : pub.revision !== p.revision
+        ? 'Unpublished changes'
+        : ''
+    : '';
+  const access = pageAccess(p) === 'private' ? '' : accessText(p);
+  const flags = [status, access].filter(Boolean);
+  return `<div class="document-row">${toneIcon(p.format === 'html' ? 'code' : type.icon, type.color)}<div class="document-row-content"><a href="${href}">${e(p.title)}</a>${flags.length ? flags.map((flag) => `<span class="badge draft">${e(flag)}</span>`).join('') : ''}<p>${e(p.summary || (p.format === 'html' ? 'HTML artifact' : type.name || 'Document'))}</p></div><time>${date(p.updated_at || p.published_at)}</time><a class="iconbtn" href="${href}" aria-label="${edit ? 'Edit' : 'Read'} ${e(p.title)}">${icon('chevron')}</a></div>`;
 }
 
 function empty(title, text, action = '') {
@@ -638,7 +700,7 @@ function workspace() {
   const title = state.folder
     ? state.folders.find((f) => f.id === state.folder)?.name
     : names[state.kind] || 'All documents';
-  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1><p>${pages.length} documents${state.member.role === 'viewer' ? ' available to your team' : ''}</p></div>${canEdit(state.member.role) ? '<div class="toolbar-actions"><button class="btn outline" data-action="quick-asset">Add link / PDF</button><button class="btn outline" data-action="import-document">' + icon('upload') + 'Import</button><a class="btn dark" href="#/new">' + icon('plus') + 'New document</a></div>' : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div class="document-table-heading"><span>Document</span><span>Status</span><span>Access</span><span>Updated</span></div><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
+  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1></div>${canEdit(state.member.role) ? `<div class="toolbar-actions"><a class="btn dark" href="#/new">${icon('plus')}New document</a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
 function login() {
@@ -845,24 +907,51 @@ function editor(id) {
 
 async function users() {
   state.members = await admin();
-  const unassigned = state.members.filter(
-    (member) => !state.teamMembers.some((tm) => tm.email === member.email),
-  );
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1><p>Manage organization members, teams, folder ownership, and scoped capabilities.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th>Teams</th><th></th></tr></thead><tbody>${state.members.map((m) => `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td>${state.teamMembers.filter((tm) => tm.email === m.email).length || 'Unassigned'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team capabilities</h2><p>Grant a team permission for a collection, folder, or release platform. Permissions are additive and expire when configured.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add capability</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Scope</th><th>Capability</th><th>Expires</th><th></th></tr></thead><tbody>${
-    state.teamPermissions
-      .map((permission) => {
-        const team = state.teams.find((item) => item.id === permission.team_id);
-        const scope =
-          permission.scope_type === 'collection'
-            ? permission.collection_key
-            : permission.scope_type === 'folder'
-              ? state.folders.find((item) => item.id === permission.folder_id)?.name
-              : state.projects.find((item) => item.id === permission.project_id)?.name;
-        return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(scope || permission.scope_type)}</td><td>${e(permission.capability)}</td><td>${permission.expires_at ? e(date(permission.expires_at)) : 'No expiry'}</td><td><button class="btn text danger" data-action="remove-team-permission" data-id="${permission.id}">Remove</button></td></tr>`;
-      })
-      .join('') ||
-    '<tr><td colspan="5">No scoped capabilities yet. Team roles still control basic team access.</td></tr>'
-  }</tbody></table></div></section><div class="role-explainer"><p><strong>Admin</strong> Full control of members, teams, structure, capabilities, recycle bin, and audit.</p><p><strong>Team Manager</strong> Manages members and team content in assigned scopes.</p><p><strong>Publisher</strong> Edits and publishes content where their team has publisher capability.</p><p><strong>Contributor</strong> Edits drafts and submits work for review.</p><p><strong>Viewer</strong> Read-only access to permitted organization or team content.</p><p><strong>Unassigned members:</strong> ${unassigned.length || 'none'}</p></div></main></div>`;
+  const capabilityName = {
+    read: 'Read',
+    contribute: 'Contribute',
+    edit: 'Edit',
+    publish: 'Publish',
+    manage: 'Manage',
+    delete: 'Delete',
+  };
+  const scopeName = (permission) =>
+    permission.scope_type === 'collection'
+      ? names[permission.collection_key] || permission.collection_key
+      : permission.scope_type === 'folder'
+        ? state.folders.find((item) => item.id === permission.folder_id)?.name
+        : displayPlatformName(
+            state.projects.find((item) => item.id === permission.project_id)?.name,
+          );
+  // One row per team and capability; each scope can be removed on its own.
+  const groups = new Map();
+  for (const permission of state.teamPermissions) {
+    const key = permission.team_id + ':' + permission.capability;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(permission);
+  }
+  const capabilityRows = [...groups.values()]
+    .map((list) => {
+      const team = state.teams.find((item) => item.id === list[0].team_id);
+      return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(capabilityName[list[0].capability] || list[0].capability)}</td><td><span class="scope-list">${list
+        .map(
+          (permission) =>
+            `<span>${e(scopeName(permission) || permission.scope_type)}${permission.expires_at ? ` <small>until ${e(date(permission.expires_at))}</small>` : ''}<button type="button" class="scope-remove" data-action="remove-team-permission" data-id="${permission.id}" aria-label="Remove ${e(scopeName(permission) || '')}">${icon('close')}</button></span>`,
+        )
+        .join('')}</span></td></tr>`;
+    })
+    .join('');
+  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Person</th><th>Role</th><th>Teams</th><th>Status</th><th></th></tr></thead><tbody>${state.members
+    .map((m) => {
+      const memberTeams = state.teamMembers
+        .filter((tm) => tm.email === m.email)
+        .map((tm) => state.teams.find((team) => team.id === tm.team_id)?.name)
+        .filter(Boolean);
+      return `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${memberTeams.length ? e(memberTeams.join(', ')) : '<span class="muted">No team</span>'}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td><button class="btn text" data-member="${m.id}">Manage</button></td></tr>`;
+    })
+    .join(
+      '',
+    )}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>What each team can do beyond reading. Permissions add up.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Administrator</strong> Everything, including people, structure, recycle bin and activity.</p><p><strong>Manager</strong> Manages members and content of their teams.</p><p><strong>Publisher</strong> Writes and publishes where their team has publish permission.</p><p><strong>Contributor</strong> Writes drafts and submits them for publishing.</p><p><strong>Viewer</strong> Reads everything shared with the organization or their teams.</p></details></main></div>`;
 }
 function folders() {
   return structureView();
@@ -1154,11 +1243,6 @@ async function render() {
     hydrateImages();
     sources.hydrate();
     features.hydrate();
-    if (route === 'workspace') {
-      const recent = await features.recent().catch(() => '');
-      if (rid === renderId && document.querySelector('.library-content'))
-        document.querySelector('.library-content').insertAdjacentHTML('beforeend', recent);
-    }
     const viewed = route === 'doc' ? state.published.find((p) => p.slug === id) : null;
     if (viewed && state.member)
       db('rpc/docs_track', '', {
@@ -1995,14 +2079,14 @@ function passwordForm(first = false) {
   return `<form id="setup-password-form"><div class="field"><label for="setup-password">${first ? 'Create password' : 'New Hoora Docs password'}</label><input id="setup-password" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>Use 12–128 characters.</small></div><div class="field"><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirmPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn primary">${first ? 'Set password & continue' : 'Update password'}</button></form>`;
 }
 function account() {
-  return `<div class="layout">${sidebar(true)}<main id="main" class="content account-content"><div class="page-location">Workspace ${icon('chevron')} My account</div><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Workspace access</h2><span class="badge">${e(roleName(state.member.role))}</span></div><p>${state.member.role === 'viewer' ? 'You can read team documents. Request publisher access to write documents and contribute to releases.' : 'Your workspace role controls what you can edit and publish.'}</p>${state.member.role === 'viewer' ? '<button class="btn outline" data-action="request-access">Request publisher access</button>' : ''}<a class="btn text" href="#/requests">View requests</a></section><section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
+  return `<div class="layout">${settingsSidebar('account')}<main id="main" class="content account-content"><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Workspace access</h2><span class="badge">${e(roleName(state.member.role))}</span></div><p>${state.member.role === 'viewer' ? 'You can read team documents. Request publisher access to write documents and contribute to releases.' : 'Your workspace role controls what you can edit and publish.'}</p>${state.member.role === 'viewer' ? '<button class="btn outline" data-action="request-access">Request publisher access</button>' : ''}</section><section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
 }
 function releaseHub() {
   return releaseTimeline();
 }
 
 function requestsView() {
-  return `<div class="layout">${sidebar(true)}<main class="content" id="main"><div class="page-location">Workspace ${icon('chevron')} Requests</div><h1>Requests & approvals</h1><p class="subtitle">Review publication requests and manage access to your workspace.</p>${state.requests.map((r) => `<article class="request-card"><div class="section-top"><h2>${r.kind === 'access' ? 'Editor access' : 'Publication approval'}</h2><span class="badge ${r.status === 'approved' ? 'published' : 'draft'}">${e(r.status)}</span></div><p class="small">Requested by ${e(r.requester_name)} · ${date(r.created_at)}</p>${r.page_id ? `<a class="request-document" href="#/edit/${r.page_id}">${e(state.pages.find((p) => p.id === r.page_id)?.title || 'Document')}</a>` : ''}<p>${e(r.reason)}</p>${r.resolution ? `<p class="small">Reviewer response: ${e(r.resolution)}</p>` : ''}${r.status === 'pending' && (state.member.role === 'admin' || (r.kind === 'publish' && state.member.role === 'publisher')) ? `<div class="toolbar-actions"><button class="btn primary" data-action="resolve-request" data-id="${r.id}" data-approve="true">${r.kind === 'publish' ? 'Approve & publish' : 'Approve publisher access'}</button><button class="btn outline" data-action="resolve-request" data-id="${r.id}" data-approve="false">Decline</button></div>` : ''}</article>`).join('') || empty('No requests yet', 'Your access and publication requests will appear here.')}</main></div>`;
+  return `<div class="layout">${settingsSidebar('requests')}<main class="content" id="main"><h1>Requests & approvals</h1><p class="subtitle">Review publication requests and manage access to your workspace.</p>${state.requests.map((r) => `<article class="request-card"><div class="section-top"><h2>${r.kind === 'access' ? 'Editor access' : 'Publication approval'}</h2><span class="badge ${r.status === 'approved' ? 'published' : 'draft'}">${e(r.status)}</span></div><p class="small">Requested by ${e(r.requester_name)} · ${date(r.created_at)}</p>${r.page_id ? `<a class="request-document" href="#/edit/${r.page_id}">${e(state.pages.find((p) => p.id === r.page_id)?.title || 'Document')}</a>` : ''}<p>${e(r.reason)}</p>${r.resolution ? `<p class="small">Reviewer response: ${e(r.resolution)}</p>` : ''}${r.status === 'pending' && (state.member.role === 'admin' || (r.kind === 'publish' && state.member.role === 'publisher')) ? `<div class="toolbar-actions"><button class="btn primary" data-action="resolve-request" data-id="${r.id}" data-approve="true">${r.kind === 'publish' ? 'Approve & publish' : 'Approve publisher access'}</button><button class="btn outline" data-action="resolve-request" data-id="${r.id}" data-approve="false">Decline</button></div>` : ''}</article>`).join('') || empty('No requests yet', 'Your access and publication requests will appear here.')}</main></div>`;
 }
 async function emailPreview(id) {
   const preview = await appApi('/api/notifications', { id, action: 'preview' });
@@ -2085,7 +2169,11 @@ document.addEventListener('click', async (ev) => {
     const apply = () => {
       document.documentElement.dataset.theme = theme;
       localStorage.setItem('hoora-theme', theme);
-      b.innerHTML = icon(theme === 'dark' ? 'sun' : 'moon');
+      b.innerHTML =
+        icon(theme === 'dark' ? 'sun' : 'moon') +
+        (b.closest('.account-menu')
+          ? `<span>${theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>`
+          : '');
       const railLogo = document.querySelector('.rail-logo');
       if (railLogo) railLogo.src = theme === 'dark' ? '/hoora-dark.png' : '/hoora-light.png';
     };
@@ -2309,6 +2397,26 @@ function releaseRecords(publishedOnly = false) {
       };
     });
 }
+/** One tree for the whole release area: platforms, the active platform's versions, upcoming. */
+function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } = {}) {
+  const records = releaseRecords(true);
+  const platforms = [
+    ...new Map(
+      [
+        ...records.map((r) => r.project),
+        ...(['admin', 'publisher'].includes(state.member?.role) ? state.projects : []),
+      ].map((p) => [p.id, p]),
+    ).values(),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const platformLinks = platforms
+    .map((p) => {
+      const active = p.id === projectId;
+      return `<a class="sidelink ${active ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}" ${active ? 'aria-current="page"' : ''}>${icon(p.icon)}<span>${e(displayPlatformName(p.name))}</span></a>`;
+    })
+    .join('');
+  return `<aside class="sidebar release-sidebar" aria-label="Release notes"><a class="sidelink ${!projectId && !upcomingActive ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${platformLinks}${state.member ? `<div class="rail-label">Planning${state.member.role === 'admin' ? `<a class="iconbtn" href="#/upcoming?create=1" aria-label="Add upcoming release" title="Add upcoming release">${icon('plus')}</a>` : ''}</div><a class="sidelink ${upcomingActive ? 'active' : ''}" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
+}
+
 /** Releases an editor can still act on: never published, or with sections not yet published. */
 function releaseWorkQueue(projectId = '') {
   if (!state.member || !canEdit(state.member.role)) return [];
@@ -2353,7 +2461,7 @@ function releaseTimeline() {
   const platformName = (p) => displayPlatformName(p.name);
   const queue = releaseWorkQueue(current?.id);
   const canStart = ['admin', 'publisher'].includes(state.member?.role);
-  const rail = `<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink ${!current ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${applications.map((p) => `<a class="sidelink ${current?.id === p.id ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}${state.member ? `<div class="rail-label">Planning</div><a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
+  const rail = releaseSidebar({ projectId: current?.id || '' });
   const work = queue.length
     ? `<section class="release-queue" aria-labelledby="release-queue-title"><div class="release-queue-heading"><h2 id="release-queue-title">In progress</h2></div>${queue
         .map(
@@ -2414,6 +2522,20 @@ function releaseSection(note, { heading = true, editHref = '' } = {}) {
   return `<section class="release-section" id="section-${slugify(name)}" tabindex="-1">${heading ? `<div class="release-section-heading">${toneIcon(note.vertical_icon || vertical?.icon || 'grid', note.vertical_color || vertical?.color || 'slate')}<h2>${e(name)}</h2><span class="release-section-meta">${e(by)}${note.updated_at ? ' · ' + date(note.updated_at) : ''}</span>${editHref ? `<a class="btn text release-section-edit" href="${editHref}" aria-label="Edit ${e(name)} note">${icon('edit')}<span>Edit</span></a>` : ''}</div>` : ''}<article class="release-change release-change-complete"><div class="prose release-change-copy">${markdown(note.body || '')}</div></article></section>`;
 }
 
+/** The only place versions are listed inside a release: a compact switcher by the title. */
+function versionSwitcher(project, page) {
+  const versions = releaseRecords(true)
+    .filter((r) => r.project.id === project.id)
+    .sort((a, b) => compareVersions(a.version, b.version));
+  const current = 'v' + e(versionKey(page.version));
+  if (versions.length < 2) return `<span class="native-release-version">${current}</span>`;
+  return `<label class="version-switch"><span class="sr-only">Version</span><select data-version-switch aria-label="Version">${versions
+    .map(
+      (r) =>
+        `<option value="${e(publishedRoute(r.page, state.projects))}" ${r.page.id === page.id ? 'selected' : ''}>v${e(r.version)}</option>`,
+    )
+    .join('')}</select></label>`;
+}
 function releaseDocumentNew(p) {
   const records = releaseRecords(true),
     record = records.find((r) => r.page.id === p.id);
@@ -2432,10 +2554,7 @@ function releaseDocumentNew(p) {
   const notes = selectedSection
     ? allNotes.filter((note) => slugify(note.vertical || 'General') === selectedSection)
     : allNotes;
-  const versions = records
-    .filter((r) => r.project.id === project.id)
-    .sort((a, b) => compareVersions(a.version, b.version));
-  const rail = `<aside class="sidebar release-sidebar" aria-label="Platform versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug || slugify(project.name))}">${icon('back')}<span>${e(project.name)}</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map((r) => `<a class="version-link ${r.page.id === p.id ? 'active' : ''}" href="${publishedRoute(r.page, state.projects)}" ${r.page.id === p.id ? 'aria-current="page"' : ''}><span>${e(r.version === 'Unversioned' ? r.version : 'v' + r.version)}</span><small>${date(r.page.published_at)}</small></a>`).join('')}</nav></aside>`;
+  const rail = releaseSidebar({ projectId: project.id, pageId: p.id });
   const editable =
     canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly);
   const editHref = (name) =>
@@ -2461,7 +2580,7 @@ function releaseDocumentNew(p) {
     configured.length && !selectedSection
       ? `<section class="release-missing" aria-label="Sections without a note"><h2>Not in this release yet</h2>${configured.map((section) => `<a href="${editHref(section.name)}">${toneIcon(section.icon, section.color)}<span>${e(section.name)}</span><small>${icon('plus')}Add note</small></a>`).join('')}</section>`
       : '';
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${editable ? `<a class="btn outline" href="${editHref(selectedSection ? notes[0]?.vertical : '')}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span>${versionSwitcher(project, p)}</h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function nativeArtifact(page, draft) {
@@ -2547,7 +2666,7 @@ function configureProjectSections(projectId) {
 function structureView() {
   const card = (kind, item) =>
     `<div class="structure-row">${toneIcon(item.icon, item.color)}<div><strong>${e(item.name)}</strong><small>${kind === 'vertical' ? 'Release section' : 'Organization access'}${item.parent_id ? ' · inside ' + e(state.folders.find((f) => f.id === item.parent_id)?.name || 'folder') : ''}</small></div><button class="btn outline" data-action="manage-${kind}" data-id="${item.id}">Edit</button><button class="iconbtn danger" data-action="remove-${kind}" data-id="${item.id}" aria-label="Delete ${e(item.name)}">${icon('trash')}</button></div>`;
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>Structure & visibility</h1><p>Organize content, choose icons, and control Hoora organization access.</p></div></div><section class="settings-section"><div class="section-heading"><div><h2>Release applications</h2><p>Each application has its own versions. All applications can share a version view.</p></div><button class="btn dark" data-action="manage-project">New application</button></div>${state.projects.map((p) => card('project', p)).join('')}</section>${projectSectionSettings()}<section class="settings-section"><div class="section-heading"><div><h2>Library folders</h2><p>Nested folders organize SOPs and documentation. All content requires organization access.</p></div><button class="btn outline" data-action="manage-folder">New folder</button></div>${state.folders.map((f) => card('folder', f)).join('') || '<p class="muted">No folders yet.</p>'}</section><section class="settings-section"><div class="section-heading"><div><h2>Release sections</h2><p>Vertical headings used within each application’s release.</p></div><button class="btn outline" data-action="manage-vertical">New section</button></div>${state.verticals.map((v) => card('vertical', v)).join('')}</section><section class="settings-section"><div class="section-heading"><div><h2>Document collections & fields</h2><p>Add document types, icons, default access, and optional custom text fields.</p></div><button class="btn outline" data-action="manage-type">New collection</button></div>${state.types.map((t) => `<div class="structure-row">${toneIcon(t.icon, t.color)}<div><strong>${e(t.name)}</strong><small>Organization access${t.fields.length ? ' · ' + e(t.fields.join(', ')) : ''}</small></div><button class="btn outline" data-action="manage-type" data-id="${t.key}">Edit</button>${!['release', 'sop', 'documentation'].includes(t.key) ? `<button class="iconbtn danger" data-action="remove-type" data-id="${t.key}" aria-label="Delete ${e(t.name)}">${icon('trash')}</button>` : ''}</div>`).join('')}</section></main></div>`;
+  return `<div class="layout">${settingsSidebar('folders')}<main id="main" class="settings-content"><div class="view-heading"><div><h1>Structure & visibility</h1><p>Organize content, choose icons, and control Hoora organization access.</p></div></div><section class="settings-section"><div class="section-heading"><div><h2>Release applications</h2><p>Each application has its own versions. All applications can share a version view.</p></div><button class="btn dark" data-action="manage-project">New application</button></div>${state.projects.map((p) => card('project', p)).join('')}</section>${projectSectionSettings()}<section class="settings-section"><div class="section-heading"><div><h2>Library folders</h2><p>Nested folders organize SOPs and documentation. All content requires organization access.</p></div><button class="btn outline" data-action="manage-folder">New folder</button></div>${state.folders.map((f) => card('folder', f)).join('') || '<p class="muted">No folders yet.</p>'}</section><section class="settings-section"><div class="section-heading"><div><h2>Release sections</h2><p>Vertical headings used within each application’s release.</p></div><button class="btn outline" data-action="manage-vertical">New section</button></div>${state.verticals.map((v) => card('vertical', v)).join('')}</section><section class="settings-section"><div class="section-heading"><div><h2>Document collections & fields</h2><p>Add document types, icons, default access, and optional custom text fields.</p></div><button class="btn outline" data-action="manage-type">New collection</button></div>${state.types.map((t) => `<div class="structure-row">${toneIcon(t.icon, t.color)}<div><strong>${e(t.name)}</strong><small>Organization access${t.fields.length ? ' · ' + e(t.fields.join(', ')) : ''}</small></div><button class="btn outline" data-action="manage-type" data-id="${t.key}">Edit</button>${!['release', 'sop', 'documentation'].includes(t.key) ? `<button class="iconbtn danger" data-action="remove-type" data-id="${t.key}" aria-label="Delete ${e(t.name)}">${icon('trash')}</button>` : ''}</div>`).join('')}</section></main></div>`;
 }
 function appearanceFields(item = {}) {
   return `<div class="form-columns"><div class="field"><label for="structure-icon">Icon</label><select id="structure-icon" name="icon">${['folder', 'book', 'documentation', 'release', 'phone', 'web', 'settings', 'car', 'tool', 'bag', 'users', 'grid', 'check'].map((k) => `<option value="${k}" ${item.icon === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div><div class="field"><label for="structure-color">Icon color</label><select id="structure-color" name="color">${['blue', 'green', 'violet', 'orange', 'slate'].map((c) => `<option ${item.color === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div></div>`;
@@ -2608,7 +2727,7 @@ function releaseDetails(id) {
   const page = state.pages.find((page) => page.id === id);
   if (!page || !canEdit(state.member?.role) || page._readOnly)
     throw Error('You cannot edit this release.');
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><a class="native-back" href="#/edit/${e(id)}">${icon('back')}Release</a><h1>Release settings</h1></div></div><form id="release-details-form" class="upcoming-settings-form" data-id="${e(id)}" data-revision="${page.revision}"><div class="field"><label for="release-title">Title</label><input id="release-title" name="title" value="${e(page.title)}" required maxlength="250"></div><div class="field"><label for="release-summary">Summary</label><textarea id="release-summary" name="summary" maxlength="500">${e(page.summary)}</textarea></div><div class="field"><label for="release-slug">Page URL</label><input id="release-slug" name="slug" value="${e(page.slug)}" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></div>${typeFields(page)}${visibilityField(page)}<p id="form-error" class="error" role="alert"></p><div class="upcoming-settings-actions"><a class="btn outline" href="#/edit/${e(id)}">Cancel</a><button type="submit" class="btn dark">Save settings</button></div></form></main></div>`;
+  return `<div class="layout">${releaseSidebar({ projectId: state.releases.find((r) => r.id === id)?.project_id || '' })}<main id="main" class="settings-content"><div class="view-heading"><div><a class="native-back" href="#/edit/${e(id)}">${icon('back')}Release</a><h1>Release settings</h1></div></div><form id="release-details-form" class="upcoming-settings-form" data-id="${e(id)}" data-revision="${page.revision}"><div class="field"><label for="release-title">Title</label><input id="release-title" name="title" value="${e(page.title)}" required maxlength="250"></div><div class="field"><label for="release-summary">Summary</label><textarea id="release-summary" name="summary" maxlength="500">${e(page.summary)}</textarea></div><div class="field"><label for="release-slug">Page URL</label><input id="release-slug" name="slug" value="${e(page.slug)}" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></div>${typeFields(page)}${visibilityField(page)}<p id="form-error" class="error" role="alert"></p><div class="upcoming-settings-actions"><a class="btn outline" href="#/edit/${e(id)}">Cancel</a><button type="submit" class="btn dark">Save settings</button></div></form></main></div>`;
 }
 function bindReleaseDetails() {
   const form = document.querySelector('#release-details-form');
@@ -2699,6 +2818,7 @@ document.addEventListener('click', async (ev) => {
   }
 });
 document.addEventListener('change', (ev) => {
+  if (ev.target.matches('[data-version-switch]')) location.hash = ev.target.value;
   if (ev.target.id === 'release-app')
     location.hash =
       '#/releases?' +

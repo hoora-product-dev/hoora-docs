@@ -232,23 +232,6 @@ body .iconbtn .icon svg {
   filter: none;
   transform: none;
 }
-:is(
-  .timeline-item,
-  .document-row,
-  .upcoming-ticket,
-  .team-card,
-  .related-grid > a,
-  .home-cards > a,
-  .home-list > a,
-  .notice-item
-) {
-  border-radius: var(--control-radius);
-  transition:
-    background-color var(--motion-fast) ease,
-    border-color var(--motion-fast) ease;
-  transform: none;
-  box-shadow: none;
-}
 .home-list > a {
   padding: 15px 14px;
   border: 1px solid var(--line);
@@ -372,22 +355,6 @@ dialog:has(form) {
     color: var(--on-contrast);
     opacity: 0.86;
     filter: none;
-  }
-  :is(
-    .timeline-item,
-    .document-row,
-    .upcoming-ticket,
-    .team-card,
-    .related-grid > a,
-    .home-cards > a,
-    .home-list > a,
-    .notice-item
-  ):hover {
-    background: var(--hover-surface);
-    border-color: var(--line);
-    color: var(--ink);
-    box-shadow: none;
-    transform: none;
   }
   .timeline-item .release-row-open:hover {
     background: var(--active-surface);

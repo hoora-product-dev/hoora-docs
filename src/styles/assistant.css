@@ -163,8 +163,7 @@ body .assistant-trigger {
 .assistant-open {
   overflow: hidden;
 }
-body.navigation-open .assistant-shell,
-body:has(.rail-more[open]) .assistant-shell {
+body.navigation-open .assistant-shell {
   visibility: hidden;
   pointer-events: none;
 }

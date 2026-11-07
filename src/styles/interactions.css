@@ -4,7 +4,6 @@ button,
 .team-card,
 .related-grid a,
 .notice-item,
-.home-cards > a,
 .home-list > a {
   transition-property: color, background-color, border-color, opacity;
   transition-duration: 140ms;
@@ -33,7 +32,6 @@ a:hover {
 .team-card:hover,
 .related-grid a:hover,
 .notice-item:hover,
-.home-cards > a:hover,
 .document-nav-page:hover {
   background-color: var(--raised);
   color: var(--ink);
@@ -57,7 +55,6 @@ a:hover {
   .team-card,
   .related-grid a,
   .notice-item,
-  .home-cards > a,
   .home-list > a {
     transition: none !important;
   }

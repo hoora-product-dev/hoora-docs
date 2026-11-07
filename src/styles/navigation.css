@@ -205,82 +205,6 @@ body.rail-collapsed {
   height: 100%;
   object-fit: cover;
 }
-.rail-person {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  flex: 1;
-  padding: 5px 6px;
-  color: var(--ink);
-  border-radius: 8px;
-}
-.rail-person > span:nth-child(2) {
-  min-width: 0;
-}
-.rail-person strong,
-.rail-person small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rail-person strong {
-  font-size: 11px;
-  font-weight: 550;
-}
-.rail-person small {
-  font-size: 10px;
-  color: var(--muted);
-}
-.rail-account {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: auto;
-  min-width: 0;
-}
-.rail-more {
-  position: relative;
-  flex: none;
-}
-.rail-more summary {
-  display: grid;
-  place-items: center;
-  list-style: none;
-  cursor: pointer;
-  width: 30px;
-  color: var(--muted);
-}
-.rail-more summary::-webkit-details-marker {
-  display: none;
-}
-.rail-more summary .icon svg {
-  width: 17px;
-  height: 17px;
-}
-.rail-menu {
-  position: fixed;
-  z-index: 65;
-  bottom: 18px;
-  width: 220px;
-  max-height: 70dvh;
-  overflow: auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: 0 8px 32px #0003;
-}
-.rail-menu a,
-.rail-menu button {
-  display: flex;
-  text-align: left;
-  width: 100%;
-  padding: 9px 10px;
-  font-size: 12px;
-  border-radius: var(--control-radius);
-  color: var(--ink);
-  align-items: center;
-  gap: 10px;
-}
 @media (max-width: 900px) {
   /* Keep compact glyphs visually small while preserving a reliable phone-sized
      hit target for the drawer, theme and notification controls. */
@@ -308,13 +232,6 @@ body.rail-collapsed {
   .has-rail .topbar {
     z-index: 100;
   }
-  .rail-menu,
-  .rail-collapsed .rail-menu {
-    left: 12px;
-    bottom: max(78px, env(safe-area-inset-bottom));
-    width: min(256px, calc(100vw - 72px));
-    max-height: calc(100dvh - var(--mobile-header, 60px) - 100px);
-  }
   .has-rail .topbar .product-brand {
     display: flex;
   }
@@ -327,12 +244,6 @@ body.rail-collapsed {
   .rail-brand {
     display: none;
   }
-  .rail-collapsed .rail-person {
-    display: flex;
-  }
-  .rail-collapsed .rail-account {
-    justify-content: flex-start;
-  }
 }
 @media (min-width: 901px) {
   .rail-collapsed .sidebar .rail-heading,
@@ -341,8 +252,7 @@ body.rail-collapsed {
   .rail-collapsed .sidebar .sidelink > span:not(.icon):not(.tone-icon),
   .rail-collapsed .sidebar .sidelink > small,
   .rail-collapsed .rail-brand .rail-logo,
-  .rail-collapsed .rail-brand .rail-product-name,
-  .rail-collapsed .rail-person {
+  .rail-collapsed .rail-brand .rail-product-name {
     display: none;
   }
   .rail-collapsed .rail-brand {
@@ -363,63 +273,8 @@ body.rail-collapsed {
     padding: 8px 1px;
     font-size: 10px;
   }
-  .rail-collapsed .rail-account {
-    justify-content: center;
-  }
-  .rail-collapsed .rail-menu {
-    left: 52px;
-  }
 }
 @media (min-width: 901px) and (hover: hover) and (pointer: fine) {
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) {
-    width: var(--rail-expanded);
-    z-index: 55;
-    box-shadow: 12px 0 28px #0002;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-brand {
-    height: var(--header);
-    min-height: var(--header);
-    flex-direction: row;
-    justify-content: space-between;
-    padding: 0 4px;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-logo,
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-product-name {
-    display: block;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-heading,
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-label {
-    display: flex;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-empty {
-    display: block;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .sidelink {
-    justify-content: flex-start;
-    padding: 8px 12px;
-    gap: 10px;
-  }
-  .rail-collapsed
-    .sidebar:is(:hover, :has(.rail-more[open]))
-    .sidelink
-    > span:not(.icon):not(.tone-icon),
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .sidelink > small {
-    display: block;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .version-link {
-    justify-content: space-between;
-    padding: 8px 12px;
-    font-size: 12px;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-person {
-    display: flex;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-account {
-    justify-content: flex-start;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-menu {
-    left: 220px;
-  }
   body.rail-hover-suppressed .sidebar:hover {
     width: var(--rail-compact);
     box-shadow: none;
@@ -433,7 +288,6 @@ body.rail-collapsed {
   }
   body.rail-hover-suppressed .sidebar:hover .rail-logo,
   body.rail-hover-suppressed .sidebar:hover .rail-product-name,
-  body.rail-hover-suppressed .sidebar:hover .rail-person,
   body.rail-hover-suppressed .sidebar:hover .rail-heading,
   body.rail-hover-suppressed .sidebar:hover .rail-label,
   body.rail-hover-suppressed .sidebar:hover .rail-empty,
@@ -448,36 +302,6 @@ body.rail-collapsed {
   }
 }
 /* Compact navigation keeps one header control and a usable signed-out footer. */
-.rail-menu-identity {
-  padding: 8px 10px 12px;
-  min-width: 0;
-}
-.rail-menu-identity strong,
-.rail-menu-identity small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rail-menu-identity strong {
-  font-size: 12px;
-  font-weight: 550;
-}
-.rail-menu-identity small {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-.rail-menu .icon svg {
-  width: 17px;
-  height: 17px;
-}
-.rail-menu .nav-count {
-  margin-left: auto;
-}
-.rail-sign-in {
-  width: 100%;
-}
 @media (min-width: 901px) {
   .has-rail [data-header-login] {
     display: none;
@@ -485,40 +309,13 @@ body.rail-collapsed {
   .rail-collapsed .rail-brand > a {
     display: none;
   }
-  .rail-collapsed .rail-sign-in {
-    width: 38px;
-    min-width: 38px;
-    padding: 8px;
-    margin-inline: auto;
-  }
-  .rail-collapsed .rail-sign-in > span:not(.icon) {
-    display: none;
-  }
 }
 @media (min-width: 901px) and (hover: hover) and (pointer: fine) {
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-brand > a {
-    display: flex;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-sign-in {
-    width: 100%;
-  }
-  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-sign-in > span:not(.icon) {
-    display: inline;
-  }
   body.rail-hover-suppressed .sidebar:hover .rail-brand > a {
-    display: none;
-  }
-  body.rail-hover-suppressed .sidebar:hover .rail-sign-in {
-    width: 38px;
-  }
-  body.rail-hover-suppressed .sidebar:hover .rail-sign-in > span:not(.icon) {
     display: none;
   }
 }
 @media (max-width: 900px) {
-  .rail-account.signed-out {
-    display: none;
-  }
   .has-rail .topbar-left {
     gap: 3px;
   }

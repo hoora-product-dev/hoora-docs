@@ -73,7 +73,7 @@ export function workspaceFeatures({
       installAction = push.installed
         ? ''
         : '<button class="btn outline" data-hub-action="install">Install Hoora Docs</button>';
-    return `<main id="main" class="settings-content notifications-page"><div class="view-heading"><div><h1>Notifications</h1><p>${unread.length ? `${unread.length} unread update${unread.length === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn outline" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
+    return `<main id="main" class="settings-content notifications-page"><div class="view-heading"><div><h1>Notifications</h1>${unread.length ? `<p>${unread.length} unread update${unread.length === 1 ? '' : 's'}</p>` : ''}</div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn outline" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
       visible
         .map((n) => {
           const p = state.published.find((p) => p.id === n.page_id);

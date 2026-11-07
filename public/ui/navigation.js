@@ -1,5 +1,5 @@
 /** Consistent drawer behavior without re-rendering the page or moving content on hover. */
-export function createNavigation({ app, state, icon }) {
+export function createNavigation({ app, state, contextRail }) {
   let returnFocus = null;
   function setOpen(open) {
     const layout = app.querySelector('.layout');
@@ -12,7 +12,7 @@ export function createNavigation({ app, state, icon }) {
     if (main) main.inert = open;
     const assistant = app.querySelector('.assistant-shell');
     if (assistant) assistant.inert = open;
-    app.querySelectorAll('.rail-more[open]').forEach((menu) => (menu.open = false));
+    app.querySelectorAll('.account-menu[open]').forEach((menu) => (menu.open = false));
     if (open) {
       returnFocus = document.activeElement;
       layout.querySelector('.sidebar')?.scrollTo(0, 0);
@@ -26,17 +26,15 @@ export function createNavigation({ app, state, icon }) {
     document.body.classList.remove('navigation-open');
     const route = document.body.dataset.route;
     let rail = app.querySelector('.layout>.sidebar');
-    if (
-      !rail &&
-      state.member &&
-      !['login', 'install', 'app-welcome', 'artifact', 'preview'].includes(route)
-    ) {
+    // Pages without their own tree get one only when the area has one (settings).
+    const contextual = !rail && state.member ? contextRail?.(route) : '';
+    if (contextual) {
       const main = app.querySelector('main');
       if (main) {
         const layout = document.createElement('div');
         layout.className = 'layout app-layout';
         main.before(layout);
-        layout.innerHTML = `<aside class="sidebar workspace-sidebar" aria-label="Workspace navigation"><a class="sidelink" href="#/home">${icon('grid')}<span>Home</span></a><a class="sidelink" href="#/releases">${icon('release')}<span>Releases</span></a><a class="sidelink" href="#/workspace">${icon('book')}<span>Library</span></a></aside>`;
+        layout.innerHTML = contextual;
         layout.append(main);
         rail = layout.querySelector('.sidebar');
       }
@@ -71,7 +69,7 @@ export function createNavigation({ app, state, icon }) {
   }
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape')
-      app.querySelectorAll('.rail-more[open]').forEach((menu) => {
+      app.querySelectorAll('.account-menu[open]').forEach((menu) => {
         menu.open = false;
         menu.querySelector('summary')?.focus();
       });
@@ -98,7 +96,7 @@ export function createNavigation({ app, state, icon }) {
     }
   });
   document.addEventListener('click', (event) => {
-    app.querySelectorAll('.rail-more[open]').forEach((menu) => {
+    app.querySelectorAll('.account-menu[open]').forEach((menu) => {
       if (!menu.contains(event.target)) menu.open = false;
     });
     if (event.target.closest('.sidebar a') && document.body.classList.contains('navigation-open'))

@@ -325,23 +325,6 @@
   color: var(--ink);
   font-weight: 560;
 }
-.sidebar .drawer-primary {
-  display: none;
-}
-@media (max-width: 900px) {
-  .sidebar .drawer-primary {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    padding-bottom: 8px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--line);
-  }
-  .sidebar .drawer-primary .sidelink.active {
-    background: transparent;
-    color: var(--ink);
-  }
-}
 
 /* Release feed: whole rows are links; sections show at a glance. */
 a.timeline-item {
