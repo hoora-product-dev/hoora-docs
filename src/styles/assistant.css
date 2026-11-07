@@ -677,6 +677,15 @@ body:has(.rail-more[open]) .assistant-shell {
 .assistant-blobatar.mo-root * {
   animation-play-state: running !important;
 }
+.assistant-mood .assistant-blobatar {
+  animation: assistant-avatar-mood 760ms cubic-bezier(.22,.8,.32,1) both !important;
+}
+@keyframes assistant-avatar-mood {
+  0% { transform: rotate(0deg) scale(1); filter: saturate(1); }
+  35% { transform: rotate(-7deg) scale(1.1); filter: saturate(1.35) brightness(1.08); }
+  70% { transform: rotate(5deg) scale(1.04); }
+  100% { transform: rotate(0deg) scale(1); filter: saturate(1); }
+}
 /* Keep the assistant's small, informative eye/blink motion available even
    when the OS has reduced-motion enabled; the avatar is decorative and never
    drives navigation or content changes. */
