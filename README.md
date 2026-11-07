@@ -114,7 +114,7 @@ Vercel builds `main` with `npm run build` and serves `dist/`. A daily job (`/api
 ---
 
 <p align="center">
-  Built by <a href="https://github.com/rahultripathi17">Rahul Tripathi</a>
+  Developed and maintained by <a href="https://github.com/rahultripathi17">Rahul Tripathi</a>
   · <a href="https://rahul-tripathi.web.app">Portfolio</a>
   · <a href="https://www.linkedin.com/in/rahultripathi17/">LinkedIn</a>
   <br />
