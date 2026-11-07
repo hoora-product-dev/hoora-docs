@@ -152,7 +152,7 @@ try {
   console.log('PASS Viewer reads shared page without editing or notice controls');
   const { p: anon } = await context();
   await anon.goto(base + '/docs/' + doc.slug);
-  await anon.getByRole('heading', { name: 'Sign in to continue', exact: true }).waitFor();
+  await anon.getByRole('heading', { name: 'Continue to Hoora Docs', exact: true }).waitFor();
   console.log('PASS Anonymous direct private URL requires sign-in');
   await p.keyboard.press('Control+k');
   await p.locator('#global-query').fill('Browser guide ' + suffix);
