@@ -70,20 +70,27 @@ export async function searchResultsPage({ state, service, e, names, query, param
 }
 /** Search updates this page in place; it never opens a modal or replaces the input. */
 export function bindSearchPage({ state, service, e, names }) {
-  const form = document.querySelector('#search-results-form');
+  const form = document.querySelector('#search-results-form,#home-search-form');
   if (!form) return;
+  const home = form.id === 'home-search-form';
   const input = form.elements.q,
-    results = document.querySelector('#global-results'),
-    status = document.querySelector('#search-status');
+    results = document.querySelector(home ? '#home-results' : '#global-results'),
+    status = document.querySelector(home ? '#home-search-status' : '#search-status'),
+    homeResults = document.querySelector('#home-search-results'),
+    homeContent = document.querySelector('#home-content');
   let sequence = 0,
     timer;
   async function update() {
+    if (!form.isConnected) return;
     const current = ++sequence,
       query = input.value.trim(),
       params = new URLSearchParams(new FormData(form));
     for (const [key, value] of [...params])
       if (!value || (key === 'sort' && value === 'relevance')) params.delete(key);
-    history.replaceState(null, '', routeUrl('#/search') + (params.size ? '?' + params : ''));
+    if (home) {
+      homeResults.hidden = !query;
+      homeContent.hidden = !!query;
+    } else history.replaceState(null, '', routeUrl('#/search') + (params.size ? '?' + params : ''));
     status.textContent = query ? 'Searching…' : '';
     results.setAttribute('aria-busy', 'true');
     try {
@@ -93,17 +100,27 @@ export function bindSearchPage({ state, service, e, names }) {
       results.innerHTML = result.html;
       status.textContent = result.count;
     } catch {
-      if (current === sequence && results.isConnected)
+      if (current === sequence && results.isConnected) {
+        results.replaceChildren();
         status.textContent = 'Search could not connect. Please try again.';
+      }
     } finally {
       if (current === sequence) results.removeAttribute('aria-busy');
     }
   }
-  input.addEventListener('input', () => {
+  function schedule() {
     clearTimeout(timer);
     sequence++;
     timer = setTimeout(update, 180);
+  }
+  input.addEventListener('compositionstart', () => {
+    clearTimeout(timer);
+    sequence++;
   });
+  input.addEventListener('input', (event) => {
+    if (!event.isComposing) schedule();
+  });
+  input.addEventListener('compositionend', schedule);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     clearTimeout(timer);
@@ -124,5 +141,5 @@ export function bindSearchPage({ state, service, e, names }) {
       }
     }
   });
-  input.focus({ preventScroll: true });
+  if (!home) input.focus({ preventScroll: true });
 }
