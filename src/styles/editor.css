@@ -227,6 +227,12 @@
   border-radius: 0;
   background: transparent;
 }
+.editor-guidance {
+  margin: 10px 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
 .editor-heading .field {
   margin-bottom: 12px;
 }
