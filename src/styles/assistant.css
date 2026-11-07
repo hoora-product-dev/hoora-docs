@@ -418,7 +418,40 @@ body .assistant-trigger {
   }
 }
 
-/* Stable wave feedback and WhatsApp-like circular send affordance. */
+/* Direct avatar trigger: no black chat bubble or extra chat glyph. */
+.assistant-trigger,
+.assistant-trigger:hover,
+.assistant-trigger:focus-visible {
+  min-height: 44px;
+  height: 44px;
+  padding: 0 2px;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  transform: none;
+}
+.assistant-trigger:hover,
+.assistant-trigger:focus-visible {
+  color: var(--muted);
+}
+.assistant-trigger .assistant-avatar,
+.assistant-brand .assistant-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  box-shadow: none;
+}
+.assistant-trigger span {
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Web InterviewGPT-style “Thinking…”: a sweeping light and counted dots,
+   with no block skeleton or layout jump. */
 .assistant-message.thinking {
   align-items: center;
   gap: 9px;
@@ -428,53 +461,69 @@ body .assistant-trigger {
   width: 24px;
   height: 24px;
   border-radius: 50%;
+  animation: assistant-avatar-thinking 1.8s ease-in-out infinite;
 }
-.thinking-label {
+.assistant-working {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  background: none;
-  -webkit-text-fill-color: initial;
-  animation: none;
+  font-size: 13px;
+  font-weight: 650;
 }
-.thinking-label > span:first-child {
-  font-size: 12px;
-  font-weight: 620;
-  letter-spacing: 0.01em;
+.assistant-working-label {
+  display: inline-block;
+  letter-spacing: 0.02em;
+  background-image: linear-gradient(
+    -75deg,
+    color-mix(in srgb, var(--muted) 72%, transparent) 0%,
+    color-mix(in srgb, var(--muted) 72%, transparent) 40%,
+    var(--ink) 50%,
+    color-mix(in srgb, var(--muted) 72%, transparent) 60%,
+    color-mix(in srgb, var(--muted) 72%, transparent) 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: assistant-wave-shine 4s linear infinite;
 }
-.thinking-wave {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 16px;
+.assistant-thinking-dots {
+  display: inline-block;
+  width: 1.1em;
+  text-align: left;
 }
-.thinking-wave i {
-  display: block;
-  width: 3px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent, #22c55e);
-  animation: assistant-wave 900ms ease-in-out infinite;
+.assistant-thinking-dots::after {
+  content: '';
+  animation: assistant-thinking-dots 1.5s steps(4, end) infinite;
 }
-.thinking-wave i:nth-child(2) {
-  animation-delay: 100ms;
+@keyframes assistant-wave-shine {
+  from {
+    background-position: 200% center;
+  }
+  to {
+    background-position: -200% center;
+  }
 }
-.thinking-wave i:nth-child(3) {
-  animation-delay: 200ms;
-}
-.thinking-wave i:nth-child(4) {
-  animation-delay: 300ms;
-}
-@keyframes assistant-wave {
-  0%,
-  100% {
-    height: 5px;
-    opacity: 0.45;
+@keyframes assistant-thinking-dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
   }
   50% {
-    height: 15px;
-    opacity: 1;
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+@keyframes assistant-avatar-thinking {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.035);
   }
 }
 .assistant-form button,
@@ -494,7 +543,9 @@ body .assistant-trigger {
   transform: scale(1.03);
 }
 @media (prefers-reduced-motion: reduce) {
-  .thinking-wave i,
+  .assistant-working-label,
+  .assistant-thinking-dots::after,
+  .thinking-avatar,
   .thinking-skeleton i,
   .thinking-dots i {
     animation: none;
