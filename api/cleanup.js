@@ -9,7 +9,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   const cronSecret = process.env.CRON_SECRET;
   const authorization = req.headers.authorization || '';
-  const isScheduled = req.headers['x-vercel-cron'] === '1' || req.headers['x-vercel-cron'] === 'true';
+  const isScheduled =
+    req.headers['x-vercel-cron'] === '1' || req.headers['x-vercel-cron'] === 'true';
   if (cronSecret && authorization !== `Bearer ${cronSecret}`)
     return res.status(401).json({ error: 'Unauthorized cleanup request.' });
   if (!cronSecret && !isScheduled)

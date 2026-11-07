@@ -40,7 +40,7 @@
   color: var(--muted);
   font-size: 10px;
   font-weight: 650;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .assistant-action {
@@ -55,7 +55,10 @@
   font-size: 11px;
   line-height: 1.35;
   text-decoration: none;
-  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
 }
 .assistant-action .icon {
   display: inline-flex;
@@ -108,15 +111,33 @@
   display: block;
   height: 7px;
   border-radius: 99px;
-  background: linear-gradient(90deg, var(--raised), color-mix(in srgb, var(--ink) 18%, var(--raised)), var(--raised));
+  background: linear-gradient(
+    90deg,
+    var(--raised),
+    color-mix(in srgb, var(--ink) 18%, var(--raised)),
+    var(--raised)
+  );
   background-size: 220% 100%;
   animation: assistant-skeleton 1.35s ease-in-out infinite;
 }
-.thinking-skeleton i:nth-child(2) { width: 82%; animation-delay: .12s; }
-.thinking-skeleton i:nth-child(3) { width: 61%; animation-delay: .24s; }
+.thinking-skeleton i:nth-child(2) {
+  width: 82%;
+  animation-delay: 0.12s;
+}
+.thinking-skeleton i:nth-child(3) {
+  width: 61%;
+  animation-delay: 0.24s;
+}
 @keyframes assistant-skeleton {
-  0%, 100% { background-position: 100% 0; opacity: .55; }
-  50% { background-position: 0 0; opacity: 1; }
+  0%,
+  100% {
+    background-position: 100% 0;
+    opacity: 0.55;
+  }
+  50% {
+    background-position: 0 0;
+    opacity: 1;
+  }
 }
 .assistant-form button {
   width: 44px;

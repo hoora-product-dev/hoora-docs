@@ -23,17 +23,17 @@ try {
     await browser.close();
     process.exit(0);
   }
-  const auth = await fetch(
-    `${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: 'POST',
-      headers: { apikey: process.env.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: testEmail, password: testPassword }),
-    },
-  );
+  const auth = await fetch(`${process.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: process.env.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: testEmail, password: testPassword }),
+  });
   const session = await auth.json();
   assert.ok(auth.ok && session.access_token, 'HOORA_TEST_EMAIL/PASSWORD must be a valid member');
-  await page.addInitScript((value) => localStorage.setItem('hoora-session', JSON.stringify(value)), session);
+  await page.addInitScript(
+    (value) => localStorage.setItem('hoora-session', JSON.stringify(value)),
+    session,
+  );
   await page.goto(base + '/releases');
   await page.locator('.timeline-item').first().waitFor();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
@@ -104,9 +104,7 @@ try {
   await page.getByRole('button', { name: 'Send question' }).click();
   await page.locator('.thinking').waitFor();
   assert.equal(
-    await page
-      .locator('.thinking-label')
-      .evaluate((el) => getComputedStyle(el).animationName),
+    await page.locator('.thinking-label').evaluate((el) => getComputedStyle(el).animationName),
     'none',
   );
   await page.getByText('Verified response', { exact: true }).waitFor();

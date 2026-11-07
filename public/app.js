@@ -400,7 +400,10 @@ async function load() {
         db('docs_team_members', '?select=*&order=email'),
       ]);
       try {
-        state.teamPermissions = await db('docs_team_permissions', '?select=*&order=created_at.desc');
+        state.teamPermissions = await db(
+          'docs_team_permissions',
+          '?select=*&order=created_at.desc',
+        );
       } catch {
         state.teamPermissions = [];
       }
@@ -788,8 +791,24 @@ function editor(id) {
 
 async function users() {
   state.members = await admin();
-  const unassigned = state.members.filter((member) => !state.teamMembers.some((tm) => tm.email === member.email));
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1><p>Manage organization members, teams, folder ownership, and scoped capabilities.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th>Teams</th><th></th></tr></thead><tbody>${state.members.map((m) => `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td>${state.teamMembers.filter((tm) => tm.email === m.email).length || 'Unassigned'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team capabilities</h2><p>Grant a team permission for a collection, folder, or release platform. Permissions are additive and expire when configured.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add capability</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Scope</th><th>Capability</th><th>Expires</th><th></th></tr></thead><tbody>${state.teamPermissions.map((permission) => { const team = state.teams.find((item) => item.id === permission.team_id); const scope = permission.scope_type === 'collection' ? permission.collection_key : permission.scope_type === 'folder' ? state.folders.find((item) => item.id === permission.folder_id)?.name : state.projects.find((item) => item.id === permission.project_id)?.name; return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(scope || permission.scope_type)}</td><td>${e(permission.capability)}</td><td>${permission.expires_at ? e(date(permission.expires_at)) : 'No expiry'}</td><td><button class="btn text danger" data-action="remove-team-permission" data-id="${permission.id}">Remove</button></td></tr>`; }).join('') || '<tr><td colspan="5">No scoped capabilities yet. Team roles still control basic team access.</td></tr>'}</tbody></table></div></section><div class="role-explainer"><p><strong>Admin</strong> Full control of members, teams, structure, capabilities, recycle bin, and audit.</p><p><strong>Team Manager</strong> Manages members and team content in assigned scopes.</p><p><strong>Publisher</strong> Edits and publishes content where their team has publisher capability.</p><p><strong>Contributor</strong> Edits drafts and submits work for review.</p><p><strong>Viewer</strong> Read-only access to permitted organization or team content.</p><p><strong>Unassigned members:</strong> ${unassigned.length || 'none'}</p></div></main></div>`;
+  const unassigned = state.members.filter(
+    (member) => !state.teamMembers.some((tm) => tm.email === member.email),
+  );
+  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1><p>Manage organization members, teams, folder ownership, and scoped capabilities.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th>Teams</th><th></th></tr></thead><tbody>${state.members.map((m) => `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td>${state.teamMembers.filter((tm) => tm.email === m.email).length || 'Unassigned'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team capabilities</h2><p>Grant a team permission for a collection, folder, or release platform. Permissions are additive and expire when configured.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add capability</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Scope</th><th>Capability</th><th>Expires</th><th></th></tr></thead><tbody>${
+    state.teamPermissions
+      .map((permission) => {
+        const team = state.teams.find((item) => item.id === permission.team_id);
+        const scope =
+          permission.scope_type === 'collection'
+            ? permission.collection_key
+            : permission.scope_type === 'folder'
+              ? state.folders.find((item) => item.id === permission.folder_id)?.name
+              : state.projects.find((item) => item.id === permission.project_id)?.name;
+        return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(scope || permission.scope_type)}</td><td>${e(permission.capability)}</td><td>${permission.expires_at ? e(date(permission.expires_at)) : 'No expiry'}</td><td><button class="btn text danger" data-action="remove-team-permission" data-id="${permission.id}">Remove</button></td></tr>`;
+      })
+      .join('') ||
+    '<tr><td colspan="5">No scoped capabilities yet. Team roles still control basic team access.</td></tr>'
+  }</tbody></table></div></section><div class="role-explainer"><p><strong>Admin</strong> Full control of members, teams, structure, capabilities, recycle bin, and audit.</p><p><strong>Team Manager</strong> Manages members and team content in assigned scopes.</p><p><strong>Publisher</strong> Edits and publishes content where their team has publisher capability.</p><p><strong>Contributor</strong> Edits drafts and submits work for review.</p><p><strong>Viewer</strong> Read-only access to permitted organization or team content.</p><p><strong>Unassigned members:</strong> ${unassigned.length || 'none'}</p></div></main></div>`;
 }
 function folders() {
   return structureView();
@@ -903,10 +922,10 @@ async function render() {
       if (route !== 'login') {
         sessionStorage.setItem(
           'hoora-return-to',
-            sharedDocumentTarget(routeHash()) ||
-              (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
-                ? '#/home'
-                : '#/app-welcome'),
+          sharedDocumentTarget(routeHash()) ||
+            (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
+              ? '#/home'
+              : '#/app-welcome'),
         );
         location.hash = '#/login';
         return render();
@@ -914,10 +933,10 @@ async function render() {
       if (!sessionStorage.getItem('hoora-return-to'))
         sessionStorage.setItem(
           'hoora-return-to',
-            sharedDocumentTarget(routeHash()) ||
-              (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
-                ? '#/home'
-                : '#/app-welcome'),
+          sharedDocumentTarget(routeHash()) ||
+            (localStorage.getItem('hoora-pwa-onboarding-complete') === 'true'
+              ? '#/home'
+              : '#/app-welcome'),
         );
     } else if (
       route === 'login' ||
@@ -1192,9 +1211,14 @@ function teamPermissionDialog() {
         project_id: scopeType === 'project' ? form.get('project_id') || null : null,
         capability: form.get('capability'),
         granted_by: state.member.id,
-        expires_at: form.get('expires_at') ? new Date(form.get('expires_at') + 'T23:59:59Z').toISOString() : null,
+        expires_at: form.get('expires_at')
+          ? new Date(form.get('expires_at') + 'T23:59:59Z').toISOString()
+          : null,
       };
-      if ((scopeType === 'folder' && !body.folder_id) || (scopeType === 'project' && !body.project_id))
+      if (
+        (scopeType === 'folder' && !body.folder_id) ||
+        (scopeType === 'project' && !body.project_id)
+      )
         throw new Error('Choose the selected scope.');
       await db('docs_team_permissions', '', { method: 'POST', body });
       await load();
@@ -1396,9 +1420,7 @@ async function completeMicrosoftSignIn() {
     history.replaceState(
       null,
       '',
-      outlookReturn
-        ? '/#/edit/' + outlookReturn
-        : '/' + completeLoginRoute(),
+      outlookReturn ? '/#/edit/' + outlookReturn : '/' + completeLoginRoute(),
     );
   } catch (err) {
     saveSession(null);
@@ -2169,9 +2191,13 @@ function toneIcon(name = 'documentation', color = 'blue') {
 }
 function roleName(role) {
   return (
-    { admin: 'Administrator', manager: 'Manager', publisher: 'Publisher', contributor: 'Contributor', viewer: 'Viewer' }[
-      role
-    ] || role
+    {
+      admin: 'Administrator',
+      manager: 'Manager',
+      publisher: 'Publisher',
+      contributor: 'Contributor',
+      viewer: 'Viewer',
+    }[role] || role
   );
 }
 function pageAccess(p) {
@@ -2385,7 +2411,12 @@ function contributionGroups(notes, editable = false, showSectionHeading = true) 
   return [...groups]
     .map(
       ([name, entries]) =>
-        `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries.map((n) => { const canEditThis = editable && canEditEntry(n); return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div>${n.tickets ? `<p class="ticket-refs">${e(n.tickets)}</p>` : ''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`; }).join('')}</section>`,
+        `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries
+          .map((n) => {
+            const canEditThis = editable && canEditEntry(n);
+            return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div>${n.tickets ? `<p class="ticket-refs">${e(n.tickets)}</p>` : ''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`;
+          })
+          .join('')}</section>`,
     )
     .join('');
 }
