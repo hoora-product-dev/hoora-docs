@@ -10,9 +10,13 @@ export function createNavigation({ app, state, icon }) {
     trigger?.setAttribute('aria-expanded', String(open));
     const main = layout.querySelector('main');
     if (main) main.inert = open;
+    const assistant = app.querySelector('.assistant-shell');
+    if (assistant) assistant.inert = open;
+    app.querySelectorAll('.rail-more[open]').forEach((menu) => (menu.open = false));
     if (open) {
       returnFocus = document.activeElement;
-      layout.querySelector('.sidebar a,.sidebar button')?.focus();
+      layout.querySelector('.sidebar')?.scrollTo(0, 0);
+      layout.querySelector('.sidebar a,.sidebar button')?.focus({ preventScroll: true });
     } else {
       returnFocus?.isConnected && returnFocus.focus();
       returnFocus = null;
@@ -78,6 +82,7 @@ export function createNavigation({ app, state, icon }) {
     }
     if (event.key === 'Tab') {
       const controls = [
+        ...app.querySelectorAll('[data-action=menu]'),
         ...app.querySelectorAll('.sidebar a,.sidebar button,.sidebar summary'),
       ].filter((e) => e.getClientRects().length && !e.disabled);
       if (!controls.length) return;

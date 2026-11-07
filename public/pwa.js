@@ -74,8 +74,8 @@ export function pwaFeature({ appApi, getToken, toast }) {
       return { supported: false, installed, permission: 'unsupported', subscribed: false };
     let subscribed = false;
     try {
-      const reg = await navigator.serviceWorker.ready;
-      subscribed = Boolean(await reg.pushManager.getSubscription());
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      subscribed = Boolean(await reg?.pushManager?.getSubscription());
     } catch {
       /* The settings page can still explain unsupported browser permission. */
     }

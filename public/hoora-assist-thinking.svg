@@ -1,6 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
   <title id="title">Hoora Assist thinking</title>
-  <path d="M100 50C100 77.61 77.61 100 50 100C22.39 100 0 77.61 0 50C0 22.39 22.39 0 50 0C77.61 0 100 22.39 100 50Z" fill="#ecf6f7"/>
   <g transform="translate(0 -0.4)" fill="#00becd">
     <circle cx="50.91" cy="21.37" r="9.86"/>
     <circle cx="39.96" cy="76.74" r="9.8"/>

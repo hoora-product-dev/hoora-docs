@@ -142,7 +142,7 @@ function assistantUI() {
           return `<div class="assistant-message ${m.role}"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div>`;
         })
         .join('')
-    : '<div class="assistant-empty"><strong>Ask Hoora Assist</strong><span>Open a document first, then ask about releases, SOPs, tickets, or the page you are reading.</span></div>';
+    : '<div class="assistant-empty"><strong>Ask Hoora Assist</strong><span>Ask about releases, SOPs, tickets, or any document you can access.</span></div>';
   return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><div><strong>Hoora Assist</strong><small>Answers from documents you can access</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {
@@ -222,6 +222,7 @@ const sources = sourcesFeature({
   render,
 });
 const features = workspaceFeatures({
+  icon,
   state,
   db: (...args) => db(...args),
   e,
@@ -442,11 +443,13 @@ async function load() {
       ).length;
       try {
         const [notices, reads] = await Promise.all([
-          db('docs_notices', '?select=id'),
+          db('docs_notices', '?select=id,page_id'),
           db('docs_notice_reads', '?select=notice_id'),
         ]);
         const seen = new Set(reads.map((r) => r.notice_id));
-        state.unreadNoticeCount = notices.filter((n) => !seen.has(n.id)).length;
+        state.unreadNoticeCount = notices.filter(
+          (n) => !seen.has(n.id) && state.published.some((p) => p.id === n.page_id),
+        ).length;
       } catch {
         state.unreadNoticeCount = 0;
       }
@@ -471,11 +474,17 @@ async function hydrateRoute(route, id) {
     if (index < 0) return;
     const rows = await db('docs_published', '?id=eq.' + state.published[index].id + '&select=*');
     if (rows[0]) state.published[index] = rows[0];
-  } else if (route === 'edit' || route === 'preview') {
+  } else if (route === 'edit' || route === 'preview' || route === 'contribute') {
     const index = state.pages.findIndex((p) => p.id === id);
     if (index < 0 || state.pages[index]._readOnly) return;
     const rows = await db('docs_pages', '?id=eq.' + id + '&select=*');
-    if (rows[0]) state.pages[index] = rows[0];
+    if (rows[0]) {
+      rows[0]._canPublish = await db('rpc/docs_can_publish_page_for', '', {
+        method: 'POST',
+        body: { document_id: id, viewer_id: state.member.id },
+      });
+      state.pages[index] = rows[0];
+    }
     if (state.releases.some((r) => r.id === id)) {
       const entries = await db(
         'docs_entries',
@@ -738,10 +747,20 @@ function options(items, selected, placeholder) {
   );
 }
 function editor(id) {
-  if (state.releases.some((r) => r.id === id))
-    return new URLSearchParams(routeHash().split('?')[1]).has('settings')
-      ? releaseDetails(id)
-      : releaseDetail(id);
+  if (state.releases.some((r) => r.id === id)) {
+    const params = new URLSearchParams(routeHash().split('?')[1]);
+    if (params.has('settings')) return releaseDetails(id);
+    if (params.has('overview')) return releaseDetail(id);
+    const editable = state.entries.filter(
+      (entry) => entry.release_id === id && canEditEntry(entry),
+    );
+    const requested = params.get('entry');
+    const entry = requested
+      ? editable.find((entry) => entry.id === requested)
+      : editable.find((entry) => entry.author_id === state.member.id) || editable[0];
+    if (requested && !entry) throw Error('You do not have permission to edit this section.');
+    return contributionEditor.view(id, entry?.id);
+  }
   const p = state.pages.find((x) => x.id === id) || {
     id: crypto.randomUUID(),
     title: '',
@@ -772,7 +791,7 @@ function editor(id) {
   if (!canEdit(state.member.role) || p._readOnly)
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === 'html' ? artifactFrame(p, true) : ''}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === 'html';
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: canPublish(state.member.role) })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: isNew ? canPublish(state.member.role) : p._canPublish === true })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon('code')}<span>${e(
           p.artifact_path
@@ -851,7 +870,7 @@ async function shareCurrentPage() {
   dialog(
     `<h2>Share this page</h2><p class="small">${e(page.title)}</p>
     <div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${navigator.share ? '<button type="button" class="btn outline" data-action="native-share">Share…</button>' : ''}</div>
-    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="private" ${access === 'private' ? 'selected' : ''}>Hoora organization · Microsoft sign-in</option><option value="restricted" ${access === 'restricted' ? 'selected' : ''}>Selected Hoora people only</option>${page.team_id ? `<option value="team" ${access === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div><div class="field share-emails" ${access === 'restricted' ? '' : 'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map((row) => row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. Everyone signs in with Microsoft before opening a document.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access === 'restricted' ? 'Only selected people and the document’s owners can open this link.' : access === 'team' ? 'Members of this document’s team must sign in to open this link.' : 'Hoora employees must sign in with Microsoft to open this link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
+    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="private" ${access === 'private' ? 'selected' : ''}>Everyone at Hoora</option><option value="restricted" ${access === 'restricted' ? 'selected' : ''}>Selected Hoora people only</option>${page.team_id ? `<option value="team" ${access === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div><div class="field share-emails" ${access === 'restricted' ? '' : 'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map((row) => row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. Everyone signs in with Microsoft before opening a document.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access === 'restricted' ? 'Only selected people and the document’s owners can open this link.' : access === 'team' ? 'Members of this document’s team must sign in to open this link.' : 'Hoora employees must sign in with Microsoft to open this link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
     async (form) => {
       if (!canManage) return;
       const allowed_emails = String(form.get('emails') || '')
@@ -2218,11 +2237,6 @@ function pageAccess(p) {
 }
 function accessText(p) {
   const access = pageAccess(p);
-  if (state.member) {
-    if (state.member.role === 'admin') return 'Admin access';
-    if (canEdit(state.member.role)) return 'Edit access';
-    return 'View access';
-  }
   return access === 'team'
     ? 'Team access'
     : access === 'restricted'
@@ -2235,7 +2249,7 @@ function typeFields(p) {
 }
 function visibilityField(p) {
   return state.member?.role === 'admin'
-    ? `<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility !== 'restricted' && p.visibility !== 'team' ? 'selected' : ''}>Hoora organization · Microsoft sign-in</option><option value="restricted" ${p.visibility === 'restricted' ? 'selected' : ''}>Selected people · use Share to add emails</option>${p.team_id ? `<option value="team" ${p.visibility === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select><small>Microsoft sign-in required.</small></div>`
+    ? `<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility !== 'restricted' && p.visibility !== 'team' ? 'selected' : ''}>Everyone at Hoora</option><option value="restricted" ${p.visibility === 'restricted' ? 'selected' : ''}>Selected people · use Share to add emails</option>${p.team_id ? `<option value="team" ${p.visibility === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div>`
     : `<p class="properties-help">${icon('lock')}A manager or administrator controls sharing.</p>`;
 }
 function customFieldList(p) {
@@ -2397,14 +2411,15 @@ function releaseDocumentNew(p) {
     })
     .join('')}</nav>`;
 
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({ ...p, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...p, project_id: project.id }))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? contributionGroups(notes, false, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? contributionGroups(notes, false, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record) {
   const { page, project, notes, draft, published } = record,
     editable = draft && canEdit(state.member?.role),
+    canPublishRelease = editable && page._canPublish === true,
     adminRole = state.member?.role === 'admin';
-  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon, project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({ ...page, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...page, project_id: project.id }))}${draft ? `<span class="badge ${published ? 'published' : 'draft'}">${published ? (published.revision === page.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span></div>${editable ? `<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>` : ''}</div>${page.summary ? `<p class="release-description">${e(page.summary)}</p>` : ''}${customFieldList(page)}${editable ? `<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published ? 'Publish changes' : 'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${editorMenu(icon, (published ? `<a href="${publishedRoute(published, state.projects)}">${icon('link')}View published</a>` : '') + `<a href="#/edit/${page.id}?settings=1">${icon('settings')}Edit details</a>` + (adminRole && published ? `<button type="button" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>` : '') + (published ? `<button type="button" data-action="unpublish-release" data-id="${page.id}">${icon('archive')}Unpublish</button>` : '') + (adminRole ? `<button type="button" class="danger" data-action="delete-release" data-id="${page.id}">${icon('trash')}Delete release</button>` : ''))}</div><p class="release-help">Only notes marked ready are included when you publish.</p>` : ''}${notes.length ? contributionGroups(notes, editable) : empty('Add the first contribution', 'Group the work by vertical and mark it ready when it can be published.')}</section>`;
+  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon, project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({ ...page, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...page, project_id: project.id }))}${draft ? `<span class="badge ${published ? 'published' : 'draft'}">${published ? (published.revision === page.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span></div>${editable ? `<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>` : ''}</div>${page.summary ? `<p class="release-description">${e(page.summary)}</p>` : ''}${customFieldList(page)}${editable ? `<div class="release-controls">${canPublishRelease ? `<button class="btn dark" data-action="publish-release" data-id="${page.id}">${published ? 'Publish changes' : 'Publish release'}</button>` : ''}<a class="btn outline" href="#/preview/${page.id}">Preview</a>${editorMenu(icon, (published ? `<a href="${publishedRoute(published, state.projects)}">${icon('link')}View published</a>` : '') + `<a href="#/edit/${page.id}?settings=1">${icon('settings')}Edit details</a>` + (adminRole && published ? `<button type="button" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>` : '') + (published && canPublishRelease ? `<button type="button" data-action="unpublish-release" data-id="${page.id}">${icon('archive')}Unpublish</button>` : '') + (adminRole ? `<button type="button" class="danger" data-action="delete-release" data-id="${page.id}">${icon('trash')}Delete release</button>` : ''))}</div>${canPublishRelease ? '<p class="release-help">Only notes marked ready are included when you publish.</p>' : ''}` : ''}${notes.length ? contributionGroups(notes, editable) : empty('Add the first contribution', 'Group the work by vertical and mark it ready when it can be published.')}</section>`;
 }
 function contributionGroups(notes, editable = false, showSectionHeading = true) {
   const groups = new Map();
@@ -2532,7 +2547,7 @@ function manageStructure(kind, id) {
   }[kind];
   const item = items.find((x) => (x.id || x.key) === id) || {};
   dialog(
-    `<h2>${id ? 'Edit' : 'New'} ${kind === 'project' ? 'application' : kind === 'vertical' ? 'release section' : kind === 'type' ? 'document collection' : 'folder'}</h2><form><div class="field"><label for="structure-name">Name</label><input id="structure-name" name="name" required maxlength="80" value="${e(item.name || '')}"></div>${kind === 'project' || kind === 'vertical' ? `<div class="field"><label for="structure-description">Description</label><textarea id="structure-description" name="description" maxlength="500">${e(item.description || '')}</textarea></div>` : ''}${appearanceFields(item)}${kind !== 'vertical' ? `<div class="field"><label for="structure-visibility">${kind === 'type' ? 'Default document access' : 'Access'}</label><select id="structure-visibility" name="${kind === 'type' ? 'default_visibility' : 'visibility'}"><option value="private" selected>Hoora organization · sign-in required</option></select></div>` : ''}${
+    `<h2>${id ? 'Edit' : 'New'} ${kind === 'project' ? 'application' : kind === 'vertical' ? 'release section' : kind === 'type' ? 'document collection' : 'folder'}</h2><form><div class="field"><label for="structure-name">Name</label><input id="structure-name" name="name" required maxlength="80" value="${e(item.name || '')}"></div>${kind === 'project' || kind === 'vertical' ? `<div class="field"><label for="structure-description">Description</label><textarea id="structure-description" name="description" maxlength="500">${e(item.description || '')}</textarea></div>` : ''}${appearanceFields(item)}${kind !== 'vertical' ? `<div class="field"><label for="structure-visibility">${kind === 'type' ? 'Default document access' : 'Access'}</label><select id="structure-visibility" name="${kind === 'type' ? 'default_visibility' : 'visibility'}"><option value="private" selected>Everyone at Hoora</option></select></div>` : ''}${
       kind === 'folder'
         ? `<div class="field"><label for="parent-folder">Parent folder</label><select name="parent_id" id="parent-folder">${options(
             state.folders.filter((f) => f.id !== id),

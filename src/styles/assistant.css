@@ -161,6 +161,11 @@ body .assistant-trigger {
 .assistant-open {
   overflow: hidden;
 }
+body.navigation-open .assistant-shell,
+body:has(.rail-more[open]) .assistant-shell {
+  visibility: hidden;
+  pointer-events: none;
+}
 .assistant-trigger {
   display: flex;
   align-items: center;
@@ -574,13 +579,13 @@ body .assistant-trigger {
      motion. Keep it subtle and local rather than removing the only status
      signal. */
   .assistant-working-label {
-    animation: assistant-wave-shine 4s linear infinite;
+    animation: assistant-wave-shine 4s linear infinite !important;
   }
   .assistant-thinking-dots::after {
-    animation: assistant-thinking-dots 1.5s steps(4, end) infinite;
+    animation: assistant-thinking-dots 1.5s steps(4, end) infinite !important;
   }
   .thinking-avatar {
-    animation: assistant-avatar-thinking 1.8s ease-in-out infinite;
+    animation: assistant-avatar-thinking 1.8s ease-in-out infinite !important;
   }
   .assistant-action {
     transition: none;

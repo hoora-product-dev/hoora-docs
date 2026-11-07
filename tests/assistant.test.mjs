@@ -60,6 +60,8 @@ function prepare(t, readable = true, includeUpcoming = false) {
       generations++;
       const body = JSON.parse(options.body);
       assert.equal(body.model, 'nvidia/nemotron-3.5-lightning-free');
+      if (includeUpcoming)
+        assert.match(body.messages[1].content, /Target release date: 2026-11-20/);
       data = {
         choices: [
           {
@@ -97,6 +99,67 @@ test('The free assistant reserves its token budget for an answer and returns doc
     { key: 'HCUS-1592', url: 'https://hooratechteam.atlassian.net/browse/HCUS-1592' },
   ]);
   assert.equal(generations(), 1);
+});
+
+test('Latest release metadata survives long documents and a failed primary reaches the fallback', async (t) => {
+  const original = { ...process.env };
+  Object.assign(process.env, {
+    SUPABASE_URL: 'https://test.supabase.co',
+    SUPABASE_ANON_KEY: 'public',
+    AI_GATEWAY_API_KEY: 'gateway',
+  });
+  t.after(() => {
+    process.env = original;
+  });
+  const releases = Array.from({ length: 8 }, (_, i) => ({
+    id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    kind: 'release',
+    title: `Customer App ${i + 1}`,
+    version: `${i + 1}.0.0`,
+    slug: `release-${i + 1}`,
+    published_at: '2026-11-07',
+    release_snapshot: {
+      project: 'Customer App',
+      project_slug: 'customer-app',
+      release_date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+      entries: [{ body: 'Long source text '.repeat(1500) }],
+    },
+  }));
+  const models = [];
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    let data;
+    if (url.includes('/rpc/docs_search')) data = releases.slice(0, 6).map((r) => ({ id: r.id }));
+    else if (url.endsWith('/embeddings')) data = { data: [] };
+    else if (url.includes('kind=eq.release')) data = releases;
+    else if (url.includes('/docs_published?id=')) data = releases;
+    else if (url.endsWith('/chat/completions')) {
+      const payload = JSON.parse(options.body);
+      models.push(payload.model);
+      assert.match(
+        payload.messages[1].content,
+        /Customer App 8; version 8.0.0; release date 2026-10-08/,
+      );
+      assert.match(
+        payload.messages[1].content,
+        /Customer App 3; version 3.0.0; release date 2026-10-03/,
+      );
+      if (models.length === 1) throw new TypeError('Transport unavailable');
+      data = { choices: [{ message: { content: 'Version 8.0.0 released on 8 October [1].' } }] };
+    } else throw Error('Unexpected request ' + url);
+    return new Response(JSON.stringify(data));
+  });
+  const res = response();
+  await handler(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer viewer-test-token' },
+      body: { question: 'What is the latest Customer App release date?' },
+    },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.equal(res.data.sources[0].url, '/release-notes/8.0.0/customer-app');
+  assert.deepEqual(models, ['nvidia/nemotron-3.5-lightning-free', 'reflection/beam-free']);
 });
 test('An inaccessible document never enters the generation context', async (t) => {
   const generations = prepare(t, false),
