@@ -2,7 +2,9 @@
 
 An administrator creates a release at `/upcoming` with a name, version, target date, Jira saved-filter link and approved `@hoora.me` viewer emails. A new release is private to administrators until sharing is enabled. Sharing requires a date and a working Jira connection. Administrators can edit or delete releases; deleting a page never edits or deletes Jira tickets. Stable page URLs survive changes to the name, version, date or filter.
 
-Approved viewers sign in through Hoora Docs. The page has Vertical and Product Owner dropdowns, populated from all tickets in the saved filter, including a Not assigned option. Both filters apply together. Clicking a title loads description and ticket metadata. Refresh reads current Jira data; no Jira ticket content is copied to Supabase, public search, the AI index or an offline cache. Jira remains the source of truth.
+Approved viewers sign in through Hoora Docs. Upcoming releases is the first item in release navigation and opens the first accessible release's tickets directly. A release selector appears when more than one release is available. The page has Vertical and Product Owner dropdowns, populated from all tickets in the saved filter, including a Not assigned option. Both filters apply together.
+
+Clicking a title opens an internal page at `/upcoming/:slug/tickets/:key` with its description and metadata. The page supports direct links, reloads and returning to the selected filters. Administrators manage releases on full pages at `/upcoming/:slug/settings` and create them at `/upcoming?create=1`. Only the short delete confirmation uses a dialog. Refresh reads current Jira data; no Jira ticket content is copied to Supabase, public search, the AI index or an offline cache. Jira remains the source of truth.
 
 ## Integration setup
 

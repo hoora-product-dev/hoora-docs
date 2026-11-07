@@ -47,7 +47,15 @@ try {
     page.on('pageerror', (error) => errors.push({ role, url: page.url(), error: error.message }));
     const routes =
       role === 'public'
-        ? ['home', 'releases', 'release-notes/5.6.0/customer-app', 'browse', 'login', 'install']
+        ? [
+            'home',
+            'releases',
+            'release-notes/5.6.0/customer-app',
+            'browse',
+            'login',
+            'install',
+            'search?q=booking',
+          ]
         : [
             'home',
             'releases',
@@ -62,8 +70,38 @@ try {
             'archive',
             'activity',
             'upcoming',
+            'upcoming?create=1',
+            'search?q=booking',
             'new',
           ];
+    if (role === 'admin') {
+      const response = await fetch(base + '/api/upcoming', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify({ action: 'list' }),
+      });
+      assert.equal(response.ok, true);
+      const { releases } = await response.json();
+      if (releases.length) {
+        const release = releases[0];
+        routes.push('upcoming/' + release.slug + '/settings');
+        const tickets = await fetch(base + '/api/upcoming', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + session.access_token,
+          },
+          body: JSON.stringify({ action: 'tickets', id: release.id }),
+        });
+        assert.equal(tickets.ok, true);
+        const data = await tickets.json();
+        if (data.tickets.length)
+          routes.push('upcoming/' + release.slug + '/tickets/' + data.tickets[0].key);
+      }
+    }
     for (const route of routes) {
       await page.goto(base + '/' + route);
       await page.waitForFunction(
@@ -109,7 +147,7 @@ try {
               '-' +
               role +
               '-' +
-              route.replaceAll('/', '-') +
+              route.replace(/[^a-zA-Z0-9-]/g, '-') +
               '-' +
               width +
               '.png',

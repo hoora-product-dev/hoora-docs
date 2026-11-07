@@ -975,26 +975,6 @@ dialog:has(.email-preview) {
   max-height: 65dvh;
   overflow: auto;
 }
-.global-results {
-  margin-top: 18px;
-  max-height: 430px;
-  overflow: auto;
-}
-.global-results a {
-  display: block;
-  padding: 12px;
-  border-bottom: 1px solid var(--line);
-  font-size: 13px;
-}
-.global-results a:hover {
-  background: var(--canvas);
-}
-.global-results small {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 4px;
-}
 @media (max-width: 1150px) {
   .document-row {
     grid-template-columns: 30px minmax(0, 1fr) 100px 85px 24px;

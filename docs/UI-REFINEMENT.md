@@ -78,3 +78,13 @@ The canonical local Git working copy is now `C:\Users\rahul\OneDrive\Documents\h
 ## Production release
 
 Vercel now builds from the repository root. The production alias is https://hoora-docs.vercel.app. Live checks passed release URLs and share metadata, section filters, ranked keyboard search, mobile feed, install assets, private access gates, Microsoft OAuth redirection, clipboard/drawing exports, sidebar/assistant interactions and the real Jira filter with 208 tickets. The production assistant smoke test exposed an occasional empty output because reasoning shared the answer token budget; generation now uses the same free model with reasoning disabled, with regression tests for citations and inaccessible-document isolation. A real full-context request returned a cited answer with six sources after this adjustment.
+
+## November 7 navigation and page refinements
+
+The follow-up screenshot exposed a missing radius on shared buttons and an empty signed-out compact sidebar footer. Shared buttons now use the 8px control token. The compact sidebar has one header toggle, reveals the complete brand on expansion, and retains one visible sign-in action. Desktop sign-in lives in the sidebar; mobile uses the header. Account menu actions have icons, and Escape dismisses the menu.
+
+Header search was removed. Home contains a real search form, and `/search` displays results and filters on a full page. Typing updates the results without replacing the focused input; result cards open their document. The keyboard shortcut opens the same search page. Superseded search popup styles were removed.
+
+Upcoming releases appears before All updates in release navigation and opens tickets immediately. Ticket details and administrator configuration use internal full pages with refreshable URLs. Returning from a ticket restores the chosen filters. Large settings forms have no floating assistant launcher covering their controls. Only the brief delete confirmation remains a dialog. Existing server permission checks and Jira filter boundaries are unchanged.
+
+Verification for this pass: 300 page/viewport geometry checks across both themes and six widths; 38 unit/security tests; complete browser content workflows; dedicated sidebar, account-menu, search, ticket navigation, full-page settings and hover checks; source parsing, Knip and production build. Desktop/mobile screenshots of search, both sidebar states, account menu, ticket details and settings were inspected. CodeRabbit reviewed the changes and completed with zero findings. These are representative checks, not a guarantee for every device or browser state.
