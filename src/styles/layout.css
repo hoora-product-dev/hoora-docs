@@ -560,6 +560,103 @@ body .home {
     font-size: 11px;
   }
 }
+
+/* Notifications use the same quiet cards as the rest of the workspace. */
+.notice-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+.notice-item {
+  border: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  background: var(--surface);
+  padding: 16px;
+}
+.notice-item:hover {
+  border-color: var(--muted);
+  background: var(--hover-surface);
+}
+.notice-item .notice-state {
+  flex: none;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+.notice-item.unread {
+  border-color: color-mix(in srgb, #d92d20 34%, var(--line));
+  background: color-mix(in srgb, #d92d20 5%, var(--surface));
+}
+.notice-item.unread .notice-state {
+  background: color-mix(in srgb, #d92d20 13%, var(--surface));
+  color: #d92d20;
+}
+.notice-item > .icon {
+  flex: none;
+  margin-left: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.notice-empty {
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  padding: 48px 20px;
+}
+.notification-settings {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  padding: 0;
+  background: var(--surface);
+}
+.notification-settings > summary {
+  padding: 15px 16px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.notification-settings[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.notification-settings-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+.notification-settings-card strong,
+.notification-settings-card p {
+  display: block;
+  margin: 0;
+}
+.notification-settings-card p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.notification-settings-card .toolbar-actions {
+  margin: 0;
+  flex: none;
+}
+.notification-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .notification-settings-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .notification-settings-card .toolbar-actions {
+    width: 100%;
+  }
+}
 .home-search input {
   min-width: 0;
   flex: 1;

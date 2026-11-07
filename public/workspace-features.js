@@ -56,17 +56,31 @@ export function workspaceFeatures({
         state.published.some((p) => p.id === n.page_id),
       );
     state.unreadNoticeCount = unread.length;
+    const push = (await pwa.status?.()) || {
+        supported: false,
+        installed: false,
+        permission: 'unsupported',
+        subscribed: false,
+      },
+      pushAction = push.subscribed
+        ? '<button class="btn outline" data-hub-action="push-disable">Disable notifications</button>'
+        : push.supported && push.permission !== 'denied'
+          ? '<button class="btn dark" data-hub-action="push-enable">Enable notifications</button>'
+          : '<span class="notification-status">Notifications are blocked in this browser.</span>',
+      installAction = push.installed
+        ? ''
+        : '<button class="btn outline" data-hub-action="install">Install app</button>';
     return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Notifications</h1><p>${unread.length ? `${unread.length} unread update${unread.length === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn text" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
       visible
         .map((n) => {
           const p = state.published.find((p) => p.id === n.page_id);
           return p
-            ? `<a class="notice-item ${seen.has(n.id) ? '' : 'unread'}" href="${publishedRoute(p, state.projects)}" data-notice-read="${n.id}"><span class="notice-dot"></span><div><h2>${e(noticeTitle(p))}</h2><p>Sent by ${e(n.sender_name)} · ${new Date(n.created_at).toLocaleString('en-IN')}</p></div><span>${seen.has(n.id) ? 'Read' : 'New'}</span></a>`
+            ? `<a class="notice-item ${seen.has(n.id) ? '' : 'unread'}" href="${publishedRoute(p, state.projects)}" data-notice-read="${n.id}"><span class="notice-dot"></span><div><h2>${e(noticeTitle(p))}</h2><p>Sent by ${e(n.sender_name)} · ${new Date(n.created_at).toLocaleString('en-IN')}</p></div><span class="notice-state">${seen.has(n.id) ? 'Read' : 'New'}</span>${icon('chevron')}</a>`
             : '';
         })
         .join('') ||
-      `<div class="empty"><h2>${showAllNotices ? 'No notifications yet' : 'You’re all caught up'}</h2><p>${showAllNotices ? 'Updates shared with you will appear here.' : 'New updates will appear here when a manager shares them.'}</p></div>`
-    }</div><details class="notification-settings"><summary>Browser notification settings</summary><div class="toolbar-actions"><button class="btn outline" data-hub-action="push-enable">Enable notifications</button><button class="btn text" data-hub-action="push-disable">Disable on this browser</button><button class="btn text" data-hub-action="install">Install app</button></div><p class="small">On iPhone, add Hoora Docs to your Home Screen first.</p></details></main>`;
+      `<div class="empty notice-empty"><h2>${showAllNotices ? 'No notifications yet' : 'You’re all caught up'}</h2><p>${showAllNotices ? 'Updates shared with you will appear here.' : 'New updates will appear here when a manager shares them.'}</p></div>`
+    }</div><details class="notification-settings"><summary>Notification settings</summary><div class="notification-settings-card"><div><strong>Browser notifications</strong><p>${push.subscribed ? 'Enabled on this browser.' : push.permission === 'denied' ? 'Allow notifications in your browser settings to receive release updates.' : 'Get an alert when a release or document is shared with you.'}</p></div><div class="toolbar-actions">${pushAction}${installAction}</div></div></details></main>`;
   }
   function contributions() {
     const mine = state.pages.filter(
@@ -151,9 +165,21 @@ export function workspaceFeatures({
       toast('All notifications marked as read.');
       return;
     }
-    if (type === 'install') return pwa.install();
-    if (type === 'push-enable') return pwa.enable();
-    if (type === 'push-disable') return pwa.disable();
+    if (type === 'install') {
+      await pwa.install();
+      await render();
+      return;
+    }
+    if (type === 'push-enable') {
+      await pwa.enable();
+      await render();
+      return;
+    }
+    if (type === 'push-disable') {
+      await pwa.disable();
+      await render();
+      return;
+    }
     if (type === 'notify') {
       dialog(
         `<h2>Notify readers?</h2><p>Send “${e(noticeTitle(p))}” to readers who can access this release and enabled browser notifications.</p><p class="small">Your name appears in Hoora Docs. You can notify about this release once every three hours. This does not send email.</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Notify readers</button></div></form>`,

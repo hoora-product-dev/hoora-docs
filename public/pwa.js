@@ -64,6 +64,23 @@ export function pwaFeature({ appApi, getToken, toast }) {
     await disconnect();
     toast('Browser notifications disabled.');
   }
+  async function status() {
+    const supported =
+      'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+    const installed =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    if (!supported)
+      return { supported: false, installed, permission: 'unsupported', subscribed: false };
+    let subscribed = false;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      subscribed = Boolean(await reg.pushManager.getSubscription());
+    } catch {
+      /* The settings page can still explain unsupported browser permission. */
+    }
+    return { supported: true, installed, permission: Notification.permission, subscribed };
+  }
   registration().catch(() => {});
-  return { install, enable, disable, disconnect };
+  return { install, enable, disable, disconnect, status };
 }

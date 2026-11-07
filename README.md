@@ -8,7 +8,7 @@ Hoora’s workspace for release notes, documentation and operating procedures.
 
 - One-page release writing with platform, version and section selection, readable version URLs and individually attributed contributions.
 - Full-page Markdown writing, source and preview modes; clipboard/drop image uploads; private PDFs; standalone HTML artifacts; link previews; and editable Excalidraw diagrams.
-- Organization-only, team and selected-email sharing, enforced by database and Storage policies. Every document requires a Hoora sign-in.
+- Organization-only, team and selected-email sharing, enforced by database and Storage policies. Every document requires authenticated organization access.
 - Microsoft work-account sign-in, permission-aware search, Hoora Assist with cited sources and Jira actions, opt-in browser push and an installable web app.
 - Approved stakeholder access to upcoming Jira releases, with Vertical and Product Owner filters. Administrators configure the date, version, saved filter and viewer list.
 
