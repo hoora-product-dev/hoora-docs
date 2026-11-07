@@ -351,11 +351,18 @@ body .home {
 @media (max-width: 900px) {
   :root {
     --page-gutter: 22px;
+    /* iOS PWAs expose the status-bar inset inside the viewport. Keep the
+       drawer and scrim anchored to the complete topbar, not just its 60px
+       content row, so the first navigation item can never sit underneath it. */
+    --mobile-header: calc(var(--header) + env(safe-area-inset-top));
   }
   .has-rail .topbar {
     margin-left: 0;
     width: 100%;
     padding-inline: 18px;
+    height: var(--mobile-header);
+    min-height: var(--mobile-header);
+    padding-top: env(safe-area-inset-top);
   }
   .has-rail .layout {
     margin-left: 0;
@@ -381,11 +388,11 @@ body .home {
   .has-rail .sidebar {
     display: none !important;
     position: fixed;
-    top: var(--header);
+    top: var(--mobile-header);
     left: 0;
     width: min(280px, calc(100vw - 48px)) !important;
-    height: calc(100dvh - var(--header));
-    max-height: calc(100dvh - var(--header));
+    height: calc(100dvh - var(--mobile-header));
+    max-height: calc(100dvh - var(--mobile-header));
     padding: 12px 12px max(12px, env(safe-area-inset-bottom));
     z-index: 50;
     box-shadow: none;
@@ -399,7 +406,7 @@ body .home {
   }
   .navigation-backdrop {
     position: fixed;
-    inset: var(--header) 0 0;
+    inset: var(--mobile-header) 0 0;
     z-index: 40;
     background: #0006;
   }
