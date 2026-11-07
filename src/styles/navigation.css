@@ -283,6 +283,17 @@ body.rail-collapsed {
   gap: 10px;
 }
 @media (max-width: 900px) {
+  /* navigation.css is loaded after layout.css and owns the base fixed rail.
+     Keep its mobile override here so the drawer can never fall back to
+     top:0 underneath the safe-area-aware app header. */
+  .has-rail .sidebar {
+    top: var(--mobile-header, var(--header));
+    height: calc(100dvh - var(--mobile-header, var(--header)));
+    max-height: calc(100dvh - var(--mobile-header, var(--header)));
+  }
+  .navigation-backdrop {
+    inset: var(--mobile-header, var(--header)) 0 0;
+  }
   .topbar nav {
     display: none;
   }
