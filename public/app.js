@@ -126,7 +126,22 @@ function assistantUI() {
     route.startsWith('#/preview/')
   )
     return '';
-  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assistant" aria-expanded="${assistantOpen}">${icon(assistantOpen ? 'close' : 'chat')}<span>Hoora Assistant</span></button><section class="assistant-panel" aria-label="Hoora Docs assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div><strong>Hoora Assistant</strong><small>Answers from documents you can access</small></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${assistantMessages.length ? assistantMessages.map((m) => (m.thinking ? '<div class="assistant-message assistant thinking" role="status" aria-live="polite"><span>Searching Hoora knowledge</span><span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>' : `<div class="assistant-message ${m.role}"><div>${e(m.text)}</div>${m.sources?.length ? `<nav aria-label="Sources">${m.sources.map((s) => `<a href="${e(s.url)}">[${s.number}] ${e(s.title)}</a>`).join('')}</nav>` : ''}</div>`)).join('') : '<div class="assistant-empty">Ask about a release, SOP, or the document you are reading. Answers link back to their source.</div>'}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about Hoora knowledge…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
+  const messageMarkup = assistantMessages.length
+    ? assistantMessages
+        .map((m) => {
+          if (m.thinking)
+            return '<div class="assistant-message assistant thinking" role="status" aria-live="polite"><div class="thinking-label">Hoora Assist is thinking<span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="thinking-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>';
+          const sources = m.sources?.length
+            ? `<nav class="assistant-actions" aria-label="Related documentation"><span class="assistant-actions-label">Sources</span>${m.sources.map((s) => `<a class="assistant-action" href="${e(s.url)}">${icon('book')}<span>[${s.number}] ${e(s.title)}</span>${icon('chevron')}</a>`).join('')}</nav>`
+            : '';
+          const tickets = m.tickets?.length
+            ? `<nav class="assistant-actions" aria-label="Related Jira tickets"><span class="assistant-actions-label">Related tickets</span>${m.tickets.map((t) => `<a class="assistant-action assistant-ticket" href="${e(t.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}<span>${e(t.key)}</span>${icon('chevron')}</a>`).join('')}</nav>`
+            : '';
+          return `<div class="assistant-message ${m.role}"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div>`;
+        })
+        .join('')
+    : '<div class="assistant-empty"><strong>Ask Hoora Assist</strong><span>Open a document first, then ask about releases, SOPs, tickets, or the page you are reading.</span></div>';
+  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}"><img src="/hoora-assist.svg" alt="" class="assistant-avatar">${assistantOpen ? icon('close') : icon('chat')}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><img src="/hoora-assist.svg" alt="" class="assistant-avatar"><div><strong>Hoora Assist</strong><small>Answers from documents you can access</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {
   const viewport = window.visualViewport;
@@ -3033,7 +3048,12 @@ document.addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw Error(data.error || 'The assistant is unavailable.');
     assistantMessages.pop();
-    assistantMessages.push({ role: 'assistant', text: data.answer, sources: data.sources || [] });
+    assistantMessages.push({
+      role: 'assistant',
+      text: data.answer,
+      sources: data.sources || [],
+      tickets: data.tickets || [],
+    });
   } catch (error) {
     assistantMessages.pop();
     assistantMessages.push({ role: 'assistant', text: error.message || 'Please try again.' });
