@@ -1,6 +1,6 @@
 # Hoora Docs consistency and editor refinement
 
-Status: implementation verified; production rollout pending. This checklist records the full November 7 request and its verification evidence.
+Status: published to production; live verification recorded below. This checklist records the full November 7 request and its verification evidence.
 
 ## Design contract
 
@@ -58,7 +58,7 @@ Initial inspection: styles are spread across multiple overlapping override files
 ## Verification results
 
 - 240 geometry checks: public and administrator pages at 320, 390, 768, 1024, 1440 and 1920px in dark and light themes; no horizontal overflow or browser exceptions. Desktop and mobile screenshots were inspected.
-- 36 unit/security tests; 26 live database workflow checks for team roles, equal/lower grants, sharing, Storage, snapshots, concurrent notifications and attribution.
+- 38 unit/security tests; 26 live database workflow checks for team roles, equal/lower grants, sharing, Storage, snapshots, concurrent notifications and attribution.
 - Browser workflows covered manager/viewer/admin access, source and visual clipboard images uploaded as WebP, full-page release contributions, previews, publication, search, PDFs, HTML artifacts, archive and cleanup. Temporary records were removed.
 - Drawing creation and PNG export; editable drawing references; safe URL previews including balanced parentheses; single-image paste; Markdown round trips.
 - Interaction checks: no geometry changes on release hover or busy controls, default expanded rail, collapsed hover without shifting the page, mobile drawer focus/Escape, full-screen assistant and reduced motion.
@@ -74,3 +74,7 @@ Initial inspection: styles are spread across multiple overlapping override files
 The unchanged relocation to the repository root is a separate commit. Vercel must use the repository root rather than the old `hoora-docs` subdirectory. Authored content, database migration history, access policies and existing published versions are preserved. Full-page readers intentionally retain a readable text measure inside the standard page shell.
 
 The canonical local Git working copy is now `C:\Users\rahul\OneDrive\Documents\hoora-docs`. Earlier source and reference downloads were preserved outside the repository in `C:\Users\rahul\OneDrive\Documents\hoora-docs-workspace-backup-20261107`.
+
+## Production release
+
+Vercel now builds from the repository root. The production alias is https://hoora-docs.vercel.app. Live checks passed release URLs and share metadata, section filters, ranked keyboard search, mobile feed, install assets, private access gates, Microsoft OAuth redirection, clipboard/drawing exports, sidebar/assistant interactions and the real Jira filter with 208 tickets. The production assistant smoke test exposed an occasional empty output because reasoning shared the answer token budget; generation now uses the same free model with reasoning disabled, with regression tests for citations and inaccessible-document isolation. A real full-context request returned a cited answer with six sources after this adjustment.

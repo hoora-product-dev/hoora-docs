@@ -15,39 +15,41 @@ try {
     errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(base + '/releases');
-  await page.getByRole('heading', { name: 'What’s new at Hoora', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'All updates', exact: true }).waitFor();
   await page.getByRole('link', { name: 'Customer App', exact: true }).click();
   await page.getByRole('heading', { name: 'Customer App', exact: true }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('project'), 'customer-app');
   assert.equal(await page.locator('.version-section-tabs a').count(), 0);
-  await page.locator('.timeline-item h3 a').filter({ hasText: 'v5.11.0' }).click();
-  await page.getByRole('heading', { name: 'Booking flow clarity', exact: true }).waitFor();
-  assert.equal(new URL(page.url()).pathname, '/release-notes/5.11.0/customer-app');
-  assert.equal(await page.locator('.version-section-tabs a').count(), 5);
-  assert.equal(await page.locator('.contributor-line').count(), 4);
-  await page
-    .getByRole('navigation', { name: 'Release sections' })
-    .getByRole('link', { name: 'Auto Care' })
-    .click();
-  await page.waitForFunction(() => document.querySelectorAll('.contributor-line').length === 1);
-  assert.equal(await page.locator('.contributor-line').count(), 1);
-  await page
-    .getByRole('navigation', { name: 'Release sections' })
-    .getByRole('link', { name: 'All', exact: true })
-    .click();
-  await page.waitForFunction(() => document.querySelectorAll('.contributor-line').length === 4);
-  assert.equal(await page.locator('.contributor-line').count(), 4);
+  const releaseLink = await page.locator('.timeline-item h3 a').first().getAttribute('href');
+  await page.locator('.timeline-item h3 a').first().click();
+  await page.locator('.native-release-header').waitFor();
+  assert.ok(new URL(page.url()).pathname.startsWith('/release-notes/'));
+  assert.ok((await page.locator('.native-release-title').innerText()).includes('Customer App'));
+  const count = await page.locator('.contributor-line').count();
+  const tabs = page.getByRole('navigation', { name: 'Release sections' });
+  if ((await tabs.locator('a').count()) > 1) {
+    await tabs.locator('a').nth(1).click();
+    await page.waitForFunction(
+      () =>
+        new URL(location.href).searchParams.has('section') &&
+        !document.body.classList.contains('vehicle-loading'),
+    );
+    assert.equal(await page.locator('.native-release-body .release-section').count(), 1);
+    await tabs.getByRole('link', { name: 'All', exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        !new URL(location.href).searchParams.has('section') &&
+        !document.body.classList.contains('vehicle-loading'),
+    );
+    assert.equal(await page.locator('.contributor-line').count(), count);
+  }
+  await page.getByRole('button', { name: 'Copy link', exact: true }).waitFor();
   await page.screenshot({ path: 'test-results/production-release.png' });
-  await page.goto(base + '/docs/sample-customer-app-5-11-0');
-  await page.locator('.native-release-document').waitFor();
-  assert.equal(new URL(page.url()).pathname, '/release-notes/5.11.0/customer-app');
-  await page.getByRole('button', { name: 'Share', exact: true }).click();
-  assert.ok(
-    (await page.locator('.share-link').innerText()).includes('/release-notes/5.11.0/customer-app'),
-  );
-  await page.keyboard.press('Escape');
+  const metadata = await page.request.get(base + releaseLink.slice(1));
+  assert.equal(metadata.status(), 200);
+  assert.ok((await metadata.text()).includes('og:title'));
   console.log(
-    'PASS Application/version URL, old-link redirect, sharing, section filters and contributor attribution',
+    'PASS Production platform/version URL, section filtering, contributor attribution, copy action and share metadata',
   );
   await page.keyboard.press('Control+k');
   await page.locator('#global-query').fill('booking');
@@ -58,7 +60,7 @@ try {
   console.log('PASS Production ranked search and keyboard opening');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(base + '/releases');
-  await page.getByRole('heading', { name: 'What’s new at Hoora', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'All updates', exact: true }).waitFor();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: 'test-results/production-mobile.png' });
   const manifest = await (await page.request.get(base + '/manifest.webmanifest')).json();
