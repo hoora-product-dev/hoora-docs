@@ -30,7 +30,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
             ? ['viewer']
             : ['viewer'];
   const roleLabel = (role) =>
-    ({ manager: 'Manager', publisher: 'Publisher', contributor: 'Contributor', viewer: 'Viewer' })[
+    ({ manager: 'Manager', publisher: 'Publisher', contributor: 'Editor', viewer: 'Viewer' })[
       role
     ] || role;
   const teamFor = (id) => state.teams.find((team) => team.id === id || team.slug === id);
@@ -96,7 +96,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
       if (!canGrant(team, currentRole))
         throw new Error('You can only manage equal or lower team access.');
       dialog(
-        `<h2>Manage team access</h2><p class="small">${e(email)}</p><form><div class="field"><label for="team-member-role">Team role</label><select id="team-member-role" name="role">${roles.map((role) => `<option value="${role}" ${role === currentRole ? 'selected' : ''}>${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Contributor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn text" data-team-action="remove" data-id="${id}" data-email="${e(email)}" data-role="${currentRole}">Remove</button><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
+        `<h2>Manage team access</h2><p class="small">${e(email)}</p><form><div class="field"><label for="team-member-role">Team role</label><select id="team-member-role" name="role">${roles.map((role) => `<option value="${role}" ${role === currentRole ? 'selected' : ''}>${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Editor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn text" data-team-action="remove" data-id="${id}" data-email="${e(email)}" data-role="${currentRole}">Remove</button><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
         async (form) => {
           const role = form.get('role');
           if (!roles.includes(role))
@@ -133,7 +133,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
       if (!canManagePeople(team)) throw new Error('You cannot assign access for this team.');
       const roles = grantableRoles(team);
       dialog(
-        `<h2>Add people to ${e(team.name)}</h2><form><div class="field"><label for="team-emails">Hoora work emails</label><textarea id="team-emails" name="emails" rows="4" required placeholder="name@hoora.me, colleague@hoora.me"></textarea><small>Separate addresses with commas or spaces. They can sign in with Microsoft.</small></div><div class="field"><label for="team-access">Team access</label><select id="team-access" name="role">${roles.map((role) => `<option value="${role}">${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Contributor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
+        `<h2>Add people to ${e(team.name)}</h2><form><div class="field"><label for="team-emails">Hoora work emails</label><textarea id="team-emails" name="emails" rows="4" required placeholder="name@hoora.me, colleague@hoora.me"></textarea><small>Separate addresses with commas or spaces. They can sign in with Microsoft.</small></div><div class="field"><label for="team-access">Team access</label><select id="team-access" name="role">${roles.map((role) => `<option value="${role}">${role === 'manager' ? 'Manager · team administration' : role === 'publisher' ? 'Publisher · edit and publish' : role === 'contributor' ? 'Editor · edit drafts' : 'Viewer · read team documents'}</option>`).join('')}</select></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save access</button></div></form>`,
         async (form) => {
           const emails = [
             ...new Set(

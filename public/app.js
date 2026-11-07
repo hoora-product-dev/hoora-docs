@@ -99,6 +99,7 @@ const state = {
   teams: [],
   teamMembers: [],
   teamPermissions: [],
+  pageTeamAccess: [],
   dirty: false,
 };
 let renderId = 0;
@@ -415,22 +416,18 @@ async function load() {
   state.teams = [];
   state.teamMembers = [];
   state.teamPermissions = [];
+  state.pageTeamAccess = [];
   if (state.session) {
     const members = await db('docs_members', `?id=eq.${state.session.user.id}&select=*`);
     state.member = members[0]?.active ? members[0] : null;
     if (state.member && state.member.password_setup_complete) {
-      [state.teams, state.teamMembers] = await Promise.all([
-        db('docs_teams', '?select=*&order=name'),
-        db('docs_team_members', '?select=*&order=email'),
-      ]);
-      try {
-        state.teamPermissions = await db(
-          'docs_team_permissions',
-          '?select=*&order=created_at.desc',
-        );
-      } catch {
-        state.teamPermissions = [];
-      }
+      [state.teams, state.teamMembers, state.teamPermissions, state.pageTeamAccess] =
+        await Promise.all([
+          db('docs_teams', '?select=*&order=name'),
+          db('docs_team_members', '?select=*&order=email'),
+          db('docs_team_permissions', '?select=*&order=created_at.desc'),
+          db('docs_page_team_access', '?select=page_id,team_id'),
+        ]);
       [state.pages, state.folders] = await Promise.all([
         canEdit(state.member.role)
           ? db(
@@ -650,7 +647,13 @@ function sidebar(workspace = false) {
     )
     .join('');
   const folders = folderLinks();
-  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${base}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${collections}${folders ? `<div class="rail-label">Folders</div>${folders}` : ''}${workspace && canEdit(role) ? `<a class="sidelink my-contributions" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}</aside>`;
+  const teamLinks = state.teams
+    .map(
+      (t) =>
+        `<a class="sidelink ${state.team === t.id ? 'active' : ''}" href="${base}?team=${e(t.slug)}">${icon('users')}<span>${e(t.name)}</span></a>`,
+    )
+    .join('');
+  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><a class="sidelink ${!state.kind && !state.folder && !state.team ? 'active' : ''}" href="${base}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${collections}${teamLinks ? `<div class="rail-label">Teams</div>${teamLinks}` : ''}${folders ? `<div class="rail-label">Folders</div>${folders}` : ''}${workspace && canEdit(role) ? `<a class="sidelink my-contributions" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}</aside>`;
 }
 
 function row(p, internal = false) {
@@ -687,7 +690,9 @@ function workspace() {
     );
   const title = state.folder
     ? state.folders.find((f) => f.id === state.folder)?.name
-    : names[state.kind] || 'All documents';
+    : state.team
+      ? state.teams.find((t) => t.id === state.team)?.name
+      : names[state.kind] || 'All documents';
   return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1></div>${canEdit(state.member.role) ? `<div class="toolbar-actions"><a class="btn dark" href="#/new">${icon('plus')}New document</a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
@@ -893,6 +898,12 @@ function editor(id) {
     )}</select></div><div class="field"><label for="vertical_id">Vertical</label><select id="vertical_id" name="vertical_id">${options(state.verticals, p.vertical_id, 'General')}</select></div><div class="field"><label for="folder_id">Folder</label><select id="folder_id" name="folder_id">${options(state.folders, p.folder_id, 'No folder')}</select></div><div class="field"><label for="version">Version / reference</label><input id="version" name="version" value="${e(p.version)}" maxlength="100" placeholder="e.g. v2.4.0"></div><div class="field"><label for="slug">Page URL</label><input id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p.slug)}" placeholder="document-title"></div><div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="${e(p.tags.join(', '))}" placeholder="product, onboarding"><small>Comma-separated.</small></div>${typeFields(p)}${visibilityField(p)}<div class="properties-help">${icon('lock')}Private draft until published.</div></aside></div><p id="form-error" class="error" role="alert"></p><div class="editor-actions"><span class="statusbar" id="save-status">${isNew ? 'Draft not saved' : 'Saved ' + date(p.updated_at)}</span></div></form></main></div>`;
 }
 
+const teamRoles = [
+  ['viewer', 'Viewer'],
+  ['contributor', 'Editor'],
+  ['publisher', 'Publisher'],
+  ['manager', 'Manager'],
+];
 async function users() {
   state.members = await admin();
   const capabilityName = {
@@ -908,10 +919,7 @@ async function users() {
       ? names[permission.collection_key] || permission.collection_key
       : permission.scope_type === 'folder'
         ? state.folders.find((item) => item.id === permission.folder_id)?.name
-        : displayPlatformName(
-            state.projects.find((item) => item.id === permission.project_id)?.name,
-          );
-  // One row per team and capability; each scope can be removed on its own.
+        : state.projects.find((item) => item.id === permission.project_id)?.name;
   const groups = new Map();
   for (const permission of state.teamPermissions) {
     const key = permission.team_id + ':' + permission.capability;
@@ -929,17 +937,143 @@ async function users() {
         .join('')}</span></td></tr>`;
     })
     .join('');
-  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Person</th><th>Role</th><th>Teams</th><th>Status</th><th></th></tr></thead><tbody>${state.members
-    .map((m) => {
-      const memberTeams = state.teamMembers
-        .filter((tm) => tm.email === m.email)
-        .map((tm) => state.teams.find((team) => team.id === tm.team_id)?.name)
-        .filter(Boolean);
-      return `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${memberTeams.length ? e(memberTeams.join(', ')) : '<span class="muted">No team</span>'}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td><button class="btn text" data-member="${m.id}">Manage</button></td></tr>`;
-    })
-    .join(
-      '',
-    )}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>What each team can do beyond reading. Permissions add up.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Administrator</strong> Everything, including people, structure, recycle bin and activity.</p><p><strong>Manager</strong> Manages members and content of their teams.</p><p><strong>Publisher</strong> Writes and publishes where their team has publish permission.</p><p><strong>Contributor</strong> Writes drafts and submits them for publishing.</p><p><strong>Viewer</strong> Reads everything shared with the organization or their teams.</p></details></main></div>`;
+  const byEmail = new Map(state.members.map((m) => [m.email.toLowerCase(), m]));
+  const initials = (m) =>
+    e(
+      String(m.name || m.email)
+        .split(/\s+/)
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase(),
+    );
+  const card = (m, team, role) =>
+    `<div class="person-card" draggable="true" data-email="${e(m.email)}" data-team="${team ? e(team.id) : ''}"><span class="person-avatar" aria-hidden="true">${initials(m)}</span><span class="person-text"><button type="button" class="person-name" data-member="${m.id}">${e(m.name || m.email)}</button><small>${e(m.email)}${m.role !== 'viewer' ? ` · ${roleName(m.role)}` : ''}${m.active ? '' : ' · Disabled'}</small></span>${team ? `<label class="sr-only" for="role-${e(team.id)}-${e(m.id)}">Role in ${e(team.name)}</label><select id="role-${e(team.id)}-${e(m.id)}" class="person-role" data-team-role="${e(team.id)}" data-email="${e(m.email)}">${teamRoles.map(([value, label]) => `<option value="${value}" ${role === value ? 'selected' : ''}>${label}</option>`).join('')}</select><button type="button" class="scope-remove" data-board-remove="${e(team.id)}" data-email="${e(m.email)}" aria-label="Remove ${e(m.name || m.email)} from ${e(team.name)}">${icon('close')}</button>` : ''}</div>`;
+  const assigned = new Set(state.teamMembers.map((tm) => tm.email.toLowerCase()));
+  const unassigned = state.members.filter((m) => !assigned.has(m.email.toLowerCase()));
+  const column = (team) => {
+    const rows = team
+      ? state.teamMembers.filter(
+          (tm) => tm.team_id === team.id && byEmail.has(tm.email.toLowerCase()),
+        )
+      : [];
+    const people = team
+      ? rows.map((tm) => card(byEmail.get(tm.email.toLowerCase()), team, tm.role))
+      : unassigned.map((m) => card(m));
+    const addable = team
+      ? state.members.filter(
+          (m) => !rows.some((tm) => tm.email.toLowerCase() === m.email.toLowerCase()),
+        )
+      : [];
+    return `<section class="board-column" data-drop-team="${team ? e(team.id) : ''}" aria-label="${team ? e(team.name) : 'Unassigned'}"><header><strong>${team ? e(team.name) : 'Unassigned'}</strong><span>${people.length}</span></header><div class="board-cards">${people.join('') || `<p class="board-empty">${team ? 'Drag people here' : 'Everyone has a team'}</p>`}</div>${team && addable.length ? `<label class="sr-only" for="add-${e(team.id)}">Add someone to ${e(team.name)}</label><select id="add-${e(team.id)}" class="board-add" data-board-add="${e(team.id)}"><option value="">Add person…</option>${addable.map((m) => `<option value="${e(m.email)}">${e(m.name || m.email)}</option>`).join('')}</select>` : ''}</section>`;
+  };
+  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>New people join as viewers in Unassigned. Drag them into teams and choose their team role.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="people-board">${column(null)}${state.teams.map(column).join('')}</div><section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Viewer</strong> Reads release notes, upcoming releases and every document shared with them.</p><p><strong>Editor</strong> Writes and edits drafts for their team.</p><p><strong>Publisher</strong> Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</p><p><strong>Manager</strong> Everything a publisher can do, plus managing the team’s people and sharing its documents.</p><p><strong>Administrator</strong> Organization role with full control. Set it from a person’s name.</p></details></main></div>`;
+}
+/** People board: drag between columns, or use the role and "Add person" menus. */
+function bindPeopleBoard() {
+  const board = document.querySelector('.people-board');
+  if (!board) return;
+  const save = async (work, message) => {
+    try {
+      await work();
+      await load();
+      await render();
+      toast(message);
+    } catch (error) {
+      toast(error.message, true);
+    }
+  };
+  const roleOf = (team, email) =>
+    state.teamMembers.find(
+      (tm) => tm.team_id === team && tm.email.toLowerCase() === email.toLowerCase(),
+    )?.role || 'viewer';
+  const add = (team, email, role = 'viewer') =>
+    db('docs_team_members', '', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: [{ team_id: team, email: email.toLowerCase(), role, added_by: state.member.id }],
+    });
+  const remove = (team, email) =>
+    db(
+      'docs_team_members',
+      `?team_id=eq.${team}&email=eq.${encodeURIComponent(email.toLowerCase())}`,
+      {
+        method: 'DELETE',
+      },
+    );
+  board.addEventListener('dragstart', (event) => {
+    const card = event.target.closest('.person-card');
+    if (!card) return;
+    event.dataTransfer.setData(
+      'text/plain',
+      JSON.stringify({ email: card.dataset.email, from: card.dataset.team }),
+    );
+    event.dataTransfer.effectAllowed = 'copyMove';
+    card.classList.add('dragging');
+  });
+  board.addEventListener('dragend', (event) =>
+    event.target.closest('.person-card')?.classList.remove('dragging'),
+  );
+  board.addEventListener('dragover', (event) => {
+    const column = event.target.closest('.board-column');
+    if (!column) return;
+    event.preventDefault();
+    board
+      .querySelectorAll('.drop-target')
+      .forEach((item) => item !== column && item.classList.remove('drop-target'));
+    column.classList.add('drop-target');
+  });
+  board.addEventListener('dragleave', (event) => {
+    const column = event.target.closest('.board-column');
+    if (column && !column.contains(event.relatedTarget)) column.classList.remove('drop-target');
+  });
+  board.addEventListener('drop', (event) => {
+    const column = event.target.closest('.board-column');
+    if (!column) return;
+    event.preventDefault();
+    column.classList.remove('drop-target');
+    let data;
+    try {
+      data = JSON.parse(event.dataTransfer.getData('text/plain'));
+    } catch {
+      return;
+    }
+    const to = column.dataset.dropTeam;
+    if (data.from === to) return;
+    // Dragging moves a person; hold Ctrl (⌘ on Mac) to also keep them in their current team.
+    const keep = event.ctrlKey || event.metaKey;
+    save(
+      async () => {
+        if (to) await add(to, data.email, data.from ? roleOf(data.from, data.email) : 'viewer');
+        if (data.from && (!to || !keep)) await remove(data.from, data.email);
+      },
+      to ? 'Team updated.' : 'Moved to Unassigned.',
+    );
+  });
+  board.addEventListener('change', (event) => {
+    const role = event.target.closest('[data-team-role]');
+    if (role)
+      save(
+        () =>
+          db(
+            'docs_team_members',
+            `?team_id=eq.${role.dataset.teamRole}&email=eq.${encodeURIComponent(role.dataset.email.toLowerCase())}`,
+            {
+              method: 'PATCH',
+              body: { role: role.value },
+            },
+          ),
+        'Role updated.',
+      );
+    const addSelect = event.target.closest('[data-board-add]');
+    if (addSelect?.value)
+      save(() => add(addSelect.dataset.boardAdd, addSelect.value), 'Added to team.');
+  });
+  board.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-board-remove]');
+    if (button)
+      save(() => remove(button.dataset.boardRemove, button.dataset.email), 'Removed from team.');
+  });
 }
 function folders() {
   return structureView();
@@ -966,39 +1100,68 @@ function markSamplePages() {
       ?.insertAdjacentHTML('beforeend', '<span class="sample-label">Sample content</span>');
   }
 }
+/** Google-style sharing: general access, then extra teams and people. */
 async function shareCurrentPage() {
   const page = currentPublishedPage();
   if (!page) throw new Error('Open a published page before sharing it.');
-  const canManage =
-    state.member?.role === 'admin' ||
-    (page.team_id && teams.manages(state.teams.find((t) => t.id === page.team_id) || {}));
-  const grants = canManage
-    ? await db('docs_page_access', `?page_id=eq.${page.id}&select=email&order=email`)
-    : [];
-  const access = pageAccess(page);
   const link = location.origin + routeUrl(publishedRoute(page, state.projects));
+  const linkRow = `<div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div>`;
+  const draft = state.pages.find((item) => item.id === page.id);
+  const owner = state.teams.find((team) => team.id === page.team_id);
+  const canManage =
+    page.kind !== 'release' &&
+    (state.member?.role === 'admin' ||
+      draft?.created_by === state.member?.id ||
+      (owner && teams.manages(owner)));
+  if (!canManage) {
+    dialog(
+      `<h2>Share</h2><p class="small">${e(page.title)}</p>${linkRow}<p class="share-summary">${icon('lock')}<span>Visible to <strong>${e(accessText(page))}</strong>. Everyone signs in with their Hoora account.</span></p><form><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`,
+    );
+    return;
+  }
+  const [people, teamGrants] = await Promise.all([
+    db('docs_page_access', `?page_id=eq.${page.id}&select=email&order=email`),
+    db('docs_page_team_access', `?page_id=eq.${page.id}&select=team_id`),
+  ]);
+  const access = pageAccess(page);
+  const sharedTeams = new Set(teamGrants.map((grant) => grant.team_id));
+  const option = (value, title, detail) =>
+    `<label class="share-option"><input type="radio" name="access_mode" value="${value}" ${access === value ? 'checked' : ''}><span><strong>${title}</strong><small>${detail}</small></span></label>`;
   dialog(
-    `<h2>Share this page</h2><p class="small">${e(page.title)}</p>
-    <div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${navigator.share ? '<button type="button" class="btn outline" data-action="native-share">Share…</button>' : ''}</div>
-    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="private" ${access === 'private' ? 'selected' : ''}>Everyone at Hoora</option><option value="restricted" ${access === 'restricted' ? 'selected' : ''}>Selected Hoora people only</option>${page.team_id ? `<option value="team" ${access === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div><div class="field share-emails" ${access === 'restricted' ? '' : 'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map((row) => row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. Everyone signs in with Microsoft before opening a document.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access === 'restricted' ? 'Only selected people and the document’s owners can open this link.' : access === 'team' ? 'Members of this document’s team must sign in to open this link.' : 'Hoora employees must sign in with Microsoft to open this link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
+    `<h2>Share</h2><p class="small">${e(page.title)}</p>${linkRow}<form class="share-form"><fieldset class="share-general"><legend>General access</legend>${option('private', 'Everyone at Hoora', 'Anyone who signs in can open it.')}${owner ? option('team', `${e(owner.name)}`, 'The owning team, plus the teams and people below.') : ''}${option('restricted', 'Only the teams and people below', 'Nobody else, apart from the author and administrators.')}</fieldset><div class="share-targets" ${access === 'private' ? 'hidden' : ''}><fieldset class="share-teams"><legend>Teams</legend>${state.teams
+      .filter((team) => team.id !== page.team_id)
+      .map(
+        (team) =>
+          `<label><input type="checkbox" name="team" value="${team.id}" ${sharedTeams.has(team.id) ? 'checked' : ''}><span>${e(team.name)}</span></label>`,
+      )
+      .join(
+        '',
+      )}</fieldset><div class="field"><label for="share-emails">People</label><textarea id="share-emails" name="emails" rows="3" placeholder="name@hoora.me, another@hoora.me">${e(people.map((row) => row.email).join(', '))}</textarea></div></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save</button></div></form>`,
     async (form) => {
-      if (!canManage) return;
       const allowed_emails = String(form.get('emails') || '')
         .split(/[\s,;]+/)
         .map((email) => email.trim())
         .filter(Boolean);
       await db('rpc/docs_set_access', '', {
         method: 'POST',
-        body: { document_id: page.id, access_mode: form.get('access_mode'), allowed_emails },
+        body: {
+          document_id: page.id,
+          access_mode: form.get('access_mode'),
+          allowed_emails,
+          team_ids: form.getAll('team'),
+        },
       });
       await load();
       await render();
-      toast('Page access updated.');
+      toast('Sharing updated.');
     },
   );
-  modal.querySelector('#share-access')?.addEventListener('change', (event) => {
-    modal.querySelector('.share-emails').hidden = event.target.value !== 'restricted';
-  });
+  modal.querySelectorAll('[name=access_mode]').forEach((radio) =>
+    radio.addEventListener('change', () => {
+      modal.querySelector('.share-targets').hidden =
+        modal.querySelector('[name=access_mode]:checked').value === 'private';
+    }),
+  );
 }
 
 async function render() {
@@ -1884,6 +2047,7 @@ document.addEventListener('click', (ev) => {
 });
 function bind() {
   bindReleaseDetails();
+  bindPeopleBoard();
   bindSearchPage({ state, service: searchService, e, names });
   if (!document.querySelector('.assistant-panel')) assistantOpen = false;
   syncAssistantViewport();
@@ -2296,41 +2460,31 @@ function roleName(role) {
       admin: 'Administrator',
       manager: 'Manager',
       publisher: 'Publisher',
-      contributor: 'Contributor',
+      contributor: 'Editor',
       viewer: 'Viewer',
     }[role] || role
   );
 }
+/** Release notes are organization-wide; documents use their own sharing mode. */
 function pageAccess(p) {
-  if (p.visibility === 'team') return 'team';
-  if (p.visibility === 'restricted') return 'restricted';
-  if (p.visibility === 'private' || p.visibility === 'public') return 'private';
-  if (p.project_id && state.projects.find((c) => c.id === p.project_id)?.visibility === 'private')
-    return 'private';
-  let folder = state.folders.find((f) => f.id === p.folder_id);
-  let depth = 0;
-  while (folder && depth++ < 30) {
-    if (folder.visibility === 'private') return 'private';
-    folder = state.folders.find((f) => f.id === folder.parent_id);
-  }
-  return p.visibility || 'private';
+  return p.kind === 'release' ? 'private' : p.visibility || 'private';
 }
+/** Who can see a document, in plain words: "Organization", "Operations Team + 2 teams", … */
 function accessText(p) {
   const access = pageAccess(p);
-  return access === 'team'
-    ? 'Team access'
-    : access === 'restricted'
-      ? 'Selected people'
-      : 'Organization access';
+  if (access === 'private') return 'Organization';
+  const shared = state.pageTeamAccess.filter((grant) => grant.page_id === p.id).length;
+  const extra = shared ? ` + ${shared} ${shared === 1 ? 'team' : 'teams'}` : '';
+  if (access === 'team')
+    return (state.teams.find((team) => team.id === p.team_id)?.name || 'Team') + extra;
+  return shared ? `${shared} ${shared === 1 ? 'team' : 'teams'} and people` : 'Specific people';
 }
 function typeFields(p) {
   const type = state.types.find((t) => t.key === p.kind);
   return `<div id="custom-fields">${(type?.fields || []).map((label) => `<div class="field"><label>${e(label)}<input name="field:${e(label)}" maxlength="2000" value="${e(p.custom_fields?.[label] || '')}"></label></div>`).join('')}</div>`;
 }
 function visibilityField(p) {
-  return state.member?.role === 'admin'
-    ? `<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility !== 'restricted' && p.visibility !== 'team' ? 'selected' : ''}>Everyone at Hoora</option><option value="restricted" ${p.visibility === 'restricted' ? 'selected' : ''}>Selected people · use Share to add emails</option>${p.team_id ? `<option value="team" ${p.visibility === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div>`
-    : `<p class="properties-help">${icon('lock')}A manager or administrator controls sharing.</p>`;
+  return `<p class="properties-help">${icon('lock')}${p.team_id ? 'Team documents start visible to their team only.' : 'Visible to everyone at Hoora.'} Use Share on the published page to change who can see it.</p>`;
 }
 function customFieldList(p) {
   const pairs = Object.entries(p.custom_fields || {}).filter(([, value]) => value);
@@ -2579,7 +2733,10 @@ function draftPreview(id) {
 }
 function publicView() {
   const docs = filterPages(state.published, state).filter((p) => p.kind !== 'release');
-  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind] || 'Published documents')}</h1><p>Published knowledge for Hoora employees.</p></div></div><div class="library-tools"><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label></div><div id="document-list" class="document-table">${docs.map((p) => row(p)).join('') || empty('No documents in this collection', 'Published Hoora knowledge will appear here.')}</div></main></div>`;
+  const title = state.team
+    ? state.teams.find((t) => t.id === state.team)?.name
+    : names[state.kind] || 'All documents';
+  return `<div class="layout">${sidebar(false)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title || 'All documents')}</h1></div></div><div class="library-tools"><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label></div><div id="document-list" class="document-table">${docs.map((p) => row(p)).join('') || empty('Nothing here yet', 'Documents shared with you will appear here.')}</div></main></div>`;
 }
 function projectSectionSettings() {
   return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Choose reusable release sections for each application. Archived sections stay in older releases.</p></div></div>${state.projects
@@ -2811,12 +2968,6 @@ document.addEventListener('change', (ev) => {
         state.pages.find((p) => p.id === document.querySelector('#editor-form').dataset.id) || {};
       holder.outerHTML = typeFields({ ...p, kind: ev.target.value });
     }
-    if (
-      document.querySelector('#editor-form')?.dataset.new === 'true' &&
-      document.querySelector('#visibility')
-    )
-      document.querySelector('#visibility').value =
-        state.types.find((t) => t.key === ev.target.value)?.default_visibility || 'private';
   }
 });
 

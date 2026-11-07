@@ -51,7 +51,10 @@ export function compareVersions(a, b) {
   }
   return versionKey(b).localeCompare(versionKey(a), undefined, { numeric: true });
 }
-export function filterPages(pages, { query = '', kind = '', vertical = '', folder = '' } = {}) {
+export function filterPages(
+  pages,
+  { query = '', kind = '', vertical = '', folder = '', team = '' } = {},
+) {
   const q = query.toLowerCase();
   return pages.filter(
     (p) =>
@@ -60,6 +63,7 @@ export function filterPages(pages, { query = '', kind = '', vertical = '', folde
         p.vertical_id === vertical ||
         p.release_snapshot?.entries?.some((n) => n.vertical_id === vertical)) &&
       (!folder || p.folder_id === folder) &&
+      (!team || p.team_id === team) &&
       (!q || [p.title, p.summary, p.body, ...(p.tags || [])].join(' ').toLowerCase().includes(q)),
   );
 }

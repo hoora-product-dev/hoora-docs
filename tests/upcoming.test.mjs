@@ -11,7 +11,6 @@ const release = {
   version: '5.12.0',
   release_date: '2026-11-20',
   enabled: true,
-  allowed_emails: ['viewer@hoora.me'],
   updated_at: '2026-11-07T00:00:00Z',
 };
 const response = () => ({
@@ -60,43 +59,32 @@ test('Upcoming filters accept only the approved Jira host and numeric saved filt
   ])
     assert.throws(() => filterIdFromUrl(value));
 });
-test('Release configuration normalizes work emails, validates dates, and rejects external emails', () => {
+test('Release configuration validates dates and requires one before sharing', () => {
   const body = {
     title: 'Sprint',
     version: '5.12.0',
     filterUrl: 'https://hooratechteam.atlassian.net/issues?filter=12576',
-    allowedEmails: ' Viewer@hoora.me, viewer@hoora.me ',
     releaseDate: '2026-11-20',
     enabled: true,
   };
-  assert.deepEqual(validateRelease(body).allowed_emails, ['viewer@hoora.me']);
+  assert.equal(validateRelease(body).filter_id, '12576');
   assert.throws(() => validateRelease({ ...body, releaseDate: '2026-02-30' }));
   assert.throws(() => validateRelease({ ...body, releaseDate: '' }));
-  assert.throws(() => validateRelease({ ...body, allowedEmails: 'viewer@gmail.com' }));
 });
-test('Release access uses verified identity email, current sharing state and admin role', () => {
-  const user = { email: 'VIEWER@hoora.me', email_confirmed_at: '2026-01-01' };
-  assert.ok(canViewRelease(release, user, { role: 'viewer' }));
-  assert.ok(!canViewRelease({ ...release, enabled: false }, user, { role: 'viewer' }));
-  assert.ok(!canViewRelease(release, { email: 'viewer@hoora.me' }, { role: 'viewer' }));
-  assert.ok(
-    !canViewRelease(
-      release,
-      { email: 'other@hoora.me', email_confirmed_at: '2026-01-01' },
-      { role: 'manager', email: 'viewer@hoora.me' },
-    ),
-  );
-  assert.ok(
-    canViewRelease({ ...release, enabled: false }, { email: 'admin@hoora.me' }, { role: 'admin' }),
-  );
+test('Shared releases are visible to every member; drafts only to administrators', () => {
+  assert.ok(canViewRelease(release, { role: 'viewer' }));
+  assert.ok(!canViewRelease({ ...release, enabled: false }, { role: 'viewer' }));
+  assert.ok(!canViewRelease({ ...release, enabled: false }, { role: 'manager' }));
+  assert.ok(canViewRelease({ ...release, enabled: false }, { role: 'admin' }));
 });
 test('Anonymous requests cannot list upcoming releases', async () => {
   const res = response();
   await handler({ method: 'POST', headers: {}, body: { action: 'list' } }, res);
   assert.equal(res.code, 401);
 });
-test('Unapproved members cannot retrieve ticket titles or details and never reach Jira', async () => {
+test('Unshared releases stay hidden from members and never reach Jira', async () => {
   const original = globalThis.fetch;
+  release.enabled = false;
   try {
     const calls = stub({}, 'other@hoora.me');
     for (const action of ['tickets', 'ticket']) {
@@ -120,9 +108,10 @@ test('Unapproved members cannot retrieve ticket titles or details and never reac
     assert.ok(!calls.some((c) => c.url.includes('atlassian')));
   } finally {
     globalThis.fetch = original;
+    release.enabled = true;
   }
 });
-test('Non-admin members cannot modify viewer lists, delete releases, or inspect connection', async () => {
+test('Non-admin members cannot modify release settings, delete releases, or inspect connection', async () => {
   const original = globalThis.fetch;
   try {
     const calls = stub();
@@ -188,7 +177,7 @@ test('Ticket list exposes only projected fields and never descriptions, tokens o
     assert.equal(res.data.verticals[0].label, 'Autocare');
     assert.equal(res.data.owners[0].id, 'owner-1');
     assert.ok(!JSON.stringify(res.data).includes('private-full-description'));
-    assert.ok(!JSON.stringify(res.data).includes('allowedEmails'));
+    assert.ok(!JSON.stringify(res.data).includes('filterUrl'));
     assert.ok(!JSON.stringify(res.data).includes('read-only-secret'));
     assert.equal(res.headers['Cache-Control'], 'private, no-store');
   } finally {

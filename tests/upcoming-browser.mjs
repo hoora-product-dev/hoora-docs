@@ -27,7 +27,6 @@ try {
       releaseDate: '2026-11-20',
       filterUrl: 'https://hooratechteam.atlassian.net/issues?filter=12576',
       enabled: true,
-      allowedEmails: ['viewer@hoora.me'],
       updatedAt: '2026-11-07T00:00:00Z',
     };
     const tickets = [

@@ -11,17 +11,9 @@ import {
 export const maxDuration = 60;
 const uuid = (value) =>
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value || '');
-export function canViewRelease(release, user, member) {
-  return (
-    member.role === 'admin' ||
-    (release.enabled &&
-      user.email_confirmed_at &&
-      release.allowed_emails.includes(
-        String(user.email || '')
-          .trim()
-          .toLowerCase(),
-      ))
-  );
+/** Every active member can read a shared upcoming release; administrators also see drafts. */
+export function canViewRelease(release, member) {
+  return member.role === 'admin' || release.enabled === true;
 }
 export function validateRelease(body) {
   const title = String(body.title || '').trim(),
@@ -29,17 +21,6 @@ export function validateRelease(body) {
   if (!title || title.length > 100 || !version || version.length > 50)
     throw failure('Enter a release name and version.');
   const filter_id = filterIdFromUrl(body.filterUrl);
-  const raw = Array.isArray(body.allowedEmails)
-    ? body.allowedEmails
-    : String(body.allowedEmails || '').split(/[\s,;]+/);
-  const allowed_emails = [
-    ...new Set(raw.map((v) => String(v).trim().toLowerCase()).filter(Boolean)),
-  ];
-  if (
-    allowed_emails.length > 200 ||
-    allowed_emails.some((v) => !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@hoora\.me$/.test(v))
-  )
-    throw failure('Enter up to 200 valid @hoora.me work emails.');
   const release_date = body.releaseDate || null;
   if (
     release_date &&
@@ -50,7 +31,7 @@ export function validateRelease(body) {
     throw failure('Enter a valid target release date.');
   const enabled = body.enabled === true;
   if (enabled && !release_date) throw failure('Set a target date before sharing this release.');
-  return { title, version, filter_id, release_date, allowed_emails, enabled };
+  return { title, version, filter_id, release_date, enabled };
 }
 const publicRecord = (r, admin) => ({
   id: r.id,
@@ -62,7 +43,6 @@ const publicRecord = (r, admin) => ({
   ...(admin
     ? {
         filterUrl: `https://hooratechteam.atlassian.net/issues?filter=${r.filter_id}`,
-        allowedEmails: r.allowed_emails,
         enabled: r.enabled,
       }
     : {}),
@@ -93,9 +73,7 @@ export default async function handler(req, res) {
         '/rest/v1/docs_upcoming_releases?select=*&order=release_date.asc.nullslast,created_at.desc',
       );
       return res.status(200).json({
-        releases: rows
-          .filter((r) => canViewRelease(r, user, member))
-          .map((r) => publicRecord(r, admin)),
+        releases: rows.filter((r) => canViewRelease(r, member)).map((r) => publicRecord(r, admin)),
         ...(admin ? { configured: jiraConfigured() } : {}),
       });
     }
@@ -103,7 +81,7 @@ export default async function handler(req, res) {
     if (body.id) {
       if (!uuid(body.id)) throw failure('Release unavailable.', 404);
       record = (await call('/rest/v1/docs_upcoming_releases?id=eq.' + body.id + '&select=*'))[0];
-      if (!record || !canViewRelease(record, user, member))
+      if (!record || !canViewRelease(record, member))
         throw failure('Release unavailable or access has not been granted.', 404);
     }
     if (action === 'save') {

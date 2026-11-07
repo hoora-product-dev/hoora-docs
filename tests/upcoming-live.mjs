@@ -48,7 +48,6 @@ try {
     title: 'Verification ' + Date.now(),
     version: 'check',
     filterUrl: 'https://hooratechteam.atlassian.net/issues?filter=12576',
-    allowedEmails: [],
     enabled: false,
   });
   release = result.release;
@@ -62,7 +61,6 @@ try {
     version: 'check-updated',
     releaseDate: '2026-11-20',
     filterUrl: release.filterUrl,
-    allowedEmails: [],
     enabled: false,
   });
   release = changed.release;
@@ -79,7 +77,6 @@ try {
       version: release.version,
       releaseDate: release.releaseDate,
       filterUrl: release.filterUrl,
-      allowedEmails: [],
       enabled: true,
     });
     release = shared.release;
