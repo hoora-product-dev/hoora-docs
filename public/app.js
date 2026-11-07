@@ -103,6 +103,7 @@ const state = {
   pendingRequestCount: 0,
   teams: [],
   teamMembers: [],
+  teamPermissions: [],
   dirty: false,
 };
 let renderId = 0;
@@ -166,9 +167,11 @@ const canEdit = (role) =>
   role === 'manager' ||
   (role === 'viewer' &&
     state.teamMembers.some(
-      (m) => m.email === state.member?.email?.toLowerCase() && m.role === 'publisher',
+      (m) =>
+        m.email === state.member?.email?.toLowerCase() &&
+        ['manager', 'publisher', 'contributor'].includes(m.role),
     ));
-const canPublish = (role) => canPublishRole(role) || canEdit(role);
+const canPublish = (role) => canPublishRole(role) || role === 'manager' || canEdit(role);
 const canEditEntry = (entry) =>
   state.member?.role === 'admin' || entry?.author_id === state.member?.id;
 const teams = teamsFeature({
@@ -372,6 +375,7 @@ async function load() {
   state.pendingRequestCount = 0;
   state.teams = [];
   state.teamMembers = [];
+  state.teamPermissions = [];
   if (state.session) {
     const members = await db('docs_members', `?id=eq.${state.session.user.id}&select=*`);
     state.member = members[0]?.active ? members[0] : null;
@@ -380,11 +384,16 @@ async function load() {
         db('docs_teams', '?select=*&order=name'),
         db('docs_team_members', '?select=*&order=email'),
       ]);
+      try {
+        state.teamPermissions = await db('docs_team_permissions', '?select=*&order=created_at.desc');
+      } catch {
+        state.teamPermissions = [];
+      }
       [state.pages, state.folders] = await Promise.all([
         canEdit(state.member.role)
           ? db(
               'docs_pages',
-              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,archived_at,source_url,source_type,file_metadata&order=updated_at.desc',
+              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,archived_at,deleted_at,purge_after,source_url,source_type,file_metadata&order=updated_at.desc',
             )
           : Promise.resolve(state.published.map((p) => ({ ...p, updated_at: p.published_at }))),
         db('docs_folders', '?select=*&order=name'),
@@ -764,7 +773,8 @@ function editor(id) {
 
 async function users() {
   state.members = await admin();
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People</h1><p>Administrators manage the workspace. Managers run team workspaces. Publishers write and publish. Viewers read.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>${state.members.map((m) => `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><div class="role-explainer"><p><strong>Administrator</strong> Full control of structure, visibility, deletion, people and email announcements.</p><p><strong>Manager</strong> Create teams, invite team viewers and publishers, publish team knowledge, manage sharing and send in-app notices. Email announcements remain administrator-only.</p><p><strong>Publisher</strong> Create documents and release versions in existing applications, edit contributions, preview and publish. Cannot change structure, delete content or send email.</p><p><strong>Viewer</strong> Read published public and internal documents. Can request publisher access.</p></div></main></div>`;
+  const unassigned = state.members.filter((member) => !state.teamMembers.some((tm) => tm.email === member.email));
+  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>People & access</h1><p>Manage organization members, teams, folder ownership, and scoped capabilities.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div><div class="tablewrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Access</th><th>Teams</th><th></th></tr></thead><tbody>${state.members.map((m) => `<tr><td><strong>${e(m.name || m.email)}</strong><small>${e(m.email)}</small></td><td>${roleName(m.role)}</td><td>${m.active ? 'Active' : 'Disabled'}</td><td>${state.teamMembers.filter((tm) => tm.email === m.email).length || 'Unassigned'}</td><td><button class="btn outline" data-member="${m.id}">Manage</button></td></tr>`).join('')}</tbody></table></div><section class="settings-section"><div class="section-heading"><div><h2>Team capabilities</h2><p>Grant a team permission for a collection, folder, or release platform. Permissions are additive and expire when configured.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add capability</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Scope</th><th>Capability</th><th>Expires</th><th></th></tr></thead><tbody>${state.teamPermissions.map((permission) => { const team = state.teams.find((item) => item.id === permission.team_id); const scope = permission.scope_type === 'collection' ? permission.collection_key : permission.scope_type === 'folder' ? state.folders.find((item) => item.id === permission.folder_id)?.name : state.projects.find((item) => item.id === permission.project_id)?.name; return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(scope || permission.scope_type)}</td><td>${e(permission.capability)}</td><td>${permission.expires_at ? e(date(permission.expires_at)) : 'No expiry'}</td><td><button class="btn text danger" data-action="remove-team-permission" data-id="${permission.id}">Remove</button></td></tr>`; }).join('') || '<tr><td colspan="5">No scoped capabilities yet. Team roles still control basic team access.</td></tr>'}</tbody></table></div></section><div class="role-explainer"><p><strong>Admin</strong> Full control of members, teams, structure, capabilities, recycle bin, and audit.</p><p><strong>Team Manager</strong> Manages members and team content in assigned scopes.</p><p><strong>Publisher</strong> Edits and publishes content where their team has publisher capability.</p><p><strong>Contributor</strong> Edits drafts and submits work for review.</p><p><strong>Viewer</strong> Read-only access to permitted organization or team content.</p><p><strong>Unassigned members:</strong> ${unassigned.length || 'none'}</p></div></main></div>`;
 }
 function folders() {
   return structureView();
@@ -1152,6 +1162,31 @@ function memberDialog(id) {
       },
     );
   });
+}
+function teamPermissionDialog() {
+  if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
+  dialog(
+    `<h2>Add team capability</h2><p class="small">Assign a capability to a team at collection, folder, or release-platform level.</p><form><div class="field"><label for="permission-team">Team</label><select id="permission-team" name="team_id" required>${state.teams.map((team) => `<option value="${team.id}">${e(team.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-scope">Scope</label><select id="permission-scope" name="scope_type"><option value="collection">Collection</option><option value="folder">Folder</option><option value="project">Release platform</option></select></div><div class="field"><label for="permission-collection">Collection</label><select id="permission-collection" name="collection_key"><option value="release">Releases / Upcoming</option><option value="sop">SOPs</option><option value="documentation">Documentation</option></select></div><div class="field"><label for="permission-folder">Folder</label><select id="permission-folder" name="folder_id"><option value="">Choose a folder</option>${state.folders.map((folder) => `<option value="${folder.id}">${e(folder.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-project">Release platform</label><select id="permission-project" name="project_id"><option value="">Choose a platform</option>${state.projects.map((project) => `<option value="${project.id}">${e(displayPlatformName(project.name))}</option>`).join('')}</select></div><div class="field"><label for="permission-capability">Capability</label><select id="permission-capability" name="capability"><option value="read">Read</option><option value="contribute">Contribute</option><option value="edit">Edit</option><option value="publish">Publish</option><option value="manage">Manage</option><option value="delete">Delete</option></select></div><div class="field"><label for="permission-expiry">Expiry (optional)</label><input id="permission-expiry" name="expires_at" type="date"></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save capability</button></div></form>`,
+    async (form) => {
+      const scopeType = form.get('scope_type');
+      const body = {
+        team_id: form.get('team_id'),
+        scope_type: scopeType,
+        collection_key: scopeType === 'collection' ? form.get('collection_key') : null,
+        folder_id: scopeType === 'folder' ? form.get('folder_id') || null : null,
+        project_id: scopeType === 'project' ? form.get('project_id') || null : null,
+        capability: form.get('capability'),
+        granted_by: state.member.id,
+        expires_at: form.get('expires_at') ? new Date(form.get('expires_at') + 'T23:59:59Z').toISOString() : null,
+      };
+      if ((scopeType === 'folder' && !body.folder_id) || (scopeType === 'project' && !body.project_id))
+        throw new Error('Choose the selected scope.');
+      await db('docs_team_permissions', '', { method: 'POST', body });
+      await load();
+      await render();
+      toast('Team capability saved.');
+    },
+  );
 }
 const draftSaves = new WeakMap();
 async function saveDraft() {
@@ -2119,7 +2154,7 @@ function toneIcon(name = 'documentation', color = 'blue') {
 }
 function roleName(role) {
   return (
-    { admin: 'Administrator', manager: 'Manager', publisher: 'Publisher', viewer: 'Viewer' }[
+    { admin: 'Administrator', manager: 'Manager', publisher: 'Publisher', contributor: 'Contributor', viewer: 'Viewer' }[
       role
     ] || role
   );
@@ -2747,6 +2782,26 @@ document.addEventListener('click', async (ev) => {
   }
   if (action === 'add-member') {
     memberDialog();
+    return;
+  }
+  if (action === 'add-team-permission') {
+    teamPermissionDialog();
+    return;
+  }
+  if (action === 'remove-team-permission') {
+    if (state.member?.role !== 'admin') return;
+    confirmAction(
+      'Remove this capability?',
+      'The team will immediately lose this scoped permission.',
+      async () => {
+        await db('docs_team_permissions', '?id=eq.' + encodeURIComponent(b.dataset.id), {
+          method: 'DELETE',
+        });
+        await load();
+        await render();
+        toast('Team capability removed.');
+      },
+    );
     return;
   }
   if (action === 'add-folder' || action === 'add-vertical') {

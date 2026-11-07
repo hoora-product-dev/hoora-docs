@@ -23,7 +23,7 @@ export function workspaceFeatures({
   let showAllNotices = false;
   function pageTools(p) {
     if (!state.member) return '';
-    return `<div class="knowledge-page-tools">${manages(p) ? `<button class="btn outline" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Manage related knowledge</button>` : ''}${state.member.role === 'admin' ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}">Archive</button>` : ''}</div><section class="related-knowledge" data-related-page="${p.id}"></section>`;
+    return `<div class="knowledge-page-tools">${manages(p) ? `<button class="btn outline" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Manage related knowledge</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div><section class="related-knowledge" data-related-page="${p.id}"></section>`;
   }
   async function hydrate() {
     for (const root of document.querySelectorAll('[data-related-page]')) {
@@ -87,7 +87,7 @@ export function workspaceFeatures({
   function archive() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
     const archived = state.pages.filter((p) => p.archived_at);
-    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Archive</h1><p>Archived knowledge is hidden from readers and shared links. Restore it when it becomes relevant again.</p></div><button class="btn outline" data-hub-action="cleanup">Finish pending deletions</button></div>${archived.map((p) => `<div class="structure-row"><div><strong>${e(p.title)}</strong><small>Archived ${new Date(p.archived_at).toLocaleDateString('en-IN')}</small></div><button class="btn outline" data-hub-action="restore" data-id="${p.id}">Restore</button><button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete permanently</button></div>`).join('') || '<div class="empty"><h2>Nothing archived</h2><p>Archive a published page from its document actions.</p></div>'}</main>`;
+    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Recycle bin</h1><p>Deleted knowledge is hidden immediately and permanently removed after 30 days.</p></div><button class="btn outline" data-hub-action="cleanup">Run cleanup</button></div>${archived.map((p) => `<div class="structure-row"><div><strong>${e(p.title)}</strong><small>Deleted ${new Date(p.deleted_at || p.archived_at).toLocaleDateString('en-IN')} · permanently removed ${p.purge_after ? new Date(p.purge_after).toLocaleDateString('en-IN') : 'after 30 days'}</small></div><button class="btn outline" data-hub-action="restore" data-id="${p.id}">Restore</button><button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete permanently</button></div>`).join('') || '<div class="empty"><h2>Recycle bin is empty</h2><p>Deleted documents will remain here for 30 days before cleanup.</p></div>'}</main>`;
   }
   async function activity() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
@@ -166,9 +166,10 @@ export function workspaceFeatures({
     }
     if (['archive', 'restore', 'delete'].includes(type)) {
       dialog(
-        `<h2>${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Archive'} this document?</h2><p>${e(p.title)}</p><p class="small">${type === 'delete' ? 'This removes the draft, published copy and relationships permanently.' : 'Shared links respect the document’s current access and archive state.'}</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn ${type === 'delete' ? 'danger' : 'dark'}">${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Archive'}</button></div></form>`,
+        `<h2>${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Move to recycle bin'} this document?</h2><p>${e(p.title)}</p><p class="small">${type === 'restore' ? 'The document will be visible again according to its team permissions.' : type === 'delete' ? 'This permanently removes the document, published copy, and uploaded files now.' : 'The document will be hidden now and permanently removed after 30 days.'}</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn ${type === 'restore' ? 'dark' : 'danger'}">${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Archive'}</button></div></form>`,
         async () => {
-          if (type === 'delete') await appApi('/api/content', { action: 'delete', id });
+          if (type === 'archive') await appApi('/api/content', { action: 'delete', id });
+          else if (type === 'delete') await appApi('/api/content', { action: 'purge', id });
           else
             await db('rpc/docs_archive', '', {
               method: 'POST',
