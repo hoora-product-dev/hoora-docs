@@ -51,7 +51,7 @@ function prepare(t, readable = true) {
           {
             finish_reason: body.reasoning?.effort === 'none' ? 'stop' : 'length',
             message: {
-              content: body.reasoning?.effort === 'none' ? 'Track booking progress [1].' : '',
+              content: body.reasoning?.effort === 'none' ? 'Track booking progress [1] [9].' : '',
             },
           },
         ],
@@ -77,6 +77,7 @@ test('The free assistant reserves its token budget for an answer and returns doc
   );
   assert.equal(res.code, 200);
   assert.match(res.data.answer, /\[1\]/);
+  assert.doesNotMatch(res.data.answer, /\[9\]/);
   assert.equal(res.data.sources[0].url, '/docs/booking-guide');
   assert.deepEqual(res.data.tickets, [
     { key: 'HCUS-1592', url: 'https://hooratechteam.atlassian.net/browse/HCUS-1592' },
