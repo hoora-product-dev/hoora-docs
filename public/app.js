@@ -2743,9 +2743,7 @@ document.addEventListener('click', async (ev) => {
         body: { page_id: id },
       });
       appApi('/api/ai-index', { documentId: id }).catch(() => {});
-      await load();
       location.hash = '#/edit/' + id;
-      await render();
       toast('Published. Access follows the document and folder settings.');
     });
     return;
