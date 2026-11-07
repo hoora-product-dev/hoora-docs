@@ -106,6 +106,7 @@ try {
       .evaluate((el) => getComputedStyle(el).borderRadius),
     '50%',
   );
+  assert.equal(await page.locator('.assistant-trigger .icon').count(), 0);
   await page.route('**/api/assistant', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     await route.fulfill({ json: { answer: 'Verified response', sources: [] } });
@@ -113,14 +114,16 @@ try {
   await page.getByRole('textbox', { name: 'Your question' }).fill('What changed?');
   await page.getByRole('button', { name: 'Send question' }).click();
   await page.locator('.thinking').waitFor();
-  assert.equal(await page.locator('.thinking-wave i').count(), 4);
+  assert.equal(await page.locator('.assistant-thinking-dots').count(), 1);
   assert.equal(
     await page.locator('.thinking-avatar').getAttribute('src'),
     '/hoora-assist-thinking.svg',
   );
   assert.equal(
-    await page.locator('.thinking-label').evaluate((el) => getComputedStyle(el).animationName),
-    'none',
+    await page
+      .locator('.assistant-working-label')
+      .evaluate((el) => getComputedStyle(el).animationName),
+    'assistant-wave-shine',
   );
   await page.getByText('Verified response', { exact: true }).waitFor();
   await page.keyboard.press('Escape');
