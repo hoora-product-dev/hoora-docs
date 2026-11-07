@@ -1,12 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
   <title id="title">Hoora Assist thinking</title>
-  <g transform="translate(0 -0.4)" fill="#00becd">
-    <circle cx="50.91" cy="21.37" r="9.86"/>
-    <circle cx="39.96" cy="76.74" r="9.8"/>
-    <path d="M83.46 50.12C83.46 66.64 68.69 80.26 50.8 80.26C32.9 80.26 18.13 66.64 18.13 50.12C18.13 33.6 32.9 19.97 50.8 19.97C68.69 19.97 83.46 33.6 83.46 50.12Z"/>
-  </g>
-  <g transform="translate(0 -0.4)" fill="#051214">
-    <path d="M45.21 48.54C45.21 53.15 44.86 53.66 41.74 53.66C38.63 53.66 38.28 53.15 38.28 48.54C38.28 43.93 38.63 43.42 41.74 43.42C44.86 43.42 45.21 43.93 45.21 48.54Z"/>
-    <path d="M65.11 39.39C65.11 46.03 64.69 46.77 60.97 46.77C57.24 46.77 56.83 46.03 56.83 39.39C56.83 32.75 57.24 32.01 60.97 32.01C64.69 32.01 65.11 32.75 65.11 39.39Z"/>
-  </g>
+  <defs><linearGradient id="assist-thinking" x1="12" y1="8" x2="88" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#b6f5fa"/><stop offset=".5" stop-color="#00becd"/><stop offset="1" stop-color="#00889b"/></linearGradient></defs>
+  <path fill="url(#assist-thinking)" d="M51 9c8 0 13 7 20 11 8 5 17 7 20 16 3 9-1 17-1 26-1 9 1 19-6 25-7 7-18 4-27 5-10 1-19 6-27 1-8-5-9-16-15-24-5-8-14-14-13-23 1-10 12-15 19-22C28 17 37 9 51 9Z"/>
+  <path fill="#06333a" d="M36 43c1-5 4-8 8-8s7 3 7 8-3 7-7 7-8-2-8-7Zm19 0c0-5 3-8 7-8s7 3 7 8-3 7-7 7-7-2-7-7Z"/>
+  <path fill="#e8ffff" d="M41 41c1-2 3-3 5-2 1 1 1 3 0 5-2 1-4 0-5-3Zm18 0c1-2 3-3 5-2 1 1 1 3 0 5-2 1-4 0-5-3Z"/>
+  <circle cx="50" cy="64" r="3" fill="#06333a"/>
 </svg>
