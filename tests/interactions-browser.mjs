@@ -107,6 +107,14 @@ try {
     '50%',
   );
   assert.equal(await page.locator('.assistant-trigger .icon').count(), 0);
+  assert.equal(
+    await page.locator('.assistant-trigger').evaluate((el) => getComputedStyle(el).backgroundColor),
+    'rgb(255, 255, 255)',
+  );
+  assert.equal(
+    await page.locator('.assistant-trigger').evaluate((el) => getComputedStyle(el).borderRadius),
+    '999px',
+  );
   await page.route('**/api/assistant', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     await route.fulfill({ json: { answer: 'Verified response', sources: [] } });

@@ -422,20 +422,28 @@ body .assistant-trigger {
 .assistant-trigger,
 .assistant-trigger:hover,
 .assistant-trigger:focus-visible {
-  min-height: 44px;
-  height: 44px;
-  padding: 0 2px;
+  min-height: 48px;
+  height: 48px;
+  padding: 4px 14px 4px 6px;
   gap: 8px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink);
-  box-shadow: none;
-  transform: none;
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 999px;
+  background: #fff;
+  color: #171717;
+  box-shadow:
+    0 10px 30px rgb(0 0 0 / 28%),
+    0 2px 7px rgb(0 0 0 / 14%);
+  transform: translateY(0);
 }
 .assistant-trigger:hover,
 .assistant-trigger:focus-visible {
-  color: var(--muted);
+  border-color: #fff;
+  background: #fff;
+  color: #171717;
+  box-shadow:
+    0 12px 34px rgb(0 0 0 / 32%),
+    0 3px 9px rgb(0 0 0 / 16%);
+  transform: translateY(-1px);
 }
 .assistant-trigger .assistant-avatar,
 .assistant-brand .assistant-avatar {
@@ -444,10 +452,18 @@ body .assistant-trigger {
   border-radius: 50%;
   box-shadow: none;
 }
+.assistant-trigger .assistant-avatar {
+  width: 38px;
+  height: 38px;
+  padding: 2px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
 .assistant-trigger span {
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
+  color: #171717;
 }
 
 /* Web InterviewGPT-style “Thinking…”: a sweeping light and counted dots,
@@ -470,21 +486,27 @@ body .assistant-trigger {
   font-weight: 650;
 }
 .assistant-working-label {
+  --thinking-muted: rgb(255 255 255 / 42%);
+  --thinking-highlight: #fff;
   display: inline-block;
   letter-spacing: 0.02em;
   background-image: linear-gradient(
     -75deg,
-    color-mix(in srgb, var(--muted) 72%, transparent) 0%,
-    color-mix(in srgb, var(--muted) 72%, transparent) 40%,
-    var(--ink) 50%,
-    color-mix(in srgb, var(--muted) 72%, transparent) 60%,
-    color-mix(in srgb, var(--muted) 72%, transparent) 100%
+    var(--thinking-muted) 0%,
+    var(--thinking-muted) 40%,
+    var(--thinking-highlight) 50%,
+    var(--thinking-muted) 60%,
+    var(--thinking-muted) 100%
   );
   background-size: 200% auto;
   color: transparent;
   -webkit-background-clip: text;
   background-clip: text;
   animation: assistant-wave-shine 4s linear infinite;
+}
+:root:not([data-theme='dark']) .assistant-working-label {
+  --thinking-muted: rgb(17 24 39 / 38%);
+  --thinking-highlight: #111827;
 }
 .assistant-thinking-dots {
   display: inline-block;
