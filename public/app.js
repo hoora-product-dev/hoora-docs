@@ -111,6 +111,7 @@ const navigation = createNavigation({ app, state, icon });
 const assistantMessages = [];
 let assistantOpen = false;
 let assistantBusy = false;
+const assistantCache = new Map();
 const assistantAvatar = '/hoora-assist-avatar.svg';
 const assistantThinkingAvatar = '/hoora-assist-thinking.svg';
 function assistantUI() {
@@ -142,7 +143,9 @@ function assistantUI() {
           return `<div class="assistant-message ${m.role}"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div>`;
         })
         .join('')
-    : '<div class="assistant-empty"><strong>Ask Hoora Assist</strong><span>Ask about releases, SOPs, tickets, or any document you can access.</span></div>';
+    : `<div class="assistant-greeting"><strong>${e(
+        `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name.split(' ')[0]}` : ''}.`,
+      )}</strong><span>I’m Hoora Assist. I can help with releases, SOPs, tickets, and the documents you can access.</span></div>`;
   return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><div><strong>Hoora Assist</strong><small>Answers from documents you can access</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {
@@ -504,7 +507,7 @@ function header() {
   const route = routeHash().split('?')[0];
   const auth = route === '#/login' || route === '#/app-welcome';
   const native = route.startsWith('#/artifact/') || route.startsWith('#/preview/');
-  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a></div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
+  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"><img class="mobile-logo-light" src="/hoora-mobile-light.png" alt="Hoora"><img class="mobile-logo-dark" src="/hoora-mobile-dark.png" alt="Hoora"></a></div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
 }
 function enhanceRail() {
   navigation.prepare();
@@ -2370,6 +2373,38 @@ function updateReleaseSectionTabs() {
 }
 window.addEventListener('scroll', updateReleaseSectionTabs, { passive: true });
 
+function releaseTicketRefs(tickets) {
+  const keys = [...new Set(String(tickets || '').match(/\b[A-Z][A-Z0-9]+-\d+\b/g) || [])];
+  if (!keys.length) return '';
+  return `<div class="release-ticket-refs" aria-label="Related tickets">${keys
+    .map(
+      (key) =>
+        `<a href="https://hooratechteam.atlassian.net/browse/${encodeURIComponent(key)}" target="_blank" rel="noopener noreferrer">${e(key)}</a>`,
+    )
+    .join('')}</div>`;
+}
+
+function releaseChangeGroups(notes, showSectionHeading = true) {
+  const groups = new Map();
+  for (const note of notes) {
+    const name = note.vertical || 'General';
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(note);
+  }
+  let number = 0;
+  return [...groups]
+    .map(([name, entries]) => {
+      const items = entries
+        .map((note) => {
+          number += 1;
+          return `<li class="release-change"><div class="release-change-heading"><span class="release-change-number" aria-hidden="true">${number}</span><div><h4>${e(note.title)}</h4>${releaseTicketRefs(note.tickets)}</div></div><div class="prose release-change-copy">${markdown(note.body)}</div><div class="release-change-meta">Updated by <strong>${e(note.edited_by || note.author || 'Hoora team')}</strong></div></li>`;
+        })
+        .join('');
+      return `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'change' : 'changes'}</span></div>` : ''}<ol class="release-change-list">${items}</ol></section>`;
+    })
+    .join('');
+}
+
 function releaseDocumentNew(p) {
   const records = releaseRecords(true),
     record = records.find((r) => r.page.id === p.id);
@@ -2411,7 +2446,7 @@ function releaseDocumentNew(p) {
     })
     .join('')}</nav>`;
 
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? contributionGroups(notes, false, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) && state.pages.some((page) => page.id === p.id && !page._readOnly) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? releaseChangeGroups(notes, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record) {
@@ -3081,6 +3116,10 @@ document.addEventListener('submit', async (event) => {
   const input = event.target.elements.question,
     question = input.value.trim();
   if (!question) return;
+  const page = currentPublishedPage();
+  const cacheKey = `${state.member?.id || 'member'}:${page?.id || 'workspace'}:${question
+    .toLocaleLowerCase()
+    .replace(/\s+/g, ' ')}`;
   assistantBusy = true;
   assistantMessages.push({ role: 'user', text: question }, { role: 'assistant', thinking: true });
   input.value = '';
@@ -3089,15 +3128,22 @@ document.addEventListener('submit', async (event) => {
     submit = form?.querySelector('button');
   if (submit) submit.disabled = true;
   try {
-    const token = await getToken();
-    const page = currentPublishedPage();
-    const response = await fetch('/api/assistant', {
-      method: 'POST',
-      headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, currentDocumentId: page?.id || null }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw Error(data.error || 'The assistant is unavailable.');
+    const cached = assistantCache.get(cacheKey);
+    let data;
+    if (cached && Date.now() - cached.createdAt < 5 * 60 * 1000) {
+      data = cached.data;
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    } else {
+      const token = await getToken();
+      const response = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, currentDocumentId: page?.id || null }),
+      });
+      data = await response.json();
+      if (!response.ok) throw Error(data.error || 'The assistant is unavailable.');
+      assistantCache.set(cacheKey, { data, createdAt: Date.now() });
+    }
     assistantMessages.pop();
     assistantMessages.push({
       role: 'assistant',

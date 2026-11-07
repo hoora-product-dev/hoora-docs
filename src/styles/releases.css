@@ -179,23 +179,6 @@
 .native-release-body .release-section {
   margin-top: 0;
 }
-.native-release-body .release-section-heading {
-  display: none;
-}
-.native-release-body .contribution {
-  padding: 14px 0 30px;
-  border: 0;
-}
-.native-release-body .contribution-heading {
-  margin-bottom: 12px;
-}
-.native-release-body .contribution-heading h4 {
-  font-size: 19px;
-}
-.native-release-body .contributor-line {
-  margin-top: 20px;
-  font-size: 11px;
-}
 .native-release-body .prose img {
   height: auto;
   max-width: 100%;
@@ -240,6 +223,84 @@
 .native-release-body .release-section {
   scroll-margin-top: 125px;
 }
+.release-change-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.release-change {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  background: var(--surface);
+}
+.release-change-heading {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
+}
+.release-change-number {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.release-change h4 {
+  margin: 2px 0 8px;
+  font-size: 16px;
+  line-height: 1.42;
+  letter-spacing: -0.015em;
+}
+.release-ticket-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.release-ticket-refs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+.release-ticket-refs a:hover,
+.release-ticket-refs a:focus-visible {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--raised);
+}
+.release-change-copy {
+  max-width: 84ch;
+  margin: 13px 0 0 39px;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.release-change-copy > :first-child {
+  margin-top: 0;
+}
+.release-change-copy > :last-child {
+  margin-bottom: 0;
+}
+.release-change-meta {
+  margin: 14px 0 0 39px;
+  color: var(--subtle);
+  font-size: 11px;
+}
 @media (max-width: 900px) {
   .timeline-day {
     grid-template-columns: minmax(0, 1fr);
@@ -280,6 +341,13 @@
   }
   .native-release-body .prose {
     font-size: 14px;
+  }
+  .release-change {
+    padding: 16px;
+  }
+  .release-change-copy,
+  .release-change-meta {
+    margin-left: 0;
   }
   .timeline-item {
     padding: 12px;
