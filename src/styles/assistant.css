@@ -119,10 +119,22 @@
   50% { background-position: 0 0; opacity: 1; }
 }
 .assistant-form button {
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   border-radius: 11px;
+  touch-action: manipulation;
+}
+.assistant-header .iconbtn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  touch-action: manipulation;
+}
+body .assistant-trigger {
+  min-height: 44px;
+  height: 44px;
+  touch-action: manipulation;
 }
 @media (prefers-reduced-motion: reduce) {
   .thinking-label,
