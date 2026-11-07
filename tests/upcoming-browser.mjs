@@ -120,12 +120,20 @@ try {
         throw Error('Unexpected action');
       },
     });
-    window.showUpcoming = async (slug) => {
-      document.querySelector('#app').innerHTML = await window.upcomingUI.view(
-        slug,
-        new URLSearchParams(),
-      );
+    window.showUpcoming = async (slug, params = new URLSearchParams(), screen = {}) => {
+      document.querySelector('#app').innerHTML = await window.upcomingUI.view(slug, params, screen);
     };
+    window.addEventListener('hashchange', async () => {
+      const value = location.hash.slice(1),
+        [pathname, search = ''] = value.split('?'),
+        parts = pathname.split('/').filter(Boolean);
+      if (parts[0] !== 'upcoming') return;
+      await window.showUpcoming(parts[1], new URLSearchParams(search), {
+        ticket: parts[2] === 'tickets' ? parts[3] : null,
+        settings: parts[2] === 'settings',
+      });
+      history.replaceState(null, '', value);
+    });
     await window.showUpcoming('customer-5-12');
   });
   assert.equal(await page.locator('.upcoming-ticket').count(), 3);
@@ -134,7 +142,7 @@ try {
   await page.getByLabel('Product Owner', { exact: true }).selectOption('q');
   assert.equal(await page.locator('.upcoming-ticket').count(), 0);
   await page.getByLabel('Product Owner', { exact: true }).selectOption('p');
-  await page.getByRole('button', { name: /Booking improvements/ }).click();
+  await page.getByRole('link', { name: /Booking improvements/ }).click();
   await page.getByRole('heading', { name: 'Booking details' }).waitFor();
   assert.equal(await page.locator('.upcoming-ticket-description img').count(), 0);
   assert.equal(
@@ -142,7 +150,11 @@ try {
     0,
   );
   assert.ok((await page.locator('.upcoming-ticket-description').innerText()).includes('<img'));
-  await page.getByRole('button', { name: 'Close ticket' }).click();
+  assert.equal(await page.locator('dialog[open]').count(), 0);
+  assert.ok(new URL(page.url()).pathname.includes('/tickets/HCUS-1'));
+  await page.getByRole('link', { name: 'Back to tickets', exact: true }).click();
+  await page.locator('#upcoming-vertical').waitFor();
+  assert.equal(await page.getByLabel('Vertical', { exact: true }).inputValue(), 'a');
   await page.getByLabel('Vertical', { exact: true }).selectOption('__unassigned__');
   await page.getByLabel('Product Owner', { exact: true }).selectOption('');
   assert.equal(await page.locator('.upcoming-ticket').count(), 1);
@@ -151,7 +163,7 @@ try {
   await mkdir('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/upcoming-mobile.png', fullPage: true });
   await page.evaluate(() => window.showUpcoming());
-  await page.getByRole('button', { name: 'New release', exact: true }).click();
+  await page.getByRole('link', { name: 'New release', exact: true }).click();
   await page.getByLabel('Release name', { exact: true }).fill('Partner App');
   await page.getByLabel('Version', { exact: true }).fill('1.7.0');
   await page.getByLabel('Target release date').fill('2026-11-25');
@@ -161,7 +173,7 @@ try {
   await page.getByLabel('Approved viewers', { exact: true }).fill('viewer@hoora.me');
   await page.getByLabel('Share with approved viewers').check();
   await page.getByRole('button', { name: 'Save release', exact: true }).click();
-  await page.locator('dialog').waitFor({ state: 'hidden' });
+  await page.locator('#upcoming-form').waitFor({ state: 'detached' });
   const saved = await page.evaluate(() => window.upcomingCalls.find((c) => c.action === 'save'));
   assert.equal(saved.version, '1.7.0');
   assert.equal(saved.enabled, true);
@@ -170,8 +182,8 @@ try {
     window.upcomingState.member.role = 'viewer';
     await window.showUpcoming('customer-5-12');
   });
-  assert.equal(await page.getByRole('button', { name: 'Manage', exact: true }).count(), 0);
-  assert.equal(await page.locator('[data-upcoming=new]').count(), 0);
+  assert.equal(await page.getByRole('link', { name: 'Manage', exact: true }).count(), 0);
+  assert.equal(await page.locator('a[href="#/upcoming?create=1"]').count(), 0);
   assert.deepEqual(errors, []);
   console.log(
     'PASS Upcoming releases: two combined filters, unassigned fields, safe rich descriptions, mobile layout, admin form and viewer controls.',

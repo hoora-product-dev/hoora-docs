@@ -45,6 +45,7 @@
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
+  border-radius: var(--control-radius);
 }
 .btn {
   border: 1px solid transparent;
@@ -239,8 +240,7 @@ body .iconbtn .icon svg {
   .related-grid > a,
   .home-cards > a,
   .home-list > a,
-  .notice-item,
-  .global-results > a
+  .notice-item
 ) {
   border-radius: var(--control-radius);
   transition:
@@ -381,8 +381,7 @@ dialog:has(form) {
     .related-grid > a,
     .home-cards > a,
     .home-list > a,
-    .notice-item,
-    .global-results > a
+    .notice-item
   ):hover {
     background: var(--hover-surface);
     border-color: var(--line);

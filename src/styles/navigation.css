@@ -60,18 +60,6 @@ body.rail-collapsed {
 .mobile-menu {
   display: none;
 }
-.compact-search {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 12px;
-}
-.compact-search kbd {
-  margin-left: auto;
-}
 .has-rail .topbar .product-brand {
   display: none;
 }
@@ -109,12 +97,6 @@ body.rail-collapsed {
   font-weight: 550;
   color: var(--muted);
   white-space: nowrap;
-}
-.rail-brand img.logo-mark {
-  display: none;
-  width: 27px;
-  height: 27px;
-  flex: none;
 }
 .rail-toggle {
   flex: none;
@@ -290,17 +272,18 @@ body.rail-collapsed {
 }
 .rail-menu a,
 .rail-menu button {
-  display: block;
+  display: flex;
   text-align: left;
   width: 100%;
   padding: 9px 10px;
   font-size: 12px;
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   color: var(--ink);
+  align-items: center;
+  gap: 10px;
 }
 @media (max-width: 900px) {
-  .topbar nav,
-  .topbar .compact-search {
+  .topbar nav {
     display: none;
   }
   .has-rail .topbar .product-brand {
@@ -334,15 +317,12 @@ body.rail-collapsed {
     display: none;
   }
   .rail-collapsed .rail-brand {
-    height: 84px;
-    min-height: 84px;
-    flex-direction: column;
+    height: var(--header);
+    min-height: var(--header);
+    flex-direction: row;
     justify-content: center;
     gap: 2px;
     padding: 4px 0;
-  }
-  .rail-collapsed .rail-brand img.logo-mark {
-    display: block;
   }
   .rail-collapsed .sidebar .sidelink {
     justify-content: center;
@@ -362,53 +342,53 @@ body.rail-collapsed {
   }
 }
 @media (min-width: 901px) and (hover: hover) and (pointer: fine) {
-  .rail-collapsed .sidebar:hover {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) {
     width: var(--rail-expanded);
     z-index: 55;
     box-shadow: 12px 0 28px #0002;
   }
-  .rail-collapsed .sidebar:hover .rail-brand {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-brand {
     height: var(--header);
     min-height: var(--header);
     flex-direction: row;
     justify-content: space-between;
     padding: 0 4px;
   }
-  .rail-collapsed .sidebar:hover .rail-brand img.logo-mark {
-    display: none;
-  }
-  .rail-collapsed .sidebar:hover .rail-logo,
-  .rail-collapsed .sidebar:hover .rail-product-name {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-logo,
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-product-name {
     display: block;
   }
-  .rail-collapsed .sidebar:hover .rail-heading,
-  .rail-collapsed .sidebar:hover .rail-label {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-heading,
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-label {
     display: flex;
   }
-  .rail-collapsed .sidebar:hover .rail-empty {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-empty {
     display: block;
   }
-  .rail-collapsed .sidebar:hover .sidelink {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .sidelink {
     justify-content: flex-start;
     padding: 8px 12px;
     gap: 10px;
   }
-  .rail-collapsed .sidebar:hover .sidelink > span:not(.icon):not(.tone-icon),
-  .rail-collapsed .sidebar:hover .sidelink > small {
+  .rail-collapsed
+    .sidebar:is(:hover, :has(.rail-more[open]))
+    .sidelink
+    > span:not(.icon):not(.tone-icon),
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .sidelink > small {
     display: block;
   }
-  .rail-collapsed .sidebar:hover .version-link {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .version-link {
     justify-content: space-between;
     padding: 8px 12px;
     font-size: 12px;
   }
-  .rail-collapsed .sidebar:hover .rail-person {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-person {
     display: flex;
   }
-  .rail-collapsed .sidebar:hover .rail-account {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-account {
     justify-content: flex-start;
   }
-  .rail-collapsed .sidebar:hover .rail-menu {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-menu {
     left: 220px;
   }
   body.rail-hover-suppressed .sidebar:hover {
@@ -416,9 +396,9 @@ body.rail-collapsed {
     box-shadow: none;
   }
   body.rail-hover-suppressed .sidebar:hover .rail-brand {
-    height: 84px;
-    min-height: 84px;
-    flex-direction: column;
+    height: var(--header);
+    min-height: var(--header);
+    flex-direction: row;
     justify-content: center;
     padding: 4px 0;
   }
@@ -432,12 +412,85 @@ body.rail-collapsed {
   body.rail-hover-suppressed .sidebar:hover .sidelink > small {
     display: none;
   }
-  body.rail-hover-suppressed .sidebar:hover .rail-brand img.logo-mark {
-    display: block;
-  }
   body.rail-hover-suppressed .sidebar:hover .sidelink {
     justify-content: center;
     padding: 9px 0;
     gap: 0;
+  }
+}
+/* Compact navigation keeps one header control and a usable signed-out footer. */
+.rail-menu-identity {
+  padding: 8px 10px 12px;
+  min-width: 0;
+}
+.rail-menu-identity strong,
+.rail-menu-identity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-menu-identity strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+.rail-menu-identity small {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.rail-menu .icon svg {
+  width: 17px;
+  height: 17px;
+}
+.rail-menu .nav-count {
+  margin-left: auto;
+}
+.rail-sign-in {
+  width: 100%;
+}
+@media (min-width: 901px) {
+  .has-rail [data-header-login] {
+    display: none;
+  }
+  .rail-collapsed .rail-brand > a {
+    display: none;
+  }
+  .rail-collapsed .rail-sign-in {
+    width: 38px;
+    min-width: 38px;
+    padding: 8px;
+    margin-inline: auto;
+  }
+  .rail-collapsed .rail-sign-in > span:not(.icon) {
+    display: none;
+  }
+}
+@media (min-width: 901px) and (hover: hover) and (pointer: fine) {
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-brand > a {
+    display: flex;
+  }
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-sign-in {
+    width: 100%;
+  }
+  .rail-collapsed .sidebar:is(:hover, :has(.rail-more[open])) .rail-sign-in > span:not(.icon) {
+    display: inline;
+  }
+  body.rail-hover-suppressed .sidebar:hover .rail-brand > a {
+    display: none;
+  }
+  body.rail-hover-suppressed .sidebar:hover .rail-sign-in {
+    width: 38px;
+  }
+  body.rail-hover-suppressed .sidebar:hover .rail-sign-in > span:not(.icon) {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .rail-account.signed-out {
+    display: none;
+  }
+  .topbar .product-brand img {
+    width: 104px;
   }
 }

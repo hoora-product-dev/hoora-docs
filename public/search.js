@@ -1,13 +1,13 @@
 import { icon } from './vendor/icons.js';
-import { publishedRoute } from './router.js';
+import { publishedRoute, routeUrl } from './router.js';
 export function createSearchService(db) {
   const cache = new Map();
   return {
     async search(query) {
       const q = query.trim().slice(0, 200);
       if (!q) return [];
-      const existing = cache.get(q);
-      if (existing && Date.now() - existing.at < 15000) return existing.rows;
+      const old = cache.get(q);
+      if (old && Date.now() - old.at < 15000) return old.rows;
       const rows = await db('rpc/docs_search', '', {
         method: 'POST',
         body: { query: q, result_limit: 50 },
@@ -20,136 +20,109 @@ export function createSearchService(db) {
     },
   };
 }
-export function searchDialog({ service, dialog, e, modal, state, names }) {
-  dialog(
-    `<h2 class="sr-only">Search Hoora knowledge</h2><div class="command-search">${icon('search')}<label class="sr-only" for="global-query">Search all documents</label><input id="global-query" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="global-results" type="search" placeholder="Search Hoora Docs…" autocomplete="off"><button type="button" class="command-close" data-close aria-label="Close search"><kbd>Esc</kbd></button></div><div class="global-results" id="global-results" role="listbox" aria-label="Search results"></div><div class="command-footer"><span><kbd>${icon('up')}</kbd><kbd>${icon('down')}</kbd>Navigate</span><span><kbd>${icon('enter')}</kbd>Open</span><span>Search your knowledge</span></div>`,
-  );
-  modal.classList.add('command-dialog');
-  const root = modal.querySelector('#global-results'),
-    input = modal.querySelector('#global-query');
-  let timer,
-    sequence = 0,
-    index = -1;
-  const key = 'hoora-searches-' + (state.member?.id || 'public');
-  function links() {
-    return [...root.querySelectorAll('a')];
-  }
-  function select(next) {
-    const all = links();
-    index = Math.max(0, Math.min(next, all.length - 1));
-    all.forEach((a, i) => {
-      a.classList.toggle('selected', i === index);
-      a.setAttribute('aria-selected', String(i === index));
-    });
-    if (all[index]) {
-      input.setAttribute('aria-activedescendant', all[index].id);
-      all[index].scrollIntoView({ block: 'nearest' });
-    }
-  }
-  function remember() {
-    const query = input.value.trim();
-    if (!query) return;
-    try {
-      const old = JSON.parse(localStorage.getItem(key) || '[]');
-      localStorage.setItem(
-        key,
-        JSON.stringify([query, ...old.filter((q) => q !== query)].slice(0, 5)),
-      );
-    } catch {}
-  }
-  async function update() {
-    const seq = ++sequence,
-      q = input.value.trim();
-    index = -1;
-    input.removeAttribute('aria-activedescendant');
-    if (!q) {
-      let recent = [];
-      try {
-        recent = JSON.parse(localStorage.getItem(key) || '[]');
-      } catch {}
-      root.innerHTML = recent.length
-        ? `<p class="small">Recent searches</p>${recent.map((q) => `<button class="recent-search" data-recent-query="${e(q)}">${e(q)}</button>`).join('')}`
-        : `<div class="command-empty">${icon('book')}<strong>Your knowledge, a search away</strong><p>Find releases, SOPs, documents and dashboards.</p></div>`;
-      root.querySelectorAll('[data-recent-query]').forEach(
-        (b) =>
-          (b.onclick = () => {
-            input.value = b.dataset.recentQuery;
-            update();
-          }),
-      );
-      return;
-    }
-    root.innerHTML = '<p class="muted" role="status">Searching…</p>';
-    try {
-      const rows = await service.search(q);
-      if (seq !== sequence || !root.isConnected) return;
-      root.innerHTML =
-        rows
-          .map(
-            (p, i) =>
-              `<a id="search-result-${i}" role="option" aria-selected="false" href="${publishedRoute(p, state.projects)}"><span class="command-result-title">${icon(p.kind === 'release' ? 'release' : p.kind === 'sop' ? 'sop' : 'documentation')}<span>${e(p.title)}</span></span><small>${e(names[p.kind] || p.kind)}${p.version ? ' · v' + e(p.version) : ''}</small><p>${e((p.summary || '').slice(0, 140))}</p></a>`,
-          )
-          .join('') ||
-        '<p class="muted">No matching documents. Try fewer words or another spelling.</p>';
-      root.insertAdjacentHTML(
-        'beforeend',
-        `<a class="search-all-results" id="search-all-results" role="option" aria-selected="false" href="#/search?q=${encodeURIComponent(q)}">See all results</a>`,
-      );
-      root.querySelectorAll('a').forEach(
-        (a) =>
-          (a.onclick = () => {
-            remember();
-            modal.close();
-          }),
-      );
-    } catch {
-      if (seq === sequence)
-        root.innerHTML = '<p class="error">Search could not connect. Please try again.</p>';
-    }
-  }
-  input.oninput = () => {
-    clearTimeout(timer);
-    sequence++;
-    timer = setTimeout(update, 120);
-  };
-  input.onkeydown = (ev) => {
-    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-      ev.preventDefault();
-      select(index + (ev.key === 'ArrowDown' ? 1 : -1));
-    }
-    if (ev.key === 'Enter') {
-      ev.preventDefault();
-      const a = links()[index < 0 ? 0 : index];
-      if (a) a.click();
-    }
-    if (ev.key === 'Escape') modal.close();
-  };
-  update();
-  input.focus();
-}
-export async function searchResultsPage({ state, service, e, names, query, params }) {
-  const matches = query ? await service.search(query) : [];
+function filteredResults(state, matches, params) {
   const kind = params.get('kind') || '',
     team = params.get('team') || '',
     project = params.get('project') || '',
     sort = params.get('sort') || 'relevance';
-  let results = matches
-    .map((r) => ({ ...state.published.find((p) => p.id === r.id), ...r }))
+  const results = matches
+    .map((row) => ({ ...state.published.find((page) => page.id === row.id), ...row }))
     .filter(
-      (p) =>
-        (!kind || p.kind === kind) &&
-        (!team || p.team_id === team) &&
-        (!project || p.project_id === project),
+      (page) =>
+        (!kind || page.kind === kind) &&
+        (!team || page.team_id === team) &&
+        (!project || page.project_id === project),
     );
-  if (sort === 'newest')
-    results.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-  if (sort === 'oldest')
-    results.sort((a, b) => new Date(a.published_at) - new Date(b.published_at));
-  if (sort === 'updated')
-    results.sort(
-      (a, b) => new Date(b.updated_at || b.published_at) - new Date(a.updated_at || a.published_at),
-    );
+  const at = (page) =>
+    new Date(
+      sort === 'updated' ? page.updated_at || page.published_at : page.published_at,
+    ).getTime() || 0;
+  if (sort !== 'relevance')
+    results.sort((a, b) => (sort === 'oldest' ? at(a) - at(b) : at(b) - at(a)));
+  return results;
+}
+function resultMarkup({ state, e, names, matches, params, query }) {
+  const rows = filteredResults(state, matches, params);
+  return {
+    count: query ? `${rows.length} ${rows.length === 1 ? 'result' : 'results'}` : '',
+    html:
+      rows
+        .map(
+          (page) =>
+            `<article><small>${e(names[page.kind] || page.kind)}</small><h2><a href="${publishedRoute(page, state.projects)}">${e(page.title)}</a></h2>${page.summary ? `<p>${e(page.summary)}</p>` : ''}<div>${page.version ? `<span>v${e(page.version.replace(/^v/i, ''))}</span>` : ''}${page.owner_name ? `<span>${e(page.owner_name)}</span>` : ''}${page.updated_at || page.published_at ? `<span>Updated ${new Date(page.updated_at || page.published_at).toLocaleDateString('en-IN')}</span>` : ''}</div></article>`,
+        )
+        .join('') ||
+      `<div class="empty"><h2>${query ? 'No matching documents' : 'Search Hoora Docs'}</h2><p>${query ? 'Try fewer words or broader filters.' : 'Find releases, guides and SOPs.'}</p></div>`,
+  };
+}
+export async function searchResultsPage({ state, service, e, names, query, params }) {
+  let matches = [],
+    error = '';
+  try {
+    matches = query ? await service.search(query) : [];
+  } catch {
+    error = 'Search could not connect. Please try again.';
+  }
+  const result = resultMarkup({ state, e, names, matches, params, query });
   const option = (value, label, selected) =>
     `<option value="${e(value)}" ${value === selected ? 'selected' : ''}>${e(label)}</option>`;
-  return `<main id="main" class="settings-content search-results-page"><div class="view-heading"><div><h1>${query ? 'Search results for “' + e(query) + '”' : 'Search your knowledge'}</h1><p>${query ? results.length + ' results' : 'Find releases, guides, SOPs and resources shared with you.'}</p></div></div><form id="search-results-form"><label class="search"><span class="sr-only">Search query</span><input name="q" type="search" value="${e(query)}" placeholder="Search products, SOPs, releases and dashboards…" required><button class="btn dark">Search</button></label><div class="search-result-filters"><label>Collection<select name="kind">${option('', 'All collections', kind)}${state.types.map((t) => option(t.key, t.name, kind)).join('')}</select></label><label>Team<select name="team">${option('', 'All teams', team)}${state.teams.map((t) => option(t.id, t.name, team)).join('')}</select></label><label>Application<select name="project">${option('', 'All applications', project)}${state.projects.map((p) => option(p.id, p.name, project)).join('')}</select></label><label>Sort<select name="sort">${option('relevance', 'Relevance', sort)}${option('updated', 'Recently updated', sort)}${option('newest', 'Newest', sort)}${option('oldest', 'Oldest', sort)}</select></label></div></form><div class="search-result-list">${results.map((p) => `<article><small>${e(names[p.kind] || p.kind)}</small><h2><a href="${publishedRoute(p, state.projects)}">${e(p.title)}</a></h2><p>${e(p.summary || p.body?.replace(/[#*`]/g, '').slice(0, 180) || 'Open this document to read more.')}</p><div>${p.owner_name ? `<span>${e(p.owner_name)}</span>` : ''}<span>Updated ${new Date(p.updated_at || p.published_at).toLocaleDateString('en-IN')}</span>${(p.tags || []).map((t) => `<span class="badge">${e(t)}</span>`).join('')}</div></article>`).join('') || `<div class="empty"><h2>${query ? 'No matching knowledge' : 'Start with a keyword'}</h2><p>${query ? 'Try fewer words, another spelling, or broader filters.' : 'Search results appear here. Use Ctrl or ⌘ + K for quick suggestions.'}</p></div>`}</div></main>`;
+  return `<main id="main" class="settings-content search-results-page"><div class="view-heading"><h1>Search</h1></div><form id="search-results-form" class="search-page-form" role="search"><div class="search">${icon('search')}<label class="sr-only" for="global-query">Search query</label><input id="global-query" name="q" type="search" value="${e(query)}" maxlength="200" placeholder="Search Hoora Docs…" autocomplete="off" aria-controls="global-results"><button class="btn dark" type="submit">Search</button></div><div class="search-result-filters"><label>Collection<select name="kind">${option('', 'All collections', params.get('kind'))}${state.types.map((type) => option(type.key, type.name, params.get('kind'))).join('')}</select></label>${state.member ? `<label>Team<select name="team">${option('', 'All teams', params.get('team'))}${state.teams.map((team) => option(team.id, team.name, params.get('team'))).join('')}</select></label>` : ''}<label>Platform<select name="project">${option('', 'All platforms', params.get('project'))}${state.projects.map((project) => option(project.id, project.name, params.get('project'))).join('')}</select></label><label>Sort<select name="sort">${option('relevance', 'Relevance', params.get('sort') || 'relevance')}${option('updated', 'Recently updated', params.get('sort'))}${option('newest', 'Newest', params.get('sort'))}${option('oldest', 'Oldest', params.get('sort'))}</select></label></div></form><p class="search-status" id="search-status" role="status" aria-live="polite">${e(error || result.count)}</p><div id="global-results" class="search-result-list" aria-label="Search results">${result.html}</div></main>`;
+}
+/** Search updates this page in place; it never opens a modal or replaces the input. */
+export function bindSearchPage({ state, service, e, names }) {
+  const form = document.querySelector('#search-results-form');
+  if (!form) return;
+  const input = form.elements.q,
+    results = document.querySelector('#global-results'),
+    status = document.querySelector('#search-status');
+  let sequence = 0,
+    timer;
+  async function update() {
+    const current = ++sequence,
+      query = input.value.trim(),
+      params = new URLSearchParams(new FormData(form));
+    for (const [key, value] of [...params])
+      if (!value || (key === 'sort' && value === 'relevance')) params.delete(key);
+    history.replaceState(null, '', routeUrl('#/search') + (params.size ? '?' + params : ''));
+    status.textContent = query ? 'Searching…' : '';
+    results.setAttribute('aria-busy', 'true');
+    try {
+      const matches = query ? await service.search(query) : [];
+      if (current !== sequence || !results.isConnected) return;
+      const result = resultMarkup({ state, e, names, matches, params, query });
+      results.innerHTML = result.html;
+      status.textContent = result.count;
+    } catch {
+      if (current === sequence && results.isConnected)
+        status.textContent = 'Search could not connect. Please try again.';
+    } finally {
+      if (current === sequence) results.removeAttribute('aria-busy');
+    }
+  }
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    sequence++;
+    timer = setTimeout(update, 180);
+  });
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearTimeout(timer);
+    update();
+  });
+  form.querySelectorAll('select').forEach((select) =>
+    select.addEventListener('change', () => {
+      clearTimeout(timer);
+      update();
+    }),
+  );
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') {
+      const first = results.querySelector('h2 a');
+      if (first) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+  input.focus({ preventScroll: true });
 }

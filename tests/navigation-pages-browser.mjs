@@ -1,0 +1,154 @@
+/** Regressions from the compact sidebar, search popup and ticket popup report. */
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { loadEnvFile } from 'node:process';
+import { serverClient } from '../server/supabase.js';
+try {
+  loadEnvFile();
+} catch {}
+const base = process.env.HOORA_TEST_BASE_URL || 'http://localhost:5174';
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+let session;
+try {
+  const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      reducedMotion: 'reduce',
+    }),
+    page = await context.newPage(),
+    errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(base + '/releases');
+  await page.locator('.timeline-item').first().waitFor();
+  const loginCount = () =>
+    page
+      .locator('a[href="#/login"]')
+      .evaluateAll((links) => links.filter((link) => link.getClientRects().length).length);
+  assert.equal(await loginCount(), 1);
+  assert.equal(await page.locator('.topbar input,.topbar .compact-search').count(), 0);
+  assert.equal(
+    await page
+      .getByRole('link', { name: 'Sign in', exact: true })
+      .evaluate((el) => getComputedStyle(el).borderRadius),
+    '8px',
+  );
+  await page.locator('[data-action=rail-toggle]').click();
+  await page.mouse.move(700, 600);
+  assert.equal(await loginCount(), 1);
+  assert.equal(await page.locator('.rail-sign-in').isVisible(), true);
+  assert.equal(await page.locator('.rail-brand>a').isVisible(), false);
+  assert.equal(await page.locator('.rail-brand .logo-mark').count(), 0);
+  const toggle = await page.locator('[data-action=rail-toggle]').boundingBox();
+  assert.ok(toggle.y >= 0 && toggle.y + toggle.height <= 60);
+  await page.screenshot({ path: 'test-results/compact-sidebar.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await loginCount(), 1);
+  await page.locator('[data-action=menu]').click();
+  assert.equal(await loginCount(), 1);
+  await page.keyboard.press('Escape');
+  await page.goto(base + '/home');
+  await page.getByRole('searchbox', { name: 'Search knowledge' }).fill('booking');
+  assert.equal(await page.locator('dialog[open]').count(), 0);
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.locator('#global-query').waitFor();
+  await page.locator('#global-results h2 a').first().waitFor();
+  assert.equal(new URL(page.url()).pathname, '/search');
+  assert.equal(await page.locator('dialog[open]').count(), 0);
+  await page.evaluate(() => (window.retainedSearchInput = document.querySelector('#global-query')));
+  await page.locator('#global-query').fill('customer');
+  await page.waitForFunction(
+    () =>
+      new URL(location.href).searchParams.get('q') === 'customer' &&
+      document.querySelector('#search-status').textContent.includes('result'),
+  );
+  assert.equal(
+    await page.evaluate(
+      () => window.retainedSearchInput === document.querySelector('#global-query'),
+    ),
+    true,
+  );
+  await page.goto(base + '/login');
+  await page.getByRole('button', { name: 'Continue with Microsoft', exact: true }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'Continue with Microsoft', exact: true })
+      .evaluate((el) => getComputedStyle(el).borderRadius),
+    '8px',
+  );
+  const call = serverClient(),
+    [member] = await call(
+      '/rest/v1/docs_members?role=eq.admin&active=eq.true&password_setup_complete=eq.true&select=email&limit=1',
+    );
+  const generated = await call('/auth/v1/admin/generate_link', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'magiclink', email: member.email }),
+  });
+  session = await call('/auth/v1/verify', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'magiclink', token_hash: generated.hashed_token }),
+  });
+  session.expires_at = Date.now() / 1000 + session.expires_in;
+  const signed = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    reducedMotion: 'reduce',
+  });
+  await signed.addInitScript(
+    (value) => localStorage.setItem('hoora-session', JSON.stringify(value)),
+    session,
+  );
+  const admin = await signed.newPage();
+  admin.on('pageerror', (error) => errors.push(error.message));
+  await admin.goto(base + '/releases');
+  await admin.locator('.timeline-item').first().waitFor();
+  assert.equal(
+    await admin.locator('.sidebar>.sidelink').first().getAttribute('href'),
+    '#/upcoming',
+  );
+  await admin.locator('.rail-more summary').click();
+  assert.equal(
+    await admin
+      .locator('.rail-menu a,.rail-menu button')
+      .evaluateAll((items) => items.every((item) => item.querySelector('.icon svg'))),
+    true,
+  );
+  await admin.screenshot({ path: 'test-results/account-menu.png' });
+  await admin.keyboard.press('Escape');
+  assert.equal(await admin.locator('.rail-more').getAttribute('open'), null);
+  await admin.goto(base + '/upcoming');
+  await admin.locator('.upcoming-ticket').first().waitFor({ timeout: 30000 });
+  assert.equal(await admin.locator('.upcoming-release-card').count(), 0);
+  const vertical = await admin.locator('#upcoming-vertical option').nth(2).getAttribute('value');
+  await admin.getByLabel('Vertical', { exact: true }).selectOption(vertical);
+  await admin.locator('.upcoming-ticket').first().click();
+  await admin.locator('.upcoming-ticket-page').waitFor();
+  assert.equal(await admin.locator('dialog[open]').count(), 0);
+  assert.match(new URL(admin.url()).pathname, /\/upcoming\/[^/]+\/tickets\/[A-Z][A-Z0-9_]*-\d+/);
+  await admin.reload();
+  await admin.locator('.upcoming-ticket-page').waitFor();
+  await admin.getByRole('link', { name: 'Back to tickets', exact: true }).click();
+  await admin.locator('#upcoming-vertical').waitFor();
+  assert.equal(await admin.getByLabel('Vertical', { exact: true }).inputValue(), vertical);
+  await admin.getByRole('link', { name: 'Manage', exact: true }).click();
+  await admin.locator('#upcoming-form').waitFor();
+  assert.equal(await admin.locator('dialog[open]').count(), 0);
+  assert.equal(await admin.locator('.assistant-trigger').count(), 0);
+  await admin.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await admin.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    true,
+  );
+  await admin.screenshot({ path: 'test-results/upcoming-settings-page.png', fullPage: true });
+  assert.deepEqual(errors, []);
+  console.log(
+    'PASS One rounded sign-in entry, compact rail header/footer, icon account menu, in-page search, direct upcoming list, deep-linked ticket pages and full-page settings.',
+  );
+} finally {
+  await browser.close();
+  if (session)
+    await fetch(process.env.SUPABASE_URL + '/auth/v1/logout?scope=local', {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + session.access_token,
+      },
+    }).catch(() => {});
+}

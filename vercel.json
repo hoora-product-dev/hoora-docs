@@ -45,6 +45,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/upcoming/:slug/tickets/:key", "destination": "/index.html" },
+    { "source": "/upcoming/:slug/settings", "destination": "/index.html" },
     { "source": "/contribute/:id", "destination": "/index.html" },
     {
       "source": "/upcoming",

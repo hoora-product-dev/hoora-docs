@@ -5,8 +5,7 @@ button,
 .related-grid a,
 .notice-item,
 .home-cards > a,
-.home-list > a,
-.global-results a {
+.home-list > a {
   transition-property: color, background-color, border-color, opacity;
   transition-duration: 140ms;
   transition-timing-function: ease;
@@ -35,7 +34,6 @@ a:hover {
 .related-grid a:hover,
 .notice-item:hover,
 .home-cards > a:hover,
-.global-results a:hover,
 .document-nav-page:hover {
   background-color: var(--raised);
   color: var(--ink);
@@ -60,8 +58,7 @@ a:hover {
   .related-grid a,
   .notice-item,
   .home-cards > a,
-  .home-list > a,
-  .global-results a {
+  .home-list > a {
     transition: none !important;
   }
 }

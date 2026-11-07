@@ -66,6 +66,11 @@ export function createNavigation({ app, state, icon }) {
     }
   }
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape')
+      app.querySelectorAll('.rail-more[open]').forEach((menu) => {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      });
     if (!document.body.classList.contains('navigation-open')) return;
     if (event.key === 'Escape') {
       event.preventDefault();

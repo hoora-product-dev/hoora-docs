@@ -1,5 +1,6 @@
 import { icon } from './vendor/icons.js';
-import { createSearchService, searchDialog, searchResultsPage } from './search.js';
+import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
+import { sidebarAccount } from './ui/account.js';
 import { pwaFeature } from './pwa.js';
 import { sourcesFeature } from './sources.js';
 import { workspaceFeatures } from './workspace-features.js';
@@ -103,6 +104,9 @@ function assistantUI() {
   if (
     route.startsWith('#/login') ||
     route.startsWith('#/install') ||
+    (route.startsWith('#/upcoming') &&
+      (route.split('?')[0].endsWith('/settings') ||
+        new URLSearchParams(route.split('?')[1]).get('create') === '1')) ||
     route.startsWith('#/artifact/') ||
     route.startsWith('#/preview/')
   )
@@ -444,7 +448,7 @@ function header() {
   const route = routeHash().split('?')[0];
   const auth = route === '#/login' || route === '#/app-welcome';
   const native = route.startsWith('#/artifact/') || route.startsWith('#/preview/');
-  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth && !native ? '<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a>' + (state.member ? '<a href="#/upcoming">Upcoming</a>' : '') + '</nav>' : ''}</div><div class="topbar-right">${!auth && !native ? `<button class="compact-search" data-action="global-search">${icon('search')}<span>Search documents</span><kbd>⌘ K</kbd></button>` : ''}<button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" href="#/login">Sign in</a>' : ''}</div></header>`;
+  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth && !native ? '<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a>' + '</nav>' : ''}</div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
 }
 function enhanceRail() {
   navigation.prepare();
@@ -461,7 +465,7 @@ function enhanceRail() {
     document.documentElement.dataset.theme === 'dark' ? '/hoora-dark.png' : '/hoora-light.png';
   rail.insertAdjacentHTML(
     'afterbegin',
-    `<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="rail-logo" src="${railLogo}" alt="Hoora"><img class="logo-mark" src="/hoora-mark.png" alt=""><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-toggle" aria-label="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}" title="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}">${icon(pinned ? 'panelClose' : 'panelOpen')}</button></div>`,
+    `<div class="rail-brand"><a href="#/home" aria-label="Hoora Docs home"><img class="rail-logo" src="${railLogo}" alt="Hoora"><span class="rail-product-name">Docs</span></a><button type="button" class="iconbtn rail-toggle" data-action="rail-toggle" aria-label="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}" title="${pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded'}">${icon(pinned ? 'panelClose' : 'panelOpen')}</button></div>`,
   );
   if (!document.documentElement.dataset.railPointerListener) {
     document.documentElement.dataset.railPointerListener = 'true';
@@ -475,12 +479,9 @@ function enhanceRail() {
       { passive: true },
     );
   }
-  const more = state.member
-    ? `<details class="rail-more"><summary aria-label="Workspace options" title="Workspace options">${icon('more')}</summary><div class="rail-menu"><a href="#/account">Account settings</a>${state.member.role === 'admin' ? '<a href="#/folders">Manage structure</a><a href="#/users">Manage people</a><a href="#/upcoming">Upcoming releases</a>' : ''}${['admin', 'publisher'].includes(state.member.role) ? `<a href="#/requests">Requests${state.pendingRequestCount ? ` <span class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</span>` : ''}</a>` : ''}${state.member.role === 'admin' ? '<a href="#/archive">Archive</a><a href="#/activity">Activity</a><button type="button" data-action="reindex-knowledge">Refresh AI index</button>' : ''}<button type="button" data-action="logout">Sign out</button></div></details>`
-    : '';
   rail.insertAdjacentHTML(
     'beforeend',
-    `<div class="rail-account">${state.member ? `<a href="#/account" class="rail-person"><span class="user-avatar">${memberAvatar()}</span><span><strong>${e(state.member.name || state.member.email)}</strong><small>${e(state.member.email)}</small></span></a>${more}` : `<a href="#/login" class="rail-person">${icon('login')}<span>Sign in</span></a>`}</div>`,
+    sidebarAccount({ state, e, icon, avatar: state.member ? memberAvatar() : '' }),
   );
 }
 
@@ -934,7 +935,10 @@ async function render() {
         view = contributionEditor.view(id, params.get('entry'));
         break;
       case 'upcoming':
-        view = await upcoming.view(id, params);
+        view = await upcoming.view(id, params, {
+          ticket: routeParts[2] === 'tickets' ? routeParts[3] : null,
+          settings: routeParts[2] === 'settings',
+        });
         break;
       case 'requests':
         view = requestsView();
@@ -1627,6 +1631,7 @@ document.addEventListener('click', (ev) => {
   }
 });
 function bind() {
+  bindSearchPage({ state, service: searchService, e, names });
   if (!document.querySelector('.assistant-panel')) assistantOpen = false;
   syncAssistantViewport();
   document.querySelectorAll('form').forEach((form) =>
@@ -2166,7 +2171,7 @@ function releaseTimeline() {
     days.get(day).push(record);
   }
   const platformName = (p) => displayPlatformName(p.name);
-  const rail = `<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink ${!current ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All updates</span></a>${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<div class="rail-label">Platforms</div>${applications.map((p) => `<a class="sidelink ${current?.id === p.id ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}</aside>`;
+  const rail = `<aside class="sidebar release-sidebar" aria-label="Release navigation">${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<a class="sidelink ${!current ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${applications.map((p) => `<a class="sidelink ${current?.id === p.id ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}">${icon(p.icon)}<span>${e(platformName(p))}</span></a>`).join('')}</aside>`;
   return `<div class="layout release-layout timeline-layout">${rail}<main id="main" class="release-reader timeline-reader"><div class="reader-heading"><div><h1>${current ? e(platformName(current)) : 'All updates'}</h1></div>${['admin', 'publisher'].includes(state.member?.role) ? `<button class="btn outline" data-action="new-release">${icon('plus')}New release</button>` : ''}</div><div class="timeline-list">${
     [...days]
       .map(
@@ -2519,7 +2524,21 @@ document.addEventListener('change', (ev) => {
 });
 
 function globalSearch() {
-  searchDialog({ service: searchService, dialog, e, modal, state, names });
+  if (routeHash().startsWith('#/search')) {
+    document.querySelector('#global-query')?.focus();
+    return;
+  }
+  const go = () => {
+    state.dirty = false;
+    location.hash = '#/search';
+  };
+  if (state.dirty)
+    confirmAction(
+      'Leave without saving?',
+      'Save your draft before searching to keep your changes.',
+      go,
+    );
+  else go();
 }
 document.addEventListener('click', (ev) => {
   if (ev.target.closest('[data-action="global-search"]')) globalSearch();
@@ -2829,13 +2848,6 @@ document.addEventListener('click', async (event) => {
       method: 'POST',
       body: { document_id: external.dataset.externalPage, event: 'external_opened' },
     }).catch(() => {});
-});
-
-document.addEventListener('submit', (ev) => {
-  if (ev.target.id === 'search-results-form') {
-    ev.preventDefault();
-    location.hash = '#/search?' + new URLSearchParams(new FormData(ev.target));
-  }
 });
 
 document.addEventListener('click', (event) => {

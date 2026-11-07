@@ -8,39 +8,9 @@
 .upcoming-page .reader-heading {
   margin-bottom: 28px;
 }
-.upcoming-release-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
-}
-.upcoming-release-card {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-}
-.upcoming-release-card > a {
-  display: block;
-  padding: 24px;
-  padding-right: 52px;
-  min-height: 155px;
-  border-radius: inherit;
-}
-.upcoming-release-card h2 {
-  font-size: 21px;
-  margin: 5px 0 12px;
-  overflow-wrap: anywhere;
-}
-.upcoming-release-card p,
 .upcoming-release-header > div > p:last-child {
   color: var(--muted);
   font-size: 12px;
-}
-.upcoming-release-card small {
-  display: block;
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 11px;
 }
 .upcoming-release-version {
   color: var(--muted);
@@ -55,7 +25,7 @@
   padding: 22px 24px;
   margin-bottom: 24px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--panel-radius);
   flex-wrap: wrap;
 }
 .upcoming-release-header h1 {
@@ -115,14 +85,13 @@
   padding: 48px 20px;
   text-align: center;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--panel-radius);
   color: var(--muted);
 }
 .upcoming-empty p {
   margin-top: 12px;
   font-size: 13px;
 }
-.upcoming-connection,
 .upcoming-load-error {
   padding: 16px 18px;
   border: 1px solid var(--line);
@@ -152,20 +121,12 @@
   line-height: 1.6;
   color: var(--muted);
 }
-dialog:has(.upcoming-ticket-heading) {
-  width: min(900px, calc(100vw - 32px));
-  padding: 26px;
-}
 .upcoming-ticket-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
-}
-.upcoming-ticket-heading h2 {
-  font-size: 22px;
-  margin-top: 5px;
 }
 .upcoming-ticket-facts {
   display: grid;
@@ -202,8 +163,7 @@ dialog:has(.upcoming-ticket-heading) {
   cursor: pointer;
 }
 @media (hover: hover) and (pointer: fine) {
-  .upcoming-ticket:hover,
-  .upcoming-release-card > a:hover {
+  .upcoming-ticket:hover {
     background: var(--raised);
     border-color: var(--muted);
     color: var(--ink);
@@ -240,9 +200,6 @@ dialog:has(.upcoming-ticket-heading) {
   .upcoming-ticket-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  dialog:has(.upcoming-ticket-heading) {
-    padding: 20px;
-  }
   .upcoming-release-header .toolbar-actions {
     width: 100%;
   }
@@ -250,5 +207,89 @@ dialog:has(.upcoming-ticket-heading) {
 @media (prefers-reduced-motion: reduce) {
   .upcoming-ticket {
     transition: none;
+  }
+}
+.upcoming-settings-form {
+  max-width: 880px;
+  width: 100%;
+}
+.upcoming-settings-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.upcoming-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin-top: 22px;
+}
+.upcoming-settings-actions .danger {
+  margin-right: auto;
+}
+.upcoming-release-select {
+  max-width: 520px;
+}
+.upcoming-ticket-page {
+  min-width: 0;
+  width: 100%;
+}
+.upcoming-ticket-page .native-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--control-radius);
+  margin: 0 0 22px;
+}
+.upcoming-ticket-page .native-back:hover {
+  background: var(--hover-surface);
+}
+.upcoming-ticket-heading h1 {
+  font-size: clamp(25px, 2.4vw, 32px);
+  overflow-wrap: anywhere;
+}
+.upcoming-ticket-page .upcoming-ticket-description {
+  max-width: 88ch;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.upcoming-ticket-page .upcoming-ticket-facts {
+  margin-top: 24px;
+}
+.upcoming-ticket {
+  text-decoration: none;
+  color: var(--ink);
+}
+@media (max-width: 600px) {
+  .upcoming-settings-actions > .btn {
+    min-height: 40px;
+  }
+  .upcoming-settings-actions .danger {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-bottom: 8px;
+  }
+  .upcoming-ticket-page .upcoming-ticket-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .upcoming-release-header .toolbar-actions {
+    gap: 8px;
+  }
+  .upcoming-release-header .toolbar-actions .btn {
+    min-height: 38px;
+  }
+  .upcoming-filters {
+    gap: 12px;
+  }
+  .upcoming-filters .field {
+    min-width: 0;
   }
 }
