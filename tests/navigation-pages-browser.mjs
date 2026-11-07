@@ -46,10 +46,25 @@ try {
   assert.equal(await loginCount(), 1);
   await page.keyboard.press('Escape');
   await page.goto(base + '/home');
-  await page.getByRole('searchbox', { name: 'Search knowledge' }).fill('booking');
+  const homeQuery = page.getByRole('searchbox', { name: 'Search knowledge' });
+  await homeQuery.fill('booking');
+  await page.locator('#home-results h2 a').first().waitFor();
+  assert.equal(new URL(page.url()).pathname, '/home');
+  assert.equal(await homeQuery.inputValue(), 'booking');
+  assert.equal(await homeQuery.evaluate((el) => document.activeElement === el), true);
+  assert.equal(await homeQuery.evaluate((el) => getComputedStyle(el).outlineStyle), 'none');
+  assert.equal(await page.locator('#home-content').isVisible(), false);
+  await page.screenshot({ path: 'test-results/home-live-search-mobile.png', fullPage: true });
+  await homeQuery.fill('');
+  await page.locator('#home-content').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#home-search-results').isVisible(), false);
+  assert.equal(await homeQuery.evaluate((el) => el.checkValidity()), true);
+  await homeQuery.press('Enter');
   assert.equal(await page.locator('dialog[open]').count(), 0);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  assert.equal(new URL(page.url()).pathname, '/home');
+  await page.keyboard.press('Control+k');
   await page.locator('#global-query').waitFor();
+  await page.locator('#global-query').fill('booking');
   await page.locator('#global-results h2 a').first().waitFor();
   assert.equal(new URL(page.url()).pathname, '/search');
   assert.equal(await page.locator('dialog[open]').count(), 0);
@@ -113,6 +128,29 @@ try {
   await admin.screenshot({ path: 'test-results/account-menu.png' });
   await admin.keyboard.press('Escape');
   assert.equal(await admin.locator('.rail-more').getAttribute('open'), null);
+  await admin.goto(base + '/browse');
+  await admin.locator('#public-search').waitFor();
+  for (const width of [320, 390, 1440]) {
+    await admin.setViewportSize({ width, height: 900 });
+    const geometry = await admin.evaluate(() => {
+      const search = document.querySelector('.library-tools').getBoundingClientRect();
+      const table = document.querySelector('#document-list').getBoundingClientRect();
+      return { gap: table.top - search.bottom, difference: Math.abs(table.width - search.width) };
+    });
+    assert.ok(geometry.gap >= 18, 'Library search needs space before the document list');
+    assert.ok(geometry.difference < 1, 'Library search and document list align');
+  }
+  await admin.screenshot({ path: 'test-results/library-search-spacing.png' });
+  await admin.locator('#public-search').fill('booking');
+  await admin
+    .locator('#document-list')
+    .getByRole('link', { name: /booking/i })
+    .first()
+    .waitFor();
+  await admin.locator('#public-search').fill('no-matching-document-20261107-search-check');
+  await admin.getByRole('heading', { name: 'No matching documents', exact: true }).waitFor();
+  assert.equal(await admin.locator('#document-list .document-row').count(), 0);
+  await admin.setViewportSize({ width: 1440, height: 1000 });
   await admin.goto(base + '/upcoming');
   await admin.locator('.upcoming-ticket').first().waitFor({ timeout: 30000 });
   assert.equal(await admin.locator('.upcoming-release-card').count(), 0);
@@ -139,7 +177,7 @@ try {
   await admin.screenshot({ path: 'test-results/upcoming-settings-page.png', fullPage: true });
   assert.deepEqual(errors, []);
   console.log(
-    'PASS One rounded sign-in entry, compact rail header/footer, icon account menu, in-page search, direct upcoming list, deep-linked ticket pages and full-page settings.',
+    'PASS Live home/page search without Enter, single focus outline, library search spacing/alignment, sidebar/account menu, direct upcoming list and full-page ticket/settings navigation.',
   );
 } finally {
   await browser.close();
