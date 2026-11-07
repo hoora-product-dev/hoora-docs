@@ -325,13 +325,22 @@ body:has(.rail-more[open]) .assistant-shell {
 .assistant-message.assistant {
   padding-block: 4px;
 }
-.assistant-empty {
+.assistant-empty,
+.assistant-greeting {
   text-align: left;
   margin: 0;
   max-width: 32ch;
   font-size: 13px;
   line-height: 1.7;
   color: var(--muted);
+}
+.assistant-greeting strong,
+.assistant-greeting span {
+  display: block;
+}
+.assistant-greeting strong {
+  color: var(--ink);
+  margin-bottom: 6px;
 }
 .assistant-form {
   display: flex;
