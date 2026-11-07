@@ -169,6 +169,8 @@ const canEdit = (role) =>
       (m) => m.email === state.member?.email?.toLowerCase() && m.role === 'publisher',
     ));
 const canPublish = (role) => canPublishRole(role) || canEdit(role);
+const canEditEntry = (entry) =>
+  state.member?.role === 'admin' || entry?.author_id === state.member?.id;
 const teams = teamsFeature({
   state,
   db: (...args) => db(...args),
@@ -230,6 +232,7 @@ const contributionEditor = createContributionEditor({
   toast,
   hydrateImages,
   canEdit,
+  canEditEntry,
   canPublish,
   onPublished: (id) => appApi('/api/ai-index', { documentId: id }).catch(() => {}),
 });
@@ -2294,6 +2297,13 @@ function releaseDocumentNew(p) {
     .filter((r) => r.project.id === project.id)
     .sort((a, b) => compareVersions(a.version, b.version));
   const rail = `<aside class="sidebar release-sidebar" aria-label="Application versions"><a class="sidelink version-all" href="#/releases?project=${encodeURIComponent(project.slug || slugify(project.name))}">${icon('back')}<span>All updates</span></a><div class="rail-label">Versions</div><nav class="version-nav">${versions.map((r) => `<a class="version-link ${r.page.id === p.id ? 'active' : ''}" href="${publishedRoute(r.page, state.projects)}"><span>${e(r.version === 'Unversioned' ? r.version : 'v' + r.version)}</span></a>`).join('')}</nav></aside>`;
+  const ownEntry = state.entries.find(
+    (entry) => entry.release_id === p.id && entry.author_id === state.member?.id,
+  );
+  const editHref =
+    state.member?.role === 'admin'
+      ? '#/edit/' + e(p.id)
+      : '#/contribute/' + e(p.id) + (ownEntry ? '?entry=' + encodeURIComponent(ownEntry.id) : '');
   const releaseLink = publishedRoute(p, state.projects);
   const sections = [
     ...new Map(allNotes.map((note) => [note.vertical || 'General', note])).entries(),
@@ -2306,7 +2316,7 @@ function releaseDocumentNew(p) {
     })
     .join('')}</nav>`;
 
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({ ...p, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...p, project_id: project.id }))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) ? `<a class="btn text" href="#/edit/${p.id}">${icon('edit')}Edit</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? contributionGroups(notes, false, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span><span class="native-release-version">v${e(versionKey(record?.version || p.version))}</span></h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time><span class="access-label">${icon(pageAccess({ ...p, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...p, project_id: project.id }))}</span></div><div class="native-release-actions"><button type="button" class="btn text" data-action="copy-link">${icon('link')}Copy link</button>${canEdit(state.member?.role) ? `<a class="btn text" href="${editHref}">${icon('edit')}Edit my contribution</a>` : ''}</div></div></header>${tabs}<div class="native-release-body">${notes.length ? contributionGroups(notes, false, !selectedSection) : `<div class="prose">${markdown(p.body)}</div>`}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
 }
 
 function releaseApplication(record) {
@@ -2325,7 +2335,7 @@ function contributionGroups(notes, editable = false, showSectionHeading = true) 
   return [...groups]
     .map(
       ([name, entries]) =>
-        `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries.map((n) => `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${editable ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div>${n.tickets ? `<p class="ticket-refs">${e(n.tickets)}</p>` : ''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${editable ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`).join('')}</section>`,
+        `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries.map((n) => { const canEditThis = editable && canEditEntry(n); return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div>${n.tickets ? `<p class="ticket-refs">${e(n.tickets)}</p>` : ''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`; }).join('')}</section>`,
     )
     .join('');
 }
