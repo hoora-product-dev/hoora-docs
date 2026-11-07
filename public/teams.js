@@ -47,7 +47,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
         ),
     );
     const companyOption = ['admin', 'publisher'].includes(state.member.role);
-    return `<div class="field"><label for="document-team">Document team</label><select id="document-team" name="team_id" ${companyOption ? '' : 'required'}>${companyOption ? '<option value="">Company workspace</option>' : '<option value="">Choose your team</option>'}${choices.map((team) => `<option value="${team.id}" ${page.team_id === team.id ? 'selected' : ''}>${e(team.name)}</option>`).join('')}</select><small>Team documents start with access limited to that team.</small></div>`;
+    return `<div class="field"><label for="document-team">Document team</label><select id="document-team" name="team_id" ${companyOption ? '' : 'required'}>${companyOption ? '<option value="">Company workspace</option>' : '<option value="">Choose your team</option>'}${choices.map((team) => `<option value="${team.id}" ${page.team_id === team.id ? 'selected' : ''}>${e(team.name)}</option>`).join('')}</select><small>Optional team scope.</small></div>`;
   }
 
   async function view(id) {

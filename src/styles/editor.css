@@ -151,9 +151,9 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin: 24px 0 0;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border-top: 0;
 }
 .statusbar {
   font-size: 11px;
@@ -397,16 +397,18 @@
   border-radius: 0;
   background: var(--surface);
   min-height: 480px;
+  cursor: text;
 }
 .rich-content {
   position: relative;
   min-height: 480px;
-  padding: 18px 0;
+  padding: 18px 0 72px;
   font-size: 15px;
   line-height: 1.8;
   outline: 0 !important;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  cursor: text;
 }
 .editor .rich-content:has(> p:only-child > .ProseMirror-trailingBreak:only-child)::before {
   content: attr(data-placeholder);
@@ -507,8 +509,13 @@
   gap: 12px;
   color: var(--muted);
   font-size: 11px;
-  padding: 12px 0;
+  align-items: center;
+  min-height: 38px;
+  padding: 10px 0;
   margin: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  letter-spacing: 0.01em;
 }
 .editor-link-field {
   display: flex;
