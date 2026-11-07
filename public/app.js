@@ -140,7 +140,11 @@ function assistantUI() {
           const tickets = m.tickets?.length
             ? `<nav class="assistant-actions" aria-label="Related Jira tickets"><span class="assistant-actions-label">Related tickets</span>${m.tickets.map((t) => `<a class="assistant-action assistant-ticket" href="${e(t.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}<span>${e(t.key)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
-          return `<div class="assistant-message ${m.role}"><img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar"><div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
+          const avatar =
+            m.role === 'assistant'
+              ? `<img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar">`
+              : '';
+          return `<div class="assistant-message ${m.role}">${avatar}<div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
         })
         .join('')
     : `<div class="assistant-message assistant assistant-welcome"><img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar"><div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
