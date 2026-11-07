@@ -283,19 +283,38 @@ body.rail-collapsed {
   gap: 10px;
 }
 @media (max-width: 900px) {
+  /* Keep compact glyphs visually small while preserving a reliable phone-sized
+     hit target for the drawer, theme and notification controls. */
+  .topbar .iconbtn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
   /* navigation.css is loaded after layout.css and owns the base fixed rail.
      Keep its mobile override here so the drawer can never fall back to
      top:0 underneath the safe-area-aware app header. */
   .has-rail .sidebar {
+    z-index: 90;
     top: var(--mobile-header, var(--header));
     height: calc(100dvh - var(--mobile-header, var(--header)));
     max-height: calc(100dvh - var(--mobile-header, var(--header)));
   }
   .navigation-backdrop {
+    z-index: 80;
     inset: var(--mobile-header, var(--header)) 0 0;
   }
   .topbar nav {
     display: none;
+  }
+  .has-rail .topbar {
+    z-index: 100;
+  }
+  .rail-menu,
+  .rail-collapsed .rail-menu {
+    left: 12px;
+    bottom: max(78px, env(safe-area-inset-bottom));
+    width: min(256px, calc(100vw - 72px));
+    max-height: calc(100dvh - var(--mobile-header, 60px) - 100px);
   }
   .has-rail .topbar .product-brand {
     display: flex;

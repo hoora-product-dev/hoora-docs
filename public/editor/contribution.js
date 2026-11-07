@@ -54,13 +54,26 @@ export function createContributionEditor({
       (entry && !canEditEntry(entry))
     )
       throw Error('You do not have permission to edit this release.');
+    const publishable =
+      creating || state.pages.find((item) => item.id === releaseId)?._canPublish === true;
     const projectId = release?.project_id || setup.projectId || '',
       choices = sections(projectId, entry),
       page = state.pages.find((item) => item.id === releaseId),
       project = state.projects.find((item) => item.id === projectId);
     if (!creating && !choices.length)
       throw Error('An administrator needs to configure release sections first.');
-    return `<div class="layout editor-layout contribution-editor-layout">${sidebar(true)}<main id="main" class="editor contribution-editor"><div class="editor-top"><nav class="breadcrumbs"><a href="${creating ? '#/releases' : '#/edit/' + e(releaseId)}">${icon('back')}<span>${creating ? 'Releases' : e(project?.name || 'Release') + ' ' + e(page?.version || '')}</span></a><span>${creating ? 'New release' : entry ? 'Edit contribution' : 'New contribution'}</span></nav><div class="editor-top-actions"><button class="btn outline" type="submit" name="intent" value="draft" form="contribution-form">Save draft</button><button class="btn primary" type="submit" name="intent" value="${creating ? 'publish' : 'ready'}" form="contribution-form">${creating ? 'Publish release' : 'Mark ready'}</button></div></div><form id="contribution-form" data-release-id="${e(releaseId || '')}" data-id="${e(entry?.id || '')}" data-revision="${entry?.revision || 0}">${creating ? `<div class="release-setup"><div class="field"><label for="release-project">Platform</label><select id="release-project" required>${options(state.projects, projectId, 'Choose a platform')}</select></div><div class="field"><label for="release-version">Version</label><input id="release-version" required maxlength="80" placeholder="5.12.0"></div><div class="field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div></div>` : `<div class="editor-section-choice field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div>`}<div class="editor-grid"><section class="editor-main entry-writing"><div class="editor-heading"><label class="sr-only" for="entry-title">Contribution heading</label><input id="entry-title" name="title" maxlength="200" required value="${e(entry?.title || '')}" placeholder="What changed?"></div><div class="editor-mode-tabs entry-write-tabs"><div><button type="button" data-entry-view="visual" class="active">Write</button><button type="button" data-entry-view="split">Split view</button><button type="button" data-entry-view="preview">Preview</button><button type="button" data-entry-view="source">Markdown source</button></div><span class="editor-upload-status" role="status"></span></div><div class="contribution-writing" data-view="visual"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="entry-body">Markdown source</label><textarea id="entry-body" name="body" class="rich-source" maxlength="100000" placeholder="Write or paste Markdown…">${e(entry?.body || '')}</textarea></div><div id="entry-preview" class="prose live-preview" hidden></div></div><input id="entry-attachment" type="file" hidden accept="image/png,image/jpeg,image/webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><p class="error" role="alert"></p><p class="statusbar" id="contribution-save-status" role="status">${entry ? (entry.submitted ? 'Ready for publishing' : 'Draft saved') : 'Not saved yet'}</p></section><aside class="document-properties"><h2>Contribution settings</h2>${creating ? '<input type="hidden" name="submitted" value="false">' : `<div class="field"><label for="entry-status">Status</label><select id="entry-status" name="submitted"><option value="false">Work in progress</option><option value="true" ${entry?.submitted ? 'selected' : ''}>Ready for publishing</option></select></div>`}<div class="field"><label for="entry-tickets">Ticket references</label><input id="entry-tickets" name="tickets" maxlength="1000" value="${e(entry?.tickets || '')}" placeholder="HCUS-123, HCUS-124"></div><p class="small">Credited to ${e(entry?.author_name || state.member?.name || 'your account')}.</p><p class="small">${creating ? 'Save privately, or publish this version when it is ready.' : 'Save your draft while writing. Mark it ready to include it in the next publication.'}</p></aside></div></form></main></div>`;
+    return `<div class="layout editor-layout contribution-editor-layout">${sidebar(true)}<main id="main" class="editor contribution-editor"><div class="editor-top"><nav class="breadcrumbs"><a href="${creating ? '#/releases' : '#/edit/' + e(releaseId) + '?overview=1'}">${icon('back')}<span>${creating ? 'Releases' : e(project?.name || 'Release') + ' ' + e(page?.version || '')}</span></a><span>${creating ? 'New release' : entry ? 'Edit' : 'New section'}</span></nav><div class="editor-top-actions"><button class="btn outline" type="submit" name="intent" value="draft" form="contribution-form">Save draft</button><button class="btn primary" type="submit" name="intent" value="${publishable ? 'publish' : 'ready'}" form="contribution-form">${publishable ? 'Publish' : 'Mark ready'}</button></div></div>${
+      !creating &&
+      state.entries.filter((n) => n.release_id === releaseId && canEditEntry(n)).length > 1
+        ? `<div class="editor-section-choice field"><label for="editing-entry">Editing</label><select id="editing-entry">${state.entries
+            .filter((n) => n.release_id === releaseId && canEditEntry(n))
+            .map(
+              (n) =>
+                `<option value="${e(n.id)}" ${n.id === entryId ? 'selected' : ''}>${e(n.title || 'Untitled section')}</option>`,
+            )
+            .join('')}</select></div>`
+        : ''
+    }<form id="contribution-form" data-release-id="${e(releaseId || '')}" data-id="${e(entry?.id || '')}" data-revision="${entry?.revision || 0}">${creating ? `<div class="release-setup"><div class="field"><label for="release-project">Platform</label><select id="release-project" required>${options(state.projects, projectId, 'Choose a platform')}</select></div><div class="field"><label for="release-version">Version</label><input id="release-version" required maxlength="80" placeholder="5.12.0"></div><div class="field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div></div>` : `<div class="editor-section-choice field"><label for="entry-vertical">Section</label><select id="entry-vertical" name="vertical_id" required>${options(choices, entry?.vertical_id, 'Choose a section')}</select></div>`}<div class="editor-grid"><section class="editor-main entry-writing"><div class="editor-heading"><label class="sr-only" for="entry-title">Contribution heading</label><input id="entry-title" name="title" maxlength="200" required value="${e(entry?.title || '')}" placeholder="What changed?"></div><div class="editor-mode-tabs entry-write-tabs"><div><button type="button" data-entry-view="visual" class="active">Write</button><button type="button" data-entry-view="split">Split view</button><button type="button" data-entry-view="preview">Preview</button><button type="button" data-entry-view="source">Markdown source</button></div><span class="editor-upload-status" role="status"></span></div><div class="contribution-writing" data-view="visual"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="entry-body">Markdown source</label><textarea id="entry-body" name="body" class="rich-source" maxlength="100000" placeholder="Write or paste Markdown…">${e(entry?.body || '')}</textarea></div><div id="entry-preview" class="prose live-preview" hidden></div></div><input id="entry-attachment" type="file" hidden accept="image/png,image/jpeg,image/webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><p class="error" role="alert"></p><p class="statusbar" id="contribution-save-status" role="status">${entry ? (entry.submitted ? 'Ready for publishing' : 'Draft saved') : 'Not saved yet'}</p></section><aside class="document-properties"><h2>Details</h2>${creating ? '<input type="hidden" name="submitted" value="false">' : `<div class="field"><label for="entry-status">Status</label><select id="entry-status" name="submitted"><option value="false">Work in progress</option><option value="true" ${entry?.submitted ? 'selected' : ''}>Ready for publishing</option></select></div>`}<div class="field"><label for="entry-tickets">Ticket references</label><input id="entry-tickets" name="tickets" maxlength="1000" value="${e(entry?.tickets || '')}" placeholder="HCUS-123, HCUS-124"></div><p class="small">Credited to ${e(entry?.author_name || state.member?.name || 'your account')}.</p></aside></div></form></main></div>`;
   }
   const releaseCreations = new WeakMap();
   async function ensureRelease() {
@@ -102,6 +115,14 @@ export function createContributionEditor({
     mounted = null;
     const form = document.querySelector('#contribution-form');
     if (!form) return;
+    document.querySelector('#editing-entry')?.addEventListener('change', (event) => {
+      if (state.dirty) {
+        event.target.value = form.dataset.id;
+        toast('Save your draft before switching sections.', true);
+        return;
+      }
+      location.hash = route(form.dataset.releaseId, event.target.value);
+    });
     form.querySelector('#release-project')?.addEventListener('change', (event) => {
       form.querySelector('#entry-vertical').innerHTML = options(
         sections(event.target.value),
@@ -238,7 +259,11 @@ export function createContributionEditor({
         await load();
         if (!form.isConnected) return;
         if (intent !== 'draft' && !state.dirty) {
-          location.hash = '#/edit/' + releaseId;
+          const published = state.published.find((page) => page.id === releaseId);
+          location.hash =
+            intent === 'publish' && published
+              ? '#/doc/' + encodeURIComponent(published.slug)
+              : '#/edit/' + releaseId + '?overview=1';
           toast(intent === 'publish' ? 'Release published.' : 'Contribution ready for publishing.');
         } else {
           toast(

@@ -119,16 +119,32 @@ export default async function handler(req, res) {
     if (recentReleaseQuestion && req.headers.authorization?.startsWith('Bearer ')) {
       try {
         const recentResponse = await fetch(
-          `${url}/rest/v1/docs_published?kind=eq.release&select=id,title,slug,kind,body,summary,release_snapshot,version,project_id,published_at&order=published_at.desc&limit=6`,
+          `${url}/rest/v1/docs_published?kind=eq.release&select=id,title,slug,kind,release_snapshot,version,project_id,published_at&order=published_at.desc&limit=60`,
           { headers, signal: AbortSignal.timeout(10000) },
         );
-        if (recentResponse.ok) recentReleases = await recentResponse.json();
+        if (recentResponse.ok) {
+          recentReleases = await recentResponse.json();
+          const platforms = recentReleases.filter((row) => {
+            const name = row.release_snapshot?.project;
+            return name && question.toLowerCase().includes(name.toLowerCase());
+          });
+          if (platforms.length) recentReleases = platforms;
+          recentReleases.sort((a, b) =>
+            String(b.release_snapshot?.release_date || b.published_at || '').localeCompare(
+              String(a.release_snapshot?.release_date || a.published_at || ''),
+            ),
+          );
+          recentReleases = recentReleases.slice(0, 6);
+        }
       } catch {
         /* Search results remain sufficient when the release index is unavailable. */
       }
     }
     const ids = [
       ...new Set([
+        ...(/\b(latest|recent|last|when|date)\b/i.test(question)
+          ? recentReleases.map((row) => row.id)
+          : []),
         ...(currentId ? [currentId] : []),
         ...vectorMatches.map((row) => row.document_id),
         ...matches.map((row) => row.id),
@@ -142,7 +158,7 @@ export default async function handler(req, res) {
     let rows = [];
     if (ids.length) {
       const response = await fetch(
-        `${url}/rest/v1/docs_published?id=in.(${ids.join(',')})&select=id,title,slug,kind,body,release_snapshot,version,project_id`,
+        `${url}/rest/v1/docs_published?id=in.(${ids.join(',')})&select=id,title,slug,kind,body,release_snapshot,version,project_id,published_at`,
         { headers, signal: AbortSignal.timeout(12000) },
       );
       if (!response.ok)
@@ -197,7 +213,10 @@ export default async function handler(req, res) {
       .slice(0, 12)
       .map((key) => ({
         key,
-        url: `${process.env.JIRA_BASE_URL || 'https://hooratechteam.atlassian.net/browse'}/${key}`,
+        url: new URL(
+          `/browse/${key}`,
+          process.env.JIRA_BASE_URL || 'https://hooratechteam.atlassian.net',
+        ).href,
       }));
     const documentContext = ordered
       .map((row, index) => {
@@ -214,7 +233,7 @@ export default async function handler(req, res) {
           )
           .join('\n')
           .slice(0, 12000);
-        return `[${index + 1}] ${row.title}\nURL: ${sources[index].url}\n${focused}\n${String(row.body || '').slice(0, 7000)}\n${entries}`;
+        return `[${index + 1}] ${row.title}\nURL: ${sources[index].url}\nVersion: ${row.version || 'not specified'}\nPublished: ${row.published_at || 'not specified'}\nRelease date: ${row.release_snapshot?.release_date || 'not specified'}\n${focused}\n${String(row.body || '').slice(0, 7000)}\n${entries}`;
       })
       .join('\n\n---\n\n')
       .slice(0, 30000);
@@ -232,7 +251,19 @@ export default async function handler(req, res) {
         return `[${number}] Upcoming release: ${release.title}\nURL: /upcoming/${release.slug}\nVersion: ${release.version}\nTarget release date: ${release.releaseDate || 'not announced'}\nVerticals: ${verticals || 'not available'}\nOwners: ${owners || 'not available'}\nTickets:\n${tickets || 'Ticket details are not available.'}`;
       })
       .join('\n\n---\n\n');
-    const context = [documentContext, upcomingContext].filter(Boolean).join('\n\n---\n\n');
+    // Keep every selected release's metadata available even when long bodies
+    // exhaust the text budget. Import/publication time is not the release date.
+    const releaseIndex = ordered
+      .map((row, index) =>
+        row.kind === 'release'
+          ? `[${index + 1}] ${row.title}; version ${row.version || 'not specified'}; release date ${row.release_snapshot?.release_date || 'not specified'}; published ${row.published_at || 'not specified'}`
+          : '',
+      )
+      .filter(Boolean)
+      .join('\n');
+    const context = [releaseIndex, documentContext, upcomingContext]
+      .filter(Boolean)
+      .join('\n\n---\n\n');
     const messages = [
       {
         role: 'system',
@@ -243,30 +274,35 @@ export default async function handler(req, res) {
     let answer;
     let lastStatus = 502;
     for (const model of models) {
-      const ai = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${gatewayToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          reasoning: { effort: 'none' },
-          max_tokens: 2400,
-          messages,
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
-      lastStatus = ai.status === 429 ? 429 : 502;
-      if (!ai.ok) {
-        const detail = (await ai.text()).slice(0, 1200);
-        console.error(`AI Gateway request failed for ${model} (${ai.status}): ${detail}`);
-        continue;
+      try {
+        const ai = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${gatewayToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            reasoning: { effort: 'none' },
+            max_tokens: 2400,
+            messages,
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+        lastStatus = ai.status === 429 ? 429 : 502;
+        if (!ai.ok) {
+          const detail = (await ai.text()).slice(0, 1200);
+          console.error(`AI Gateway request failed for ${model} (${ai.status}): ${detail}`);
+          continue;
+        }
+        const result = await ai.json();
+        answer = result.choices?.[0]?.message?.content;
+        if (answer) break;
+        console.error(
+          `AI Gateway returned no answer for ${model}: ${JSON.stringify({ finish_reason: result.choices?.[0]?.finish_reason, usage: result.usage })}`,
+        );
+      } catch {
+        // A transport failure on the primary must still reach the fallback.
+        lastStatus = 502;
       }
-      const result = await ai.json();
-      answer = result.choices?.[0]?.message?.content;
-      if (answer) break;
-      console.error(
-        `AI Gateway returned no answer for ${model}: ${JSON.stringify({ finish_reason: result.choices?.[0]?.finish_reason, usage: result.usage })}`,
-      );
     }
     if (!answer)
       return res.status(lastStatus).json({

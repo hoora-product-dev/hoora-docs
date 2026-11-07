@@ -8,13 +8,13 @@ export function documentActions({ icon, published, publishedLink, isNew, id, rol
   const menu =
     item('web', 'Open preview', 'data-action="open-draft-preview"') +
     (published ? `<a href="${publishedLink}">${icon('link')}<span>View published</span></a>` : '') +
-    (!isNew
+    (!isNew && !canPublish
       ? item('clock', 'Request approval', `data-action="request-publish" data-id="${id}"`)
       : '') +
     (published && role === 'admin'
       ? item('mail', 'Email announcement', `data-action="email-preview" data-id="${id}"`)
       : '') +
-    (published ? item('archive', 'Unpublish', 'data-action="unpublish"') : '') +
+    (published && canPublish ? item('archive', 'Unpublish', 'data-action="unpublish"') : '') +
     (!isNew && role === 'admin'
       ? item('trash', 'Delete document', 'class="danger" data-action="delete-document"')
       : '');

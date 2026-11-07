@@ -12,6 +12,7 @@ export function workspaceFeatures({
   teams,
   appApi,
   pwa,
+  icon,
 }) {
   const manages = (p) =>
     state.member?.role === 'admin' ||
@@ -51,7 +52,9 @@ export function workspaceFeatures({
       db('docs_notice_reads', '?select=notice_id'),
     ]);
     const seen = new Set(reads.map((r) => r.notice_id));
-    const unread = notices.filter((n) => !seen.has(n.id)),
+    const unread = notices.filter(
+        (n) => !seen.has(n.id) && state.published.some((p) => p.id === n.page_id),
+      ),
       visible = (showAllNotices ? notices : unread).filter((n) =>
         state.published.some((p) => p.id === n.page_id),
       );
@@ -66,11 +69,11 @@ export function workspaceFeatures({
         ? '<button class="btn outline" data-hub-action="push-disable">Disable notifications</button>'
         : push.supported && push.permission !== 'denied'
           ? '<button class="btn dark" data-hub-action="push-enable">Enable notifications</button>'
-          : '<span class="notification-status">Notifications are blocked in this browser.</span>',
+          : '<span class="notification-status">Browser notifications unavailable</span>',
       installAction = push.installed
         ? ''
-        : '<button class="btn outline" data-hub-action="install">Install app</button>';
-    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Notifications</h1><p>${unread.length ? `${unread.length} unread update${unread.length === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn text" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
+        : '<button class="btn outline" data-hub-action="install">Install Hoora Docs</button>';
+    return `<main id="main" class="settings-content notifications-page"><div class="view-heading"><div><h1>Notifications</h1><p>${unread.length ? `${unread.length} unread update${unread.length === 1 ? '' : 's'}` : 'You’re all caught up'}</p></div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn outline" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
       visible
         .map((n) => {
           const p = state.published.find((p) => p.id === n.page_id);
