@@ -279,7 +279,13 @@ export function mountRichEditor({ root, textarea, onChange, resolveImage, onUplo
     }
     updateToolbar();
   };
+  const canvas = root.querySelector('[data-rich-canvas]');
+  const focusCanvas = (event) => {
+    if (!canvas || event.target.closest('.rich-content')) return;
+    editor.commands.focus('end');
+  };
   root.addEventListener('click', click);
+  canvas?.addEventListener('mousedown', focusCanvas);
   updateToolbar();
   return {
     editor,
@@ -295,6 +301,7 @@ export function mountRichEditor({ root, textarea, onChange, resolveImage, onUplo
     },
     destroy() {
       root.removeEventListener('click', click);
+      canvas?.removeEventListener('mousedown', focusCanvas);
       editor.destroy();
     },
   };
