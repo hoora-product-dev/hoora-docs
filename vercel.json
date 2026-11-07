@@ -4,6 +4,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm install --ignore-scripts",
   "framework": null,
+  "crons": [
+    { "path": "/api/cleanup", "schedule": "15 2 * * *" }
+  ],
   "headers": [
     {
       "source": "/((?!api/artifact).*)",
