@@ -455,9 +455,9 @@ body .assistant-trigger {
 .assistant-trigger .assistant-avatar {
   width: 38px;
   height: 38px;
-  padding: 2px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .assistant-trigger span {
   font-size: 12px;
@@ -565,12 +565,22 @@ body .assistant-trigger {
   transform: scale(1.03);
 }
 @media (prefers-reduced-motion: reduce) {
-  .assistant-working-label,
-  .assistant-thinking-dots::after,
-  .thinking-avatar,
   .thinking-skeleton i,
   .thinking-dots i {
     animation: none;
+  }
+  /* The assistant's active-state cue is intentionally always visible while
+     a response is in flight, including on devices that request reduced
+     motion. Keep it subtle and local rather than removing the only status
+     signal. */
+  .assistant-working-label {
+    animation: assistant-wave-shine 4s linear infinite;
+  }
+  .assistant-thinking-dots::after {
+    animation: assistant-thinking-dots 1.5s steps(4, end) infinite;
+  }
+  .thinking-avatar {
+    animation: assistant-avatar-thinking 1.8s ease-in-out infinite;
   }
   .assistant-action {
     transition: none;

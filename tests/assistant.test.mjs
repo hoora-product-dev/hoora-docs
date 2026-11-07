@@ -13,7 +13,7 @@ const response = () => ({
     return this;
   },
 });
-function prepare(t, readable = true) {
+function prepare(t, readable = true, includeUpcoming = false) {
   const original = { ...process.env };
   Object.assign(process.env, {
     SUPABASE_URL: 'https://test.supabase.co',
@@ -28,7 +28,21 @@ function prepare(t, readable = true) {
     let data;
     if (url.includes('/rpc/docs_search')) data = [{ id }];
     else if (url.endsWith('/embeddings')) data = { data: [] };
-    else if (url.includes('/docs_published?')) {
+    else if (url.includes('/api/upcoming')) {
+      assert.equal(includeUpcoming, true);
+      assert.equal(options.headers.Authorization, 'Bearer viewer-test-token');
+      data = {
+        releases: [
+          {
+            id: '00000000-0000-4000-8000-000000000002',
+            slug: 'customer-app-5-12-0',
+            title: 'Customer App',
+            version: '5.12.0',
+            releaseDate: '2026-11-20',
+          },
+        ],
+      };
+    } else if (url.includes('/docs_published?')) {
       assert.equal(options.headers.apikey, 'public-test-key');
       assert.equal(options.headers.Authorization, 'Bearer viewer-test-token');
       data = readable
@@ -98,4 +112,20 @@ test('An inaccessible document never enters the generation context', async (t) =
   assert.equal(res.code, 200);
   assert.deepEqual(res.data.sources, []);
   assert.equal(generations(), 0);
+});
+
+test('The assistant grounds upcoming release dates in the authorized release feed', async (t) => {
+  const generations = prepare(t, true, true);
+  const res = response();
+  await handler(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer viewer-test-token', host: 'test.local' },
+      body: { question: 'Give me the target date for the upcoming Customer App release.' },
+    },
+    res,
+  );
+  assert.equal(res.code, 200);
+  assert.equal(res.data.sources[1].url, '/upcoming/customer-app-5-12-0');
+  assert.equal(generations(), 1);
 });
