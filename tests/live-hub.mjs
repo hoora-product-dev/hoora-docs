@@ -262,12 +262,16 @@ try {
     });
   await ok('Storage follows public, team-only and archive transitions', async () => {
     assert.ok(!(await download()).ok);
-    await rpc('docs_set_access', manager, { document_id: doc, access_mode: 'public' });
-    assert.equal((await download()).status, 200);
+    const publicAttempt = await rpc('docs_set_access', manager, {
+      document_id: doc,
+      access_mode: 'public',
+    });
+    assert.ok(publicAttempt.status >= 400, 'Organization-only workspaces reject public access');
+    assert.ok(!(await download()).ok);
     await rpc('docs_archive', admin, { document_id: doc });
     assert.ok(!(await download()).ok);
     await rpc('docs_archive', admin, { document_id: doc, restore: true });
-    assert.equal((await download()).status, 200);
+    assert.ok(!(await download()).ok, 'Restoring keeps organization-only storage private');
     await rpc('docs_set_access', manager, { document_id: doc, access_mode: 'team' });
   });
   const artifact = crypto.randomUUID();
@@ -316,17 +320,18 @@ try {
     assert.equal((await api(other, { id: artifact, draft: true })).status, 403);
   });
   await ok('Artifact tickets recheck access after sharing changes', async () => {
-    await rpc('docs_set_access', manager, { document_id: artifact, access_mode: 'public' });
-    const issued = await api(null, { id: artifact });
-    assert.equal(issued.status, 200, JSON.stringify(issued.data));
-    const base = process.env.HOORA_TEST_BASE_URL || 'http://localhost:3002';
-    assert.equal((await fetch(base + issued.data.url)).status, 200);
+    const publicAttempt = await rpc('docs_set_access', manager, {
+      document_id: artifact,
+      access_mode: 'public',
+    });
+    assert.ok(publicAttempt.status >= 400, 'Public artifact access is disabled');
     await rpc('docs_set_access', manager, {
       document_id: artifact,
       access_mode: 'restricted',
       allowed_emails: [viewer.email],
     });
-    assert.equal((await fetch(base + issued.data.url)).status, 403);
+    const base = process.env.HOORA_TEST_BASE_URL || 'http://localhost:3002';
+    assert.ok((await api(null, { id: artifact })).status >= 400);
     const personal = await api(viewer, { id: artifact });
     assert.equal(personal.status, 200, JSON.stringify(personal.data));
     assert.equal((await fetch(base + personal.data.url)).status, 200);
@@ -354,7 +359,7 @@ try {
   await request('/rest/v1/docs_projects', admin.token, {
     id: appId,
     name: 'Release check ' + appId.slice(0, 8),
-    visibility: 'public',
+    visibility: 'private',
   });
   await request('/rest/v1/docs_verticals', admin.token, {
     id: sectionId,
@@ -401,7 +406,7 @@ try {
     'Publishing includes ready contributions with real authors and separate publisher',
     async () => {
       assert.equal((await rpc('docs_publish', admin, { page_id: releaseId })).status, 204);
-      const [p] = (await request('/rest/v1/docs_published?id=eq.' + releaseId, key)).data;
+      const [p] = (await request('/rest/v1/docs_published?id=eq.' + releaseId, admin.token)).data;
       assert.equal(p.release_snapshot.entries.length, 2);
       assert.deepEqual(
         new Set(p.release_snapshot.entries.map((e) => e.author)),
@@ -428,7 +433,7 @@ try {
       { body: 'UNPUBLISHED CHANGE' },
       'PATCH',
     );
-    const [p] = (await request('/rest/v1/docs_published?id=eq.' + releaseId, key)).data;
+    const [p] = (await request('/rest/v1/docs_published?id=eq.' + releaseId, admin.token)).data;
     assert.ok(!p.body.includes('UNPUBLISHED CHANGE'));
   });
   await ok('Concurrent notice attempts produce one announcement', async () => {

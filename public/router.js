@@ -1,7 +1,7 @@
 export function routeHash() {
   if (location.hash.startsWith('#/')) return location.hash;
   const path = location.pathname.replace(/^\/docs\//, '/doc/');
-  return '#' + (path === '/' ? '/home' : path === '/app' ? '/releases' : path) + location.search;
+  return '#' + (path === '/' ? '/home' : path === '/app' ? '/home' : path) + location.search;
 }
 export function routeUrl(hash) {
   if (!hash?.startsWith('#/')) return hash;

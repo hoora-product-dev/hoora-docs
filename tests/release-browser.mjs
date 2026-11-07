@@ -133,11 +133,12 @@ try {
   await p.waitForURL('**/release-notes/1.2.3/release-ui-' + suffix);
   await p.locator('.native-release-document').waitFor();
   await p.getByRole('heading', { name: 'Improved booking workflow', exact: true }).waitFor();
+  await p.locator('#app[aria-busy="false"]').waitFor();
   await p.screenshot({ path: 'test-results/release-published.png' });
   console.log(
     'PASS One-page platform/version/section writing, WebP paste, retained private draft, direct publication and ready contribution flow',
   );
-  await p.getByRole('link', { name: 'Edit', exact: true }).click();
+  await p.getByRole('link', { name: 'Edit my contribution', exact: true }).click();
   await p.getByLabel('More actions', { exact: true }).click();
   await p.getByRole('button', { name: 'Email announcement', exact: true }).click();
   await p.getByText('rahul@hoora.me', { exact: true }).waitFor();
