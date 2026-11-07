@@ -157,15 +157,7 @@ body .assistant-trigger {
   height: 44px;
   touch-action: manipulation;
 }
-@media (prefers-reduced-motion: reduce) {
-  .thinking-label,
-  .thinking-skeleton i,
-  .thinking-dots i,
-  .assistant-action {
-    animation: none;
-    transition: none;
-  }
-}
+
 .assistant-open {
   overflow: hidden;
 }
@@ -423,5 +415,91 @@ body .assistant-trigger {
   .assistant-trigger .icon svg {
     width: 17px;
     height: 17px;
+  }
+}
+
+/* Stable wave feedback and WhatsApp-like circular send affordance. */
+.assistant-message.thinking {
+  align-items: center;
+  gap: 9px;
+  padding-block: 8px;
+}
+.thinking-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+.thinking-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  background: none;
+  -webkit-text-fill-color: initial;
+  animation: none;
+}
+.thinking-label > span:first-child {
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+.thinking-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 16px;
+}
+.thinking-wave i {
+  display: block;
+  width: 3px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent, #22c55e);
+  animation: assistant-wave 900ms ease-in-out infinite;
+}
+.thinking-wave i:nth-child(2) {
+  animation-delay: 100ms;
+}
+.thinking-wave i:nth-child(3) {
+  animation-delay: 200ms;
+}
+.thinking-wave i:nth-child(4) {
+  animation-delay: 300ms;
+}
+@keyframes assistant-wave {
+  0%,
+  100% {
+    height: 5px;
+    opacity: 0.45;
+  }
+  50% {
+    height: 15px;
+    opacity: 1;
+  }
+}
+.assistant-form button,
+.assistant-form button:hover,
+.assistant-form button:focus-visible {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #062b17;
+  box-shadow: 0 4px 12px rgb(34 197 94 / 24%);
+}
+.assistant-form button:hover,
+.assistant-form button:focus-visible {
+  opacity: 0.9;
+  transform: scale(1.03);
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking-wave i,
+  .thinking-skeleton i,
+  .thinking-dots i {
+    animation: none;
+  }
+  .assistant-action {
+    transition: none;
   }
 }

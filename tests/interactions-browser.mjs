@@ -96,6 +96,16 @@ try {
       .evaluate((el) => Math.round(el.getBoundingClientRect().height)),
     844,
   );
+  assert.equal(
+    await page.locator('.assistant-header .assistant-avatar').getAttribute('src'),
+    '/hoora-assist-avatar.svg',
+  );
+  assert.equal(
+    await page
+      .locator('.assistant-form button')
+      .evaluate((el) => getComputedStyle(el).borderRadius),
+    '50%',
+  );
   await page.route('**/api/assistant', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     await route.fulfill({ json: { answer: 'Verified response', sources: [] } });
@@ -103,6 +113,11 @@ try {
   await page.getByRole('textbox', { name: 'Your question' }).fill('What changed?');
   await page.getByRole('button', { name: 'Send question' }).click();
   await page.locator('.thinking').waitFor();
+  assert.equal(await page.locator('.thinking-wave i').count(), 4);
+  assert.equal(
+    await page.locator('.thinking-avatar').getAttribute('src'),
+    '/hoora-assist-thinking.svg',
+  );
   assert.equal(
     await page.locator('.thinking-label').evaluate((el) => getComputedStyle(el).animationName),
     'none',
