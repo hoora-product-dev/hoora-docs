@@ -1,4 +1,5 @@
 import { icon } from './vendor/icons.js';
+import { assistantAvatarMarkup } from './assistant-avatar.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { sidebarAccount } from './ui/account.js';
 import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
@@ -112,8 +113,7 @@ const assistantMessages = [];
 let assistantOpen = false;
 let assistantBusy = false;
 const assistantCache = new Map();
-const assistantAvatar = '/hoora-assist-avatar.svg';
-const assistantThinkingAvatar = '/hoora-assist-thinking.svg';
+const assistantAvatar = (className = '') => `<span class="assistant-inline-avatar ${className}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
 function assistantUI() {
   const route = routeHash();
   if (
@@ -133,7 +133,7 @@ function assistantUI() {
     ? assistantMessages
         .map((m) => {
           if (m.thinking)
-            return `<div class="assistant-message assistant thinking" role="status" aria-live="polite"><img src="${assistantThinkingAvatar}" alt="" class="assistant-avatar thinking-avatar"><span class="assistant-working"><span class="assistant-working-label">Thinking<span class="assistant-thinking-dots" aria-hidden="true"></span></span></span></div>`;
+            return `<div class="assistant-message assistant thinking" role="status" aria-live="polite">${assistantAvatar('thinking-avatar')}<span class="assistant-working"><span class="assistant-working-label">Thinking<span class="assistant-thinking-dots" aria-hidden="true"></span></span></span></div>`;
           const sources = m.sources?.length
             ? `<nav class="assistant-actions" aria-label="Related documentation"><span class="assistant-actions-label">Sources</span>${m.sources.map((s) => `<a class="assistant-action" href="${e(s.url)}">${icon('book')}<span>[${s.number}] ${e(s.title)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
@@ -142,15 +142,15 @@ function assistantUI() {
             : '';
           const avatar =
             m.role === 'assistant'
-              ? `<img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar">`
+              ? assistantAvatar('assistant-response-avatar')
               : '';
           return `<div class="assistant-message ${m.role}">${avatar}<div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
         })
         .join('')
-    : `<div class="assistant-message assistant assistant-welcome"><img src="${assistantAvatar}" alt="" class="assistant-avatar assistant-response-avatar"><div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
+    : `<div class="assistant-message assistant assistant-welcome">${assistantAvatar('assistant-response-avatar')}<div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
         `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name}` : ''}!`,
       )}</strong><span>How can I help you today with releases, SOPs, or documentation?</span></div></div></div>`;
-  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><img src="${assistantAvatar}" alt="" class="assistant-avatar"><div><strong>Hoora Assist</strong><small>Answers from documents you can access</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
+  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Hoora AI Assistant · Releases, SOPs and documentation</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
 }
 function syncAssistantViewport() {
   const viewport = window.visualViewport;
@@ -3125,6 +3125,7 @@ document.addEventListener('submit', async (event) => {
     .toLocaleLowerCase()
     .replace(/\s+/g, ' ')}`;
   assistantBusy = true;
+  const thinkingStartedAt = performance.now();
   assistantMessages.push({ role: 'user', text: question }, { role: 'assistant', thinking: true });
   input.value = '';
   renderAssistant();
@@ -3148,6 +3149,7 @@ document.addEventListener('submit', async (event) => {
       if (!response.ok) throw Error(data.error || 'The assistant is unavailable.');
       assistantCache.set(cacheKey, { data, createdAt: Date.now() });
     }
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 450 - (performance.now() - thinkingStartedAt))));
     assistantMessages.pop();
     assistantMessages.push({
       role: 'assistant',
