@@ -17,6 +17,7 @@ export function createContributionEditor({
   toast,
   hydrateImages,
   canEdit,
+  canEditEntry,
   canPublish,
   onPublished,
 }) {
@@ -49,7 +50,8 @@ export function createContributionEditor({
     if (
       !canEdit(state.member?.role) ||
       (creating && !['admin', 'publisher'].includes(state.member?.role)) ||
-      state.pages.find((page) => page.id === releaseId)?._readOnly
+      state.pages.find((page) => page.id === releaseId)?._readOnly ||
+      (entry && !canEditEntry(entry))
     )
       throw Error('You do not have permission to edit this release.');
     const projectId = release?.project_id || setup.projectId || '',

@@ -21,7 +21,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
       : 'Date not set';
   const empty = (text) => `<div class="upcoming-empty">${icon('clock')}<p>${e(text)}</p></div>`;
   const aside = () =>
-    `<aside class="sidebar" aria-label="Release navigation"><a class="sidelink active" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a><a class="sidelink" href="#/releases">${icon('grid')}<span>All updates</span></a></aside>`;
+    `<aside class="sidebar release-sidebar" aria-label="Release navigation"><a class="sidelink active" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a><a class="sidelink" href="#/releases">${icon('grid')}<span>All updates</span></a><div class="rail-label">Platforms</div>${state.projects.map((project) => `<a class="sidelink" href="#/releases?project=${encodeURIComponent(project.slug || project.id)}">${icon(project.icon || 'release')}<span>${e(project.name)}</span></a>`).join('')}</aside>`;
   const frame = (body) =>
     `<div class="layout">${aside()}<main id="main" class="upcoming-page">${body}</main></div>`;
   const query = () => {
