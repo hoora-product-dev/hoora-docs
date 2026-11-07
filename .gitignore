@@ -13,3 +13,7 @@ public/fonts/
 public/fonts.css
 test-results/
 .playwright-mcp/
+
+# Private: database schema and internal notes are not published
+supabase/
+docs/

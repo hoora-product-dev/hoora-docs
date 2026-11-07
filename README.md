@@ -1,129 +1,122 @@
-# Hoora Docs
+<div align="center">
+  <img src="public/app-icon-512.png" alt="Hoora Docs" width="104" />
+  <h1>Hoora Docs</h1>
+  <p>Release notes, SOPs and team documentation for Hoora, in one place.</p>
 
-Hoora’s workspace for release notes, documentation and operating procedures.
+  <p>
+    <img src="https://img.shields.io/badge/version-1.0.0-171717?style=flat-square" alt="Version 1.0.0" />
+    <img src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black" alt="JavaScript ES modules" />
+    <img src="https://img.shields.io/badge/Supabase-Postgres_%C2%B7_Auth_%C2%B7_Storage-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase" />
+    <img src="https://img.shields.io/badge/Hosting-Vercel-000000?style=flat-square&logo=vercel&logoColor=white" alt="Vercel" />
+    <img src="https://img.shields.io/badge/Sign--in-Microsoft-5E5E5E?style=flat-square&logo=microsoft&logoColor=white" alt="Microsoft sign-in" />
+    <img src="https://img.shields.io/badge/PWA-installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white" alt="Installable web app" />
+    <img src="https://img.shields.io/badge/Node-22+-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 22 or newer" />
+  </p>
 
-[Website](https://hoora-docs.vercel.app) · [Install](https://hoora-docs.vercel.app/install) · [Writing](docs/writing.md) · [Upcoming releases](docs/upcoming-releases.md) · [Verification](docs/UI-REFINEMENT.md)
+  <p>
+    <a href="https://hoora-docs.vercel.app"><strong>Open Hoora Docs</strong></a>
+    ·
+    <a href="https://hoora-docs.vercel.app/install">Install the app</a>
+  </p>
+</div>
 
-## Features
+## Overview
 
-- Release notes per platform and version, with one complete Markdown note per section (Auto Care, Car Services & Repair, Products, Value Added Services), each owned and published by its team.
-- Full-page Markdown writing, source and preview modes; clipboard/drop image uploads; private PDFs; standalone HTML artifacts; link previews; and editable Excalidraw diagrams.
-- Organization-only, team and selected-email sharing, enforced by database and Storage policies. Every document requires authenticated organization access.
-- Microsoft work-account sign-in, permission-aware search, Hoora Assist with cited sources and Jira actions, opt-in browser push and an installable web app.
-- Approved stakeholder access to upcoming Jira releases, with Vertical and Product Owner filters. Administrators configure the date, version, saved filter and viewer list.
+Hoora Docs is the internal knowledge hub for Hoora teams. Each platform publishes versioned release notes, written by the teams that own each vertical. Teams keep their SOPs and documentation in one library and share them with exactly the people who need them. Everything requires a Hoora sign-in. Nothing is public.
 
-Dark mode is the default. Locally bundled Geist, neutral controls and shared layout tokens keep desktop and mobile views consistent. The supplied Hoora logo retains its original color.
+## What is implemented
 
-## Development
+| Area               | Implementation                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release notes      | Per platform and version, with one complete Markdown note per vertical (Auto Care, Car Services & Repair, Products, Value Added Services), each owned and published by its team |
+| Upcoming releases  | Live Jira saved-filter view with Vertical and Product Owner filters                                                                                                             |
+| Library            | SOPs and documentation by collection and team, with Markdown, PDFs, HTML artifacts and drawings                                                                                 |
+| Sharing            | Organization, team only, specific teams or specific people, enforced by database policies                                                                                       |
+| People & access    | Whiteboard canvas to place people into teams, with Viewer, Editor, Publisher and Manager roles                                                                                  |
+| Search & assistant | Permission-aware search and Hoora Assist with cited answers                                                                                                                     |
+| App                | Installable web app with notifications, a phone tab bar and a responsive layout                                                                                                 |
 
-Requires Node.js 22 or newer and npm.
-
-```sh
-npm ci
-cp .env.example .env
-npm run dev
-```
-
-Populate `.env` with the appropriate project credentials. Never commit it. Development defaults to `http://localhost:3000`; set `PORT` to use another port.
-
-```sh
-npm run check
-npm test
-npm run knip
-npm run build
-```
-
-Browser/integration tests need a running server. Set `HOORA_TEST_BASE_URL` to its address. Live tests create temporary accounts/content and clean up their own records; use an isolated test project when available. Migration and live-test scripts include Hoora project guards.
-
-| Command                         | Coverage                                                                                                              |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:browser`          | Teams, sharing, search, uploads, PDFs, HTML, notifications and archive workflows                                      |
-| `npm run test:release-browser`  | Release creation, full-page contributions, preview and publishing                                                     |
-| `npm run test:editor`           | Clipboard compression, preview round trips and drawing export                                                         |
-| `npm run test:interactions`     | Hover, stable controls, sidebar, mobile drawer and assistant                                                          |
-| `npm run test:ui`               | Public/admin page geometry and screenshots at six viewport widths                                                     |
-| `npm run test:workflows`        | Database permissions and content lifecycle integration                                                                |
-| `npm run db:migrate`            | Ordered, transactional migrations with a project guard and migration lock                                             |
-| `npm run release-notes:rebuild` | Rebuild releases from a reviewed plan: one Markdown note per section, published through the normal database functions |
-
-## Structure
+## Architecture
 
 ```text
-api/                  Vercel HTTP endpoints
-server/               Shared identity, Jira, email and link helpers
-public/
-  app.js              Routing and application integration
-  editor/             Contribution pages, clipboard uploads and drawing assets
-  pages/              Page renderers
-  ui/                 Navigation, feedback and safe previews
-  *.js                Feature modules, PWA and service worker
-src/
-  styles/             Shared tokens, layouts and component styles
-  rich-editor.js      Tiptap Markdown editor
-  drawing.js          Lazily loaded Excalidraw workspace
-  uploads.js          Image preparation and upload validation
-scripts/              Build, development, migration and maintenance commands
-supabase/migrations/  Versioned schema, permissions and database functions
-tests/                Unit, security, browser and integration checks
-docs/                 Architecture decisions and delivery evidence
+Browser (ES modules, no framework)
+        ↓
+Vercel static hosting  ·  Vercel serverless API (/api)
+        ↓                          ↓
+Supabase Auth  ←→  Postgres with row-level security  ←→  Supabase Storage
+                          ↑
+            Jira (read-only)  ·  Microsoft Entra ID
 ```
 
-The application lives directly at the repository root. Dependencies, local fonts, `public/vendor`, `dist` and test artifacts are generated or ignored. The build clears `dist` before copying current assets. Heavy editor, drawing and PDF modules load when used.
+The database is the source of truth for access. Every read and write passes row-level security, and private files are served only to people who can open the document they belong to.
 
-## Content and storage
+## Local setup
 
-| Data                            | Location                                                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Markdown and document metadata  | Postgres `docs_pages` draft row                                                                            |
-| Published document              | `docs_published`, a separate published snapshot                                                            |
-| Release section notes           | `docs_entries`, one row per release and section; ready notes enter the published release snapshot          |
-| Images, PDFs, HTML and drawings | Private Storage bucket `hoora-docs`, under the owning document/release ID                                  |
-| Retrieval index                 | Postgres `docs_ai_chunks`: pgvector embeddings with 1,536 dimensions, section text and revision references |
-| Jira tickets                    | Read from Jira on demand; not copied into Supabase or the assistant index                                  |
+### Requirements
 
-Pasted Markdown is database text, rather than a second `.md` object. Drafts, published snapshots and retrieval chunks serve different purposes. Index refresh replaces a document’s previous chunks. Images become WebP at a maximum dimension of 1,920px before upload; the final file limit is 10 MB. Drawings keep private editable source alongside a raster preview.
+- Node.js 22 or newer
+- Access to the Hoora Supabase project and its environment values
 
-Vectors share Postgres capacity with other rows; binary files use the separate Storage quota. Actual limits and usage depend on the project’s current Supabase plan and dashboard. Published snapshots and indexes are not backups.
+### Configure and run
 
-### Free-plan budget
+1. Clone the repository:
 
-Postgres holds text and metadata only (documents, release section notes, published snapshots, permissions). Every file (images, PDFs, HTML artifacts, drawings) is stored in the private Storage bucket, with images converted to WebP at most 1,920px. The daily `/api/cleanup` job purges the 30-day recycle bin, removes page-view activity after 30 days, other activity after a year, and expired rate-limit rows.
+   ```bash
+   git clone https://github.com/hoora-product-dev/hoora-docs.git
+   cd hoora-docs
+   ```
 
-## Access boundaries
+2. Install dependencies and create your environment file:
 
-Company roles are administrator, manager, publisher and viewer. Team viewer/publisher roles are separate; members may grant only equal or lower team access. Database policies remain authoritative for reading, editing, publishing and attachments.
+   ```bash
+   npm ci
+   cp .env.example .env
+   ```
 
-Microsoft sign-in uses Supabase OAuth with PKCE and server-side tenant/member verification. New employees receive viewer access and complete Hoora password setup. Email/password login remains available after setup; the Hoora password does not change the Microsoft password.
+3. Fill in `.env` with the project values, then start the app at `http://localhost:3000`:
 
-HTML artifacts run in an opaque sandbox without parent session access or top navigation. Short-lived preview tickets recheck authorization. Markdown excludes executable HTML. YouTube previews load from an approved embed host after a click. Drawing imports reject external image sources and executable hyperlinks. The service worker does not cache private documents or API responses offline.
+   ```bash
+   npm run dev
+   ```
 
-Push requires browser permission and a subscription; installation alone cannot grant permission. iOS web push requires a Home Screen installation. Signing out removes the browser subscription. Email previews do not send mail; administrator test announcements have a fixed test recipient.
+Environment values and the database schema are managed privately and are never committed.
+
+> [!NOTE]
+> Only the Supabase URL and public browser key reach the browser. Service keys, Microsoft, Jira and AI Gateway credentials stay on the server.
+
+### Scripts
+
+| Command          | Purpose                                        |
+| ---------------- | ---------------------------------------------- |
+| `npm run dev`    | Local server with live API routes              |
+| `npm run build`  | Production build into `dist/`                  |
+| `npm test`       | Unit and security tests                        |
+| `npm run check`  | Syntax check for every JavaScript and CSS file |
+| `npm run knip`   | Unused files, exports and dependencies         |
+| `npm run format` | Prettier formatting                            |
+
+## Repository layout
+
+```text
+hoora-docs/
+├── api/          # Vercel serverless endpoints (auth, content, Jira, assistant, cleanup)
+├── server/       # Shared server helpers (Supabase, Jira, email, links)
+├── public/       # The web app: routing, pages, editor, PWA and assets
+├── src/          # Bundled modules (rich editor, drawing, PDF viewer) and styles
+├── scripts/      # Build, development and database maintenance
+└── tests/        # Unit, security and browser tests
+```
 
 ## Deployment
 
-Production runs on Vercel from `hoora-product-dev/hoora-docs`, branch `main`.
+Vercel builds `main` with `npm run build` and serves `dist/`. A daily job (`/api/cleanup`) empties the 30-day recycle bin and trims old activity, which keeps the project within the Supabase free plan.
 
-| Setting          | Value                          |
-| ---------------- | ------------------------------ |
-| Root directory   | Repository root; leave blank   |
-| Framework        | Other                          |
-| Install command  | `npm install --ignore-scripts` |
-| Build command    | `npm run build`                |
-| Output directory | `dist`                         |
+---
 
-See [.env.example](.env.example) for configuration. Only the Supabase URL, public browser key and Microsoft-enabled flag enter browser configuration. Service-role, Microsoft, Jira, AI Gateway and signing credentials stay server-only.
-
-Push uses a matched VAPID key pair from private server configuration or environment overrides. Hoora Assist uses Vercel AI Gateway with `nvidia/nemotron-3.5-lightning-free` first and `reflection/beam-free` as the free fallback; both are configured in `api/assistant.js`. See [Upcoming releases](docs/upcoming-releases.md) for Jira token scope, field mapping and rotation.
-
-Apply migrations before deploying dependent code. Preview deployments use the database configured in their environment; use a separate Supabase project for isolation. Keep database and Storage backups through supported export tools.
-
-## Maintenance
-
-- [UI refinement and verification evidence](docs/UI-REFINEMENT.md)
-- [Upcoming Jira releases](docs/upcoming-releases.md)
-- [Content architecture decision](docs/GITBOOK-DECISION.md)
-- [Earlier delivery verification](docs/VERIFICATION.md)
-
-Seed commands are explicit maintenance tools, not production reset commands. Preserve migration history and authored company documents when cleaning samples. Dependency audits and Knip complement browser and permission tests.
-
-Maintained by [Rahul Tripathi](https://rahul-tripathi.web.app). Licensed under [MIT](LICENSE).
+<p align="center">
+  Built by <a href="https://github.com/rahultripathi17">Rahul Tripathi</a>
+  · <a href="https://rahul-tripathi.web.app">Portfolio</a>
+  · <a href="https://www.linkedin.com/in/rahultripathi17/">LinkedIn</a>
+  <br />
+  Licensed under <a href="LICENSE">MIT</a>
+</p>
