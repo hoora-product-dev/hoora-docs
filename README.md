@@ -8,8 +8,8 @@ Hoora’s workspace for release notes, documentation and operating procedures.
 
 - One-page release writing with platform, version and section selection, readable version URLs and individually attributed contributions.
 - Full-page Markdown writing, source and preview modes; clipboard/drop image uploads; private PDFs; standalone HTML artifacts; link previews; and editable Excalidraw diagrams.
-- Public, company, team and selected-email sharing, enforced by database and Storage policies.
-- Microsoft work-account sign-in, permission-aware search, an assistant with cited sources, opt-in browser push and an installable web app.
+- Organization-only, team and selected-email sharing, enforced by database and Storage policies. Every document requires a Hoora sign-in.
+- Microsoft work-account sign-in, permission-aware search, Hoora Assist with cited sources and Jira actions, opt-in browser push and an installable web app.
 - Approved stakeholder access to upcoming Jira releases, with Vertical and Product Owner filters. Administrators configure the date, version, saved filter and viewer list.
 
 Dark mode is the default. Locally bundled Geist, neutral controls and shared layout tokens keep desktop and mobile views consistent. The supplied Hoora logo retains its original color.
@@ -44,6 +44,7 @@ Browser/integration tests need a running server. Set `HOORA_TEST_BASE_URL` to it
 | `npm run test:ui`              | Public/admin page geometry and screenshots at six viewport widths                |
 | `npm run test:workflows`       | Database permissions and content lifecycle integration                           |
 | `npm run db:migrate`           | Ordered, transactional migrations with a project guard and migration lock        |
+| `node scripts/reset-demo.mjs`  | Replace document/team content with the four-platform demo workspace (preserves schema and employee accounts) |
 
 ## Structure
 
@@ -108,7 +109,7 @@ Production runs on Vercel from `hoora-product-dev/hoora-docs`, branch `main`.
 
 See [.env.example](.env.example) for configuration. Only the Supabase URL, public browser key and Microsoft-enabled flag enter browser configuration. Service-role, Microsoft, Jira, AI Gateway and signing credentials stay server-only.
 
-Push uses a matched VAPID key pair from private server configuration or environment overrides. The assistant uses Vercel AI Gateway; its generation model is configured in `api/assistant.js`. See [Upcoming releases](docs/upcoming-releases.md) for Jira token scope, field mapping and rotation.
+Push uses a matched VAPID key pair from private server configuration or environment overrides. Hoora Assist uses Vercel AI Gateway with `nvidia/nemotron-3.5-lightning-free` first and `reflection/beam-free` as the free fallback; both are configured in `api/assistant.js`. See [Upcoming releases](docs/upcoming-releases.md) for Jira token scope, field mapping and rotation.
 
 Apply migrations before deploying dependent code. Preview deployments use the database configured in their environment; use a separate Supabase project for isolation. Keep database and Storage backups through supported export tools.
 
