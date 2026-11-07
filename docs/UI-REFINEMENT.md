@@ -94,3 +94,13 @@ Verification for this pass: 300 page/viewport geometry checks across both themes
 The home search now shows permission-filtered results while typing, without Enter, a modal or a page transition. Clearing the query restores the home content. A short debounce and request sequencing prevent older responses from replacing the current results; the input retains focus. The redundant submit button and required-field popup were removed, and the field has one outer focus treatment.
 
 Published documents now uses the same full-width toolbar spacing as the workspace, leaving at least 18px before the document list. Browser checks cover live results, clearing, empty submission, focused input retention, actual collection filtering, matching widths and spacing at 320, 390, 768 and 1440px in both themes. Screenshots of the home search and signed-in document list were inspected. Source parsing, Knip and the production build passed.
+
+### Login and writing workflow follow-up
+
+Email and Microsoft access share one heading and consistent full-width controls. The email form uses Continue, followed by an alternative Microsoft button; the detached back control and repeated email heading are gone.
+
+Document actions are reduced to Save draft, Publish and an icon menu. Titles and content align on a borderless writing page, with format and metadata in settings. Writing toolbars stay available while the document grows. Release creation now combines platform, version, section and the first contribution on the same page. Saving retains the editor; release settings also use a full page.
+
+Browser workflows verified document and release creation, draft retention, readiness preservation, WebP clipboard images, actual rendered images, previews, publication, HTML artifacts, sharing, archive and cleanup. Separate interface checks covered email login and both writing pages at four widths in both themes. Three focused tests cover concurrent draft creation, retry after failure and isolation between closed/new editors.
+
+The complete unit/security suite now has 41 passing tests. Clipboard/drawing checks, navigation interactions, source checks, unused-code analysis and the production build also passed. Code review findings concerning existing readiness and the test server default were corrected.

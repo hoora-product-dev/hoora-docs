@@ -73,13 +73,10 @@ try {
   await p.goto(base + '/releases?project=release-ui-' + suffix);
   await p.getByRole('heading', { name: 'Release UI ' + suffix, exact: true }).waitFor();
   await p.getByRole('button', { name: 'New release', exact: true }).click();
-  assert.equal(await p.getByLabel('Collection', { exact: true }).inputValue(), appId);
+  await p.locator('#contribution-form').waitFor();
+  assert.equal(await p.locator('dialog[open]').count(), 0);
+  assert.equal(await p.getByLabel('Platform', { exact: true }).inputValue(), appId);
   await p.getByLabel('Version', { exact: true }).fill('1.2.3');
-  await p.getByRole('button', { name: 'Create release', exact: true }).click();
-  await p.getByRole('heading', { name: 'Version 1.2.3', exact: true }).waitFor();
-  releaseId = (await call('/rest/v1/docs_releases?project_id=eq.' + appId))[0].id;
-  assert.equal(await p.locator('.application-tabs').count(), 0);
-  await p.getByRole('button', { name: 'Add my notes', exact: true }).click();
   await p.getByLabel('Section', { exact: true }).selectOption(sectionId);
   await p.getByLabel('Contribution heading', { exact: true }).fill('Improved booking workflow');
   await p.locator('[data-entry-view="source"]').click();
@@ -88,26 +85,60 @@ try {
     .fill('## What changed\n\n- Clearer booking steps\n- **Faster** assignment');
   await pasteScreenshot(p, '#entry-body');
   await p.waitForFunction(() => document.querySelector('#entry-body').value.includes('.webp)'));
-  assert.equal(await p.locator('dialog[open]').count(), 0);
-  await p.getByLabel('Status', { exact: true }).selectOption('true');
-  await p.getByRole('button', { name: 'Save contribution', exact: true }).click();
-  await p.getByRole('heading', { name: 'Improved booking workflow', exact: true }).waitFor();
-  await p.screenshot({ path: 'test-results/release-editor.png' });
+  releaseId = (await call('/rest/v1/docs_releases?project_id=eq.' + appId))[0].id;
+  await p.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await p.getByText('Draft saved', { exact: true }).first().waitFor();
+  assert.ok(await p.locator('#contribution-form').isVisible(), 'Saving retains the writing page');
+  assert.ok((await p.locator('#entry-body').inputValue()).includes('Clearer booking steps'));
+  assert.equal(
+    (await call('/rest/v1/docs_published?id=eq.' + releaseId)).length,
+    0,
+    'Saving must not publish',
+  );
+  await p.screenshot({ path: 'test-results/release-writing-desktop.png' });
+  for (const width of [320, 390, 768, 1440]) {
+    await p.setViewportSize({ width, height: 1000 });
+    assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  }
+  await p.getByRole('button', { name: 'Publish release', exact: true }).click();
+  await p.getByRole('heading', { name: 'Version 1.2.3', exact: true }).waitFor();
+  await p
+    .locator('.contribution')
+    .first()
+    .getByRole('button', { name: 'Edit', exact: true })
+    .click();
+  await p.locator('#contribution-form').waitFor();
+  await p.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await p.getByText('Draft saved', { exact: true }).first().waitFor();
+  assert.equal(
+    (await call('/rest/v1/docs_entries?release_id=eq.' + releaseId))[0].submitted,
+    true,
+    'Saving existing notes preserves readiness unless the author changes it',
+  );
+  await p.getByRole('button', { name: 'Mark ready', exact: true }).click();
+  await p.getByRole('heading', { name: 'Version 1.2.3', exact: true }).waitFor();
   await p.getByRole('link', { name: 'Preview', exact: true }).click();
   await p.getByText('Saved draft preview · not published', { exact: true }).waitFor();
   await p.getByRole('heading', { name: 'Improved booking workflow', exact: true }).waitFor();
   await p.getByRole('link', { name: 'Back to editing', exact: true }).click();
-  await p.getByRole('button', { name: 'Publish release', exact: true }).click();
-  await p.getByRole('link', { name: 'View published', exact: true }).waitFor();
+  await p.getByLabel('More actions', { exact: true }).click();
+  await p.getByRole('link', { name: 'Edit details', exact: true }).click();
+  await p.locator('#release-details-form').waitFor();
+  assert.equal(await p.locator('dialog[open]').count(), 0);
+  await p.getByLabel('Summary', { exact: true }).fill('A clear first release summary.');
+  await p.getByRole('button', { name: 'Save settings', exact: true }).click();
+  await p.getByRole('heading', { name: 'Version 1.2.3', exact: true }).waitFor();
+  await p.getByLabel('More actions', { exact: true }).click();
   await p.getByRole('link', { name: 'View published', exact: true }).click();
   await p.waitForURL('**/release-notes/1.2.3/release-ui-' + suffix);
   await p.locator('.native-release-document').waitFor();
   await p.getByRole('heading', { name: 'Improved booking workflow', exact: true }).waitFor();
   await p.screenshot({ path: 'test-results/release-published.png' });
   console.log(
-    'PASS Configured application → release creation → individual Markdown contribution → full-page preview → publication',
+    'PASS One-page platform/version/section writing, WebP paste, retained private draft, direct publication and ready contribution flow',
   );
   await p.getByRole('link', { name: 'Edit', exact: true }).click();
+  await p.getByLabel('More actions', { exact: true }).click();
   await p.getByRole('button', { name: 'Email announcement', exact: true }).click();
   await p.getByText('rahul@hoora.me', { exact: true }).waitFor();
   assert.equal(await p.getByRole('button', { name: 'Send test to Rahul', exact: true }).count(), 1);

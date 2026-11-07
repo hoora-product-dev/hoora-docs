@@ -1,6 +1,7 @@
 import { icon } from './vendor/icons.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { sidebarAccount } from './ui/account.js';
+import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
 import { pwaFeature } from './pwa.js';
 import { sourcesFeature } from './sources.js';
 import { workspaceFeatures } from './workspace-features.js';
@@ -28,6 +29,7 @@ import {
   compareVersions,
   filterPages,
 } from './lib.js';
+bindEditorMenus();
 let richEditorModule;
 const loadRichEditor = () => (richEditorModule ||= import('./vendor/rich-editor.js'));
 let documentRichEditor = null;
@@ -104,6 +106,9 @@ function assistantUI() {
   if (
     route.startsWith('#/login') ||
     route.startsWith('#/install') ||
+    route.startsWith('#/new') ||
+    route.startsWith('#/edit/') ||
+    route.startsWith('#/contribute/') ||
     (route.startsWith('#/upcoming') &&
       (route.split('?')[0].endsWith('/settings') ||
         new URLSearchParams(route.split('?')[1]).get('create') === '1')) ||
@@ -213,10 +218,11 @@ const contributionEditor = createContributionEditor({
   upload: uploadFile,
   db: (...args) => db(...args),
   load,
-  render,
   toast,
   hydrateImages,
   canEdit,
+  canPublish,
+  onPublished: (id) => appApi('/api/ai-index', { documentId: id }).catch(() => {}),
 });
 bindEditorAssets({
   getEditor: () =>
@@ -544,14 +550,19 @@ function workspace() {
 }
 
 function login() {
-  return (
-    '<main id="main" class="signin-page"><div class="signin-card"><section id="login-methods"><h1>Continue to Hoora Docs</h1><button class="btn microsoft" type="button" data-action="microsoft-login">' +
+  const microsoft =
+    '<button class="btn email-choice" type="button" data-action="microsoft-login">' +
     icon('microsoft') +
-    'Continue with Microsoft</button><div class="signin-divider">OR</div><button class="btn email-choice" type="button" data-action="email-login">Continue with Email</button><p class="signin-note">Use your Hoora Microsoft account if this is your first time here.</p></section><form id="login-form" hidden><button class="btn text login-back" type="button" data-action="login-methods">' +
-    icon('back') +
-    'Back to sign-in options</button><h1>Continue with Email</h1><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue with Email</button><p class="signin-note">First time here? Use your Hoora Microsoft account to create your access.</p></form></div></main>'
+    'Continue with Microsoft</button>';
+  return (
+    '<main id="main" class="signin-page"><div class="signin-card"><h1>Continue to Hoora Docs</h1><section id="login-methods"><button class="btn microsoft" type="button" data-action="microsoft-login">' +
+    icon('microsoft') +
+    'Continue with Microsoft</button><div class="signin-divider">or</div><button class="btn email-choice" type="button" data-action="email-login">Continue with email</button><p class="signin-note">First time here? Use Microsoft.</p></section><form id="login-form" hidden><div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="username" placeholder="you@hoora.me" required></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn dark" id="login-submit" type="submit">Continue</button><div class="signin-divider">or</div>' +
+    microsoft +
+    '<p class="signin-note">First time here? Use Microsoft.</p></form></div></main>'
   );
 }
+
 function appWelcome() {
   const available =
       'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator,
@@ -687,7 +698,10 @@ function options(items, selected, placeholder) {
   );
 }
 function editor(id) {
-  if (state.releases.some((r) => r.id === id)) return releaseDetail(id);
+  if (state.releases.some((r) => r.id === id))
+    return new URLSearchParams(routeHash().split('?')[1]).has('settings')
+      ? releaseDetails(id)
+      : releaseDetail(id);
   const p = state.pages.find((x) => x.id === id) || {
     id: crypto.randomUUID(),
     title: '',
@@ -718,7 +732,7 @@ function editor(id) {
   if (!canEdit(state.member.role) || p._readOnly)
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === 'html' ? artifactFrame(p, true) : ''}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === 'html';
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions"><span class="badge ${published ? 'published' : 'draft'}">${published ? 'Published' : 'Private draft'}</span><button type="button" class="btn outline" data-action="open-draft-preview">Preview</button><button type="submit" form="editor-form" class="btn outline">Save draft</button>${canPublish(state.member.role) ? `<button type="button" class="btn primary" data-action="publish">${published ? 'Publish changes' : 'Publish'}</button>` : ''}${published ? `<a class="btn outline" href="${publishedRoute(published, state.projects)}">View published</a>` : ''}<a class="btn outline" href="#/workspace">Close</a></div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><div class="editor-grid"><div class="editor-main"><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? 'active' : ''}">${icon('documentation')}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? 'active' : ''}">${icon('code')}HTML artifact</button></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>${p.artifact_path ? 'Replace your HTML artifact' : 'Your artifact. A page of its own.'}</h3><p>Drop a standalone HTML file here, or choose one from your computer. Diagrams, interactive reports, and AI artifacts are welcome.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: canPublish(state.member.role) })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description so readers know what to expect…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here, then switch to Write…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown supported</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon('code')}<span>${e(
           p.artifact_path
@@ -727,14 +741,14 @@ function editor(id) {
             .replace(/^[a-f0-9-]{37}/, ''),
         )}</span><span class="badge">Uploaded</span></div>${artifactFrame(p, true)}`
       : ''
-  }<div class="html-paste"><div class="html-paste-heading"><div><strong>Or paste HTML source</strong><span>Paste a complete single-file HTML artifact, then preview it as a page.</span></div><button type="button" class="btn outline" data-action="paste-html">Use pasted HTML</button></div><label class="sr-only" for="html-source">HTML source</label><textarea id="html-source" spellcheck="false" placeholder="<!doctype html>\n<html>\n  <head><title>My artifact</title></head>\n  <body>...</body>\n</html>"></textarea></div></section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document details</h2>${teams.field(p)}<div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
+  }<div class="html-paste"><div class="html-paste-heading"><div><strong>HTML source</strong></div><button type="button" class="btn outline" data-action="paste-html">Use pasted HTML</button></div><label class="sr-only" for="html-source">HTML source</label><textarea id="html-source" spellcheck="false" placeholder="<!doctype html>\n<html>\n  <head><title>My artifact</title></head>\n  <body>...</body>\n</html>"></textarea></div></section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document settings</h2><div class="document-type-picker"><span>Content format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? 'active' : ''}">${icon('documentation')}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? 'active' : ''}">${icon('code')}HTML artifact</button></div></div>${teams.field(p)}<div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
     names,
   )
     .filter(([key]) => key !== 'release')
     .map(([k, n]) => `<option value="${k}" ${p.kind === k ? 'selected' : ''}>${n}</option>`)
     .join(
       '',
-    )}</select></div><div class="field"><label for="vertical_id">Vertical</label><select id="vertical_id" name="vertical_id">${options(state.verticals, p.vertical_id, 'General')}</select></div><div class="field"><label for="folder_id">Folder</label><select id="folder_id" name="folder_id">${options(state.folders, p.folder_id, 'No folder')}</select></div><div class="field"><label for="version">Version / reference</label><input id="version" name="version" value="${e(p.version)}" maxlength="100" placeholder="e.g. v2.4.0"></div><div class="field"><label for="slug">Page URL</label><input id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p.slug)}" placeholder="document-title"></div><div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="${e(p.tags.join(', '))}" placeholder="product, onboarding"><small>Separate with commas.</small></div>${typeFields(p)}${visibilityField(p)}<div class="properties-help">${icon('lock')}Drafts are visible to authorized publishers. Publishing follows the document’s sharing settings.</div></aside></div><p id="form-error" class="error" role="alert"></p><div class="editor-actions"><span class="statusbar" id="save-status">${isNew ? 'Draft not saved' : 'Saved ' + date(p.updated_at)}</span><div class="editor-action-buttons">${!isNew ? `<button type="button" class="btn outline" data-action="request-publish" data-id="${p.id}">Request approval</button>` : ''}${published && state.member.role === 'admin' ? `<button type="button" class="btn outline" data-action="email-preview" data-id="${p.id}">Email announcement</button>` : ''}${published ? '<button type="button" class="btn outline" data-action="unpublish">Unpublish</button>' : ''}</div></div>${published ? '<div class="workspace-note">The published page stays unchanged until you publish again.</div>' : ''}${!isNew && state.member.role === 'admin' ? '<button type="button" class="btn text danger" data-action="delete-document">Delete document</button>' : ''}</form></main></div>`;
+    )}</select></div><div class="field"><label for="vertical_id">Vertical</label><select id="vertical_id" name="vertical_id">${options(state.verticals, p.vertical_id, 'General')}</select></div><div class="field"><label for="folder_id">Folder</label><select id="folder_id" name="folder_id">${options(state.folders, p.folder_id, 'No folder')}</select></div><div class="field"><label for="version">Version / reference</label><input id="version" name="version" value="${e(p.version)}" maxlength="100" placeholder="e.g. v2.4.0"></div><div class="field"><label for="slug">Page URL</label><input id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p.slug)}" placeholder="document-title"></div><div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="${e(p.tags.join(', '))}" placeholder="product, onboarding"><small>Separate with commas.</small></div>${typeFields(p)}${visibilityField(p)}<div class="properties-help">${icon('lock')}Drafts are visible to authorized publishers. Publishing follows the document’s sharing settings.</div></aside></div><p id="form-error" class="error" role="alert"></p><div class="editor-actions"><span class="statusbar" id="save-status">${isNew ? 'Draft not saved' : 'Saved ' + date(p.updated_at)}</span></div></form></main></div>`;
 }
 
 async function users() {
@@ -979,7 +993,10 @@ async function render() {
         break;
       case 'new':
       case 'edit':
-        view = editor(route === 'edit' ? id : null);
+        view =
+          route === 'new' && params.get('kind') === 'release'
+            ? contributionEditor.view(null, null, { create: true, projectId: state.project })
+            : editor(route === 'edit' ? id : null);
         break;
       case 'users':
         if (state.member.role !== 'admin') throw new Error('Administrator access required.');
@@ -1166,16 +1183,43 @@ async function persistDraft(f) {
       'Someone else updated this document. Copy your edits, then reload to review their changes.',
     );
   f.dataset.new = 'false';
+  if (isNew && f.isConnected) {
+    history.replaceState(null, '', routeUrl('#/edit/' + f.dataset.id));
+    const crumb = document.querySelector('.editor-top .breadcrumbs>span');
+    if (crumb) crumb.textContent = response[0].title;
+  }
   f.dataset.revision = response[0].revision;
   state.dirty = JSON.stringify([...new FormData(f)]) !== initialValues;
   const i = state.pages.findIndex((p) => p.id === f.dataset.id);
   if (i >= 0) state.pages[i] = response[0];
   else state.pages.unshift(response[0]);
+  if (
+    isNew &&
+    f.isConnected &&
+    !document.querySelector('[data-action="publish"][aria-busy="true"]')
+  ) {
+    const actions = document.querySelector('.editor-top-actions');
+    const focusSave = actions?.querySelector('button[type="submit"]') === document.activeElement;
+    const published = state.published.find((page) => page.id === f.dataset.id);
+    if (actions)
+      actions.innerHTML = documentActions({
+        icon,
+        published,
+        publishedLink: published ? publishedRoute(published, state.projects) : '',
+        isNew: false,
+        id: f.dataset.id,
+        role: state.member.role,
+        canPublish: canPublish(state.member.role),
+      });
+    if (focusSave) actions?.querySelector('button[type="submit"]')?.focus();
+  }
   const status = f.querySelector('#save-status');
   if (status) status.textContent = state.dirty ? 'Unsaved changes' : 'Saved just now';
   return f.dataset.id;
 }
 async function uploadFile(file, releaseId = null, uploadOptions = {}) {
+  if (!releaseId && document.querySelector('#contribution-form'))
+    releaseId = await contributionEditor.ensureRelease();
   const ownerForm = document.querySelector(releaseId ? '#contribution-form' : '#editor-form');
   const ownerId = releaseId || ownerForm?.dataset.id;
   if (!ownerId) throw new Error('Open an editor before adding a file.');
@@ -1542,11 +1586,6 @@ document.addEventListener('click', (ev) => {
     document.querySelector('#login-form').hidden = false;
     document.querySelector('#email')?.focus();
   }
-  if (action === 'login-methods') {
-    document.querySelector('#login-form').hidden = true;
-    document.querySelector('#login-methods').hidden = false;
-    document.querySelector('#form-error').textContent = '';
-  }
   if (action === 'install-app')
     busy(b, async () => {
       const accepted = await pwa.install();
@@ -1631,6 +1670,7 @@ document.addEventListener('click', (ev) => {
   }
 });
 function bind() {
+  bindReleaseDetails();
   bindSearchPage({ state, service: searchService, e, names });
   if (!document.querySelector('.assistant-panel')) assistantOpen = false;
   syncAssistantViewport();
@@ -1666,7 +1706,7 @@ function bind() {
         const message = String(error?.message || '');
         document.querySelector('#form-error').textContent =
           /invalid login credentials|user not found/i.test(message)
-            ? 'We couldn’t sign you in. If you haven’t registered yet, continue with your Hoora Microsoft account.'
+            ? 'Unable to continue. Check your password, or use Microsoft if this is your first visit.'
             : message;
       }
     });
@@ -1941,17 +1981,12 @@ document.addEventListener('click', async (ev) => {
     return;
   }
   if (a === 'new-release') {
-    dialog(
-      `<h2>Create a shared release</h2><p class="small">Everyone contributes to this version. Only one release can exist per version in a collection.</p><form><div class="field"><label for="release-project">Collection</label><select id="release-project" name="project" required>${options(state.projects, state.project, 'Choose an application')}</select></div><div class="field"><label for="release-version">Version</label><input id="release-version" name="release_version" required maxlength="80" placeholder="5.11.0"></div><div class="field"><label for="release-description">Release summary</label><textarea id="release-description" name="description" maxlength="500"></textarea></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">Create release</button></div></form>`,
-      async (f) => {
-        const id = await api('/rest/v1/rpc/docs_create_release', {
-          method: 'POST',
-          body: Object.fromEntries(f),
-        });
-        await load();
-        location.hash = '#/edit/' + id;
-      },
-    );
+    location.hash =
+      '#/new?' +
+      new URLSearchParams({
+        kind: 'release',
+        ...(state.project ? { project: state.project } : {}),
+      });
     return;
   }
   if (a === 'add-entry' || a === 'edit-entry') {
@@ -2260,7 +2295,7 @@ function releaseApplication(record) {
   const { page, project, notes, draft, published } = record,
     editable = draft && canEdit(state.member?.role),
     adminRole = state.member?.role === 'admin';
-  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon, project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({ ...page, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...page, project_id: project.id }))}${draft ? `<span class="badge ${published ? 'published' : 'draft'}">${published ? (published.revision === page.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span></div>${editable ? `<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>` : ''}</div>${page.summary ? `<p class="release-description">${e(page.summary)}</p>` : ''}${customFieldList(page)}${editable ? `<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published ? 'Publish changes' : 'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${published ? `<a class="btn outline" href="${publishedRoute(published, state.projects)}">View published</a>` : ''}<button class="btn text" data-action="release-details" data-id="${page.id}">Edit details</button>${adminRole && published ? `<button class="btn text" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>` : ''}${published ? `<button class="btn text" data-action="unpublish-release" data-id="${page.id}">Unpublish</button>` : ''}${adminRole ? `<button class="btn text danger" data-action="delete-release" data-id="${page.id}">Delete</button>` : ''}</div><p class="release-help">Only notes marked ready are included when you publish.</p>` : ''}${notes.length ? contributionGroups(notes, editable) : empty('Add the first contribution', 'Group the work by vertical and mark it ready when it can be published.')}</section>`;
+  return `<section class="application-release" data-release-id="${page.id}"><div class="application-heading">${toneIcon(project.icon, project.color)}<div><h2>Contributions</h2><span class="access-label">${icon(pageAccess({ ...page, project_id: project.id }) === 'public' ? 'web' : 'lock')}${e(accessText({ ...page, project_id: project.id }))}${draft ? `<span class="badge ${published ? 'published' : 'draft'}">${published ? (published.revision === page.revision ? 'Published' : 'Changes pending') : 'Draft'}</span>` : ''}</span></div>${editable ? `<button class="btn outline" data-action="add-entry" data-id="${page.id}">${icon('plus')}Add my notes</button>` : ''}</div>${page.summary ? `<p class="release-description">${e(page.summary)}</p>` : ''}${customFieldList(page)}${editable ? `<div class="release-controls"><button class="btn dark" data-action="publish-release" data-id="${page.id}">${published ? 'Publish changes' : 'Publish release'}</button><a class="btn outline" href="#/preview/${page.id}">Preview</a>${editorMenu(icon, (published ? `<a href="${publishedRoute(published, state.projects)}">${icon('link')}View published</a>` : '') + `<a href="#/edit/${page.id}?settings=1">${icon('settings')}Edit details</a>` + (adminRole && published ? `<button type="button" data-action="email-preview" data-id="${page.id}">${icon('mail')}Email announcement</button>` : '') + (published ? `<button type="button" data-action="unpublish-release" data-id="${page.id}">${icon('archive')}Unpublish</button>` : '') + (adminRole ? `<button type="button" class="danger" data-action="delete-release" data-id="${page.id}">${icon('trash')}Delete release</button>` : ''))}</div><p class="release-help">Only notes marked ready are included when you publish.</p>` : ''}${notes.length ? contributionGroups(notes, editable) : empty('Add the first contribution', 'Group the work by vertical and mark it ready when it can be published.')}</section>`;
 }
 function contributionGroups(notes, editable = false, showSectionHeading = true) {
   const groups = new Map();
@@ -2420,28 +2455,46 @@ function manageStructure(kind, id) {
   );
 }
 function releaseDetails(id) {
-  const p = state.pages.find((p) => p.id === id);
-  dialog(
-    `<h2>Release details</h2><form><div class="field"><label for="release-title">Title</label><input id="release-title" name="title" value="${e(p.title)}" required maxlength="250"></div><div class="field"><label for="release-summary">Summary</label><textarea id="release-summary" name="summary" maxlength="500">${e(p.summary)}</textarea></div><div class="field"><label for="release-slug">Page slug</label><input id="release-slug" name="slug" value="${e(p.slug)}" pattern="[a-z0-9]+(-[a-z0-9]+)*" required><small>Readable and stable. Previous links continue to work after a change.</small></div>${typeFields(p)}${visibilityField(p)}<p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save details</button></div></form>`,
-    async (f) => {
-      const body = Object.fromEntries(f);
+  const page = state.pages.find((page) => page.id === id);
+  if (!page || !canEdit(state.member?.role) || page._readOnly)
+    throw Error('You cannot edit this release.');
+  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><a class="native-back" href="#/edit/${e(id)}">${icon('back')}Release</a><h1>Release settings</h1></div></div><form id="release-details-form" class="upcoming-settings-form" data-id="${e(id)}" data-revision="${page.revision}"><div class="field"><label for="release-title">Title</label><input id="release-title" name="title" value="${e(page.title)}" required maxlength="250"></div><div class="field"><label for="release-summary">Summary</label><textarea id="release-summary" name="summary" maxlength="500">${e(page.summary)}</textarea></div><div class="field"><label for="release-slug">Page URL</label><input id="release-slug" name="slug" value="${e(page.slug)}" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></div>${typeFields(page)}${visibilityField(page)}<p id="form-error" class="error" role="alert"></p><div class="upcoming-settings-actions"><a class="btn outline" href="#/edit/${e(id)}">Cancel</a><button type="submit" class="btn dark">Save settings</button></div></form></main></div>`;
+}
+function bindReleaseDetails() {
+  const form = document.querySelector('#release-details-form');
+  if (!form) return;
+  form.addEventListener('input', () => (state.dirty = true));
+  form.addEventListener('change', () => (state.dirty = true));
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await busy(event.submitter, async () => {
+      form.querySelector('.error').textContent = '';
+      const snapshot = JSON.stringify([...new FormData(form)]),
+        body = Object.fromEntries(new FormData(form));
       body.custom_fields = Object.create(null);
-      for (const k of Object.keys(body)) {
-        if (k.startsWith('field:')) {
-          body.custom_fields[k.slice(6)] = body[k];
-          delete body[k];
+      for (const key of Object.keys(body))
+        if (key.startsWith('field:')) {
+          body.custom_fields[key.slice(6)] = body[key];
+          delete body[key];
         }
-      }
-      const result = await db('docs_pages', `?id=eq.${id}&revision=eq.${p.revision}`, {
-        method: 'PATCH',
-        body,
-        headers: { Prefer: 'return=representation' },
-      });
-      if (!result.length) throw new Error('This release changed. Reload and try again.');
+      const result = await db(
+        'docs_pages',
+        `?id=eq.${form.dataset.id}&revision=eq.${form.dataset.revision}`,
+        { method: 'PATCH', body, headers: { Prefer: 'return=representation' } },
+      );
+      if (!result.length) throw Error('This release changed. Reload and try again.');
+      if (!form.isConnected) return;
+      form.dataset.revision = result[0].revision;
+      state.dirty = snapshot !== JSON.stringify([...new FormData(form)]);
       await load();
-      await render();
-    },
-  );
+      if (!state.dirty) location.hash = '#/edit/' + form.dataset.id;
+      toast(
+        state.dirty
+          ? 'Earlier edits saved. Your latest changes are still unsaved.'
+          : 'Release settings saved.',
+      );
+    });
+  });
 }
 document.addEventListener('click', async (ev) => {
   const b = ev.target.closest('[data-action]');
@@ -2479,10 +2532,7 @@ document.addEventListener('click', async (ev) => {
     );
     return;
   }
-  if (action === 'release-details') {
-    releaseDetails(id);
-    return;
-  }
+
   if (action === 'open-draft-preview') {
     if (document.querySelector('#editor-form [data-uploading=true]')) {
       toast('Wait for the upload to finish before previewing.', true);
@@ -2675,12 +2725,6 @@ document.addEventListener('click', async (ev) => {
     manageLegacyOrganization(action.slice(4));
     return;
   }
-  if (action === 'preview') {
-    dialog(
-      `<h2>Document preview</h2><div class="preview-box prose">${markdown(document.querySelector('#body').value)}</div><div class="dialog-actions"><button class="btn outline" data-close>Back to editing</button></div>`,
-    );
-    return;
-  }
   if (action === 'upload') {
     document.querySelector('#file-upload').click();
     return;
@@ -2692,6 +2736,8 @@ document.addEventListener('click', async (ev) => {
     }
     await busy(b, async () => {
       const id = await saveDraft();
+      if (state.dirty)
+        throw Error('Your draft was saved. Save the latest edits before publishing.');
       await api('/rest/v1/rpc/docs_publish', {
         method: 'POST',
         body: { page_id: id },

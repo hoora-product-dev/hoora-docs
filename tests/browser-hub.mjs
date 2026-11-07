@@ -103,6 +103,13 @@ try {
   await p.waitForFunction(
     () => (document.querySelector('#body').value.match(/!\[/g) || []).length === 2,
   );
+  await p.waitForFunction(
+    () =>
+      [...document.querySelectorAll('[contenteditable] img')].length === 2 &&
+      [...document.querySelectorAll('[contenteditable] img')].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+  );
   await p.screenshot({ path: 'test-results/editor-desktop.png' });
   await p.setViewportSize({ width: 390, height: 844 });
   assert.ok(
@@ -111,6 +118,7 @@ try {
   );
   await p.screenshot({ path: 'test-results/editor-mobile.png' });
   await p.setViewportSize({ width: 1440, height: 1000 });
+  await p.getByLabel('More actions', { exact: true }).click();
   await p.locator('.editor-top [data-action="open-draft-preview"]').click();
   await p.getByRole('heading', { name: 'Browser guide ' + suffix, exact: true }).waitFor();
   const [doc] = await call(
@@ -119,6 +127,11 @@ try {
   docIds.push(doc.id);
   await p.getByRole('link', { name: 'Back to editing', exact: true }).click();
   await p.locator('.editor-top [data-action="publish"]').click();
+  await p
+    .getByRole('link', { name: 'View published', exact: true, includeHidden: true })
+    .first()
+    .waitFor({ state: 'attached' });
+  await p.getByLabel('More actions', { exact: true }).click();
   await p.getByRole('link', { name: 'View published', exact: true }).first().waitFor();
   await p.getByRole('link', { name: 'View published', exact: true }).first().click();
   await p.waitForURL('**/docs/' + doc.slug);
@@ -236,6 +249,11 @@ try {
   docIds.push(artifact.id);
   paths.push(artifact.artifact_path);
   await p.locator('.editor-top [data-action="publish"]').click();
+  await p
+    .getByRole('link', { name: 'View published', exact: true, includeHidden: true })
+    .first()
+    .waitFor({ state: 'attached' });
+  await p.getByLabel('More actions', { exact: true }).click();
   await p.getByRole('link', { name: 'View published', exact: true }).first().click();
   await p.getByRole('link', { name: 'Open full-page HTML preview', exact: true }).click();
   await p.locator('.native-artifact').waitFor();

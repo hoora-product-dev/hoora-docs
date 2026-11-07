@@ -403,9 +403,23 @@
   color: var(--muted);
   opacity: 1;
 }
-.signin-card .login-back {
-  margin: 0 0 20px;
-  padding-left: 0;
+.signin-card #login-submit {
+  width: 100%;
+  min-height: 48px;
+}
+.signin-card form .email-choice {
+  min-height: 48px;
+}
+.signin-card input:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+.signin-card #form-error:empty {
+  display: none;
+}
+.signin-card #form-error {
+  margin-bottom: 16px;
 }
 .notification-bell {
   position: relative;
