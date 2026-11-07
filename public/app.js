@@ -2378,17 +2378,6 @@ function updateReleaseSectionTabs() {
 }
 window.addEventListener('scroll', updateReleaseSectionTabs, { passive: true });
 
-function releaseTicketRefs(tickets) {
-  const keys = [...new Set(String(tickets || '').match(/\b[A-Z][A-Z0-9]+-\d+\b/g) || [])];
-  if (!keys.length) return '';
-  return `<div class="release-ticket-refs" aria-label="Related tickets">${keys
-    .map(
-      (key) =>
-        `<a href="https://hooratechteam.atlassian.net/browse/${encodeURIComponent(key)}" target="_blank" rel="noopener noreferrer">${e(key)}</a>`,
-    )
-    .join('')}</div>`;
-}
-
 function releaseChangeGroups(notes, showSectionHeading = true) {
   const groups = new Map();
   for (const note of notes) {
@@ -2402,7 +2391,7 @@ function releaseChangeGroups(notes, showSectionHeading = true) {
       const items = entries
         .map((note) => {
           number += 1;
-          return `<li class="release-change"><div class="release-change-heading"><span class="release-change-number" aria-hidden="true">${number}</span><div><h4>${e(note.title)}</h4>${releaseTicketRefs(note.tickets)}</div></div><div class="prose release-change-copy">${markdown(note.body)}</div><div class="release-change-meta">Updated by <strong>${e(note.edited_by || note.author || 'Hoora team')}</strong></div></li>`;
+          return `<li class="release-change"><div class="release-change-heading"><span class="release-change-number" aria-hidden="true">${number}</span><div><h4>${e(note.title)}</h4></div></div><div class="prose release-change-copy">${markdown(note.body)}</div><div class="release-change-meta">Updated by <strong>${e(note.edited_by || note.author || 'Hoora team')}</strong></div></li>`;
         })
         .join('');
       return `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'change' : 'changes'}</span></div>` : ''}<ol class="release-change-list">${items}</ol></section>`;
@@ -2474,7 +2463,7 @@ function contributionGroups(notes, editable = false, showSectionHeading = true) 
         `<section class="release-section" id="section-${slugify(name)}">${showSectionHeading ? `<div class="release-section-heading">${toneIcon(entries[0].vertical_icon || 'grid', entries[0].vertical_color || 'slate')}<h3>${e(name)}</h3><span>${entries.length} ${entries.length === 1 ? 'contribution' : 'contributions'}</span></div>` : ''}${entries
           .map((n) => {
             const canEditThis = editable && canEditEntry(n);
-            return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div>${n.tickets ? `<p class="ticket-refs">${e(n.tickets)}</p>` : ''}<div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`;
+            return `<article class="contribution"><div class="contribution-heading"><h4>${e(n.title)}</h4>${canEditThis ? `<span class="badge ${n.submitted ? 'published' : 'draft'}">${n.submitted ? 'Ready' : 'In progress'}</span>` : ''}</div><div class="prose">${markdown(n.body)}</div><div class="contributor-line"><span class="mini-avatar">${e((n.edited_by || n.author || 'Team').slice(0, 2).toUpperCase())}</span><span>${n.edited_by ? `Updated by <strong>${e(n.edited_by)}</strong>` : `Added by <strong>${e(n.author || 'Team member')}</strong>`}</span>${canEditThis ? `<button class="btn text" data-action="edit-entry" data-id="${n.id}">Edit</button>${state.member.role === 'admin' ? `<button class="btn text danger" data-action="delete-entry" data-id="${n.id}">Delete</button>` : ''}` : ''}</div></article>`;
           })
           .join('')}</section>`,
     )

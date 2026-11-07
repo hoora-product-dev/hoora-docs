@@ -64,8 +64,6 @@ const dateFrom = (value) => {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
 
-const ticketKeys = (value) => [...new Set(value.match(/\b[A-Z][A-Z0-9]+-\d+\b/g) || [])];
-
 const verticalFor = (value) => {
   if (/product|accessor|catalog|fitment|cart|checkout|order/i.test(value)) return 'Products';
   if (/repair|garage|service|car wash|inspection|workshop|booking/i.test(value))
@@ -82,23 +80,15 @@ const parsePage = (markdown, platform, sourceUrl) => {
   const publishedAt = dateFrom(title + '\n' + content.slice(0, 800));
   const body = content.replace(/^#\s+.+\r?\n/, '').trim();
   const summary = `${platform} release notes for v${version}, imported from the approved source.`;
-  const sections = [];
-  const sectionPattern = /^####\s+(.+)\r?\n([\s\S]*?)(?=^####\s+|^###\s+|^##\s+|$)/gim;
-  for (const match of body.matchAll(sectionPattern)) {
-    const heading = match[1].trim();
-    const sectionBody = match[2].trim();
-    if (sectionBody) sections.push({ heading, body: sectionBody });
-  }
-  if (!sections.length) sections.push({ heading: `${platform} v${version}`, body });
-  const entries = sections.map((section) => {
-    const text = `${section.heading}\n${section.body}`;
-    return {
-      title: section.heading.replace(/^\d+\.\s*/, '').slice(0, 200),
-      body: `### ${section.heading}\n\n${section.body}`.slice(0, 100000),
-      tickets: ticketKeys(text).join(', '),
-      vertical: verticalFor(text),
-    };
-  });
+  // A release note is one complete Markdown document. Keep its headings,
+  // ticket titles, evidence, Figma links, and testing notes together instead
+  // of turning every ticket/heading into a separate contribution row.
+  const entries = [{
+    title: `${platform} v${version}`.slice(0, 200),
+    body: body.slice(0, 100000),
+    tickets: '',
+    vertical: verticalFor(body),
+  }];
   return {
     platform,
     projectSlug: slug(platform),
