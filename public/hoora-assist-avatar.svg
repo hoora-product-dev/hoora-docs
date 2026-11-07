@@ -6,8 +6,8 @@
       <stop offset="1" stop-color="#00a9bd"/>
     </linearGradient>
   </defs>
-  <path fill="url(#assist-blob)" d="M51 9c8 0 13 7 20 11 8 5 17 7 20 16 3 9-1 17-1 26-1 9 1 19-6 25-7 7-18 4-27 5-10 1-19 6-27 1-8-5-9-16-15-24-5-8-14-14-13-23 1-10 12-15 19-22C28 17 37 9 51 9Z"/>
-  <path fill="#06333a" d="M37 43c0-5 3-8 7-8s7 3 7 8-3 7-7 7-7-2-7-7Zm18 0c0-5 3-8 7-8s7 3 7 8-3 7-7 7-7-2-7-7Z"/>
-  <path fill="#e8ffff" d="M41 41c1-2 3-3 5-2 1 1 1 3 0 5-2 1-4 0-5-3Zm18 0c1-2 3-3 5-2 1 1 1 3 0 5-2 1-4 0-5-3Z"/>
-  <path fill="none" stroke="#06333a" stroke-linecap="round" stroke-width="4" d="M39 63c7 7 16 7 23 0"/>
+  <circle cx="50" cy="52" r="39" fill="url(#assist-blob)"/>
+  <path fill="#06333a" d="M34 46c0-6 3-9 8-9s8 3 8 9-3 8-8 8-8-2-8-8Zm17 0c0-6 3-9 8-9s8 3 8 9-3 8-8 8-8-2-8-8Z"/>
+  <circle cx="40" cy="44" r="2.5" fill="#e8ffff"/><circle cx="57" cy="44" r="2.5" fill="#e8ffff"/>
+  <path fill="none" stroke="#06333a" stroke-linecap="round" stroke-width="4" d="M38 65c7 6 16 6 24 0"/>
 </svg>
