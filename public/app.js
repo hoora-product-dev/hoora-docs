@@ -60,13 +60,7 @@ const names = {
   sop: 'SOPs',
   documentation: 'Documentation',
 };
-const displayPlatformName = (name) =>
-  ({
-    'Admin Panel': 'Panels',
-    'Admin Panels': 'Panels',
-    'Hoora Web': 'Hoora on Web',
-    Partner: 'Partner App',
-  })[name] || String(name || '').replace(/\s*\(Sample\)$/i, '');
+const displayPlatformName = (name) => String(name || '');
 const descriptions = {
   release: 'What’s new, what’s improved, and what’s next across Hoora.',
   sop: 'Clear, repeatable processes. Everything you need to get it right.',
@@ -158,7 +152,7 @@ function assistantUI() {
     : `<div class="assistant-message assistant assistant-welcome">${assistantAvatar('assistant-response-avatar')}<div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
         `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name}` : ''}!`,
       )}</strong><span>How can I help you today with releases, SOPs, or documentation?</span></div></div></div>`;
-  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Ask me about releases, SOPs and documentation.</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask Hoora Assist…" required><button type="submit" aria-label="Send question">${icon('arrow')}</button></form></section></div>`;
+  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Ask me about releases, SOPs and documentation.</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><div class="assistant-composer"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about a release, SOP or document…" required><button type="submit" aria-label="Send question" title="Send">${icon('arrow')}</button></div></form></section></div>`;
 }
 function syncAssistantViewport() {
   const viewport = window.visualViewport;
@@ -412,7 +406,7 @@ async function load() {
   state.pages = [];
   state.folders = [];
   state.projects = [];
-  state.projectSections = null;
+  state.projectSections = [];
   state.entries = [];
   state.releases = [];
   state.requests = [];
@@ -441,7 +435,7 @@ async function load() {
         canEdit(state.member.role)
           ? db(
               'docs_pages',
-              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,archived_at,deleted_at,purge_after,source_url,source_type,file_metadata&order=updated_at.desc',
+              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,deleted_at,purge_after,source_url,source_type,file_metadata&order=updated_at.desc',
             )
           : Promise.resolve(state.published.map((p) => ({ ...p, updated_at: p.published_at }))),
         db('docs_folders', '?select=*&order=name'),
@@ -458,7 +452,7 @@ async function load() {
         db('docs_releases', '?select=*'),
         db(
           'docs_entries',
-          '?select=id,release_id,vertical_id,title,tickets,submitted,author_id,author_name,updated_by,updated_name,revision,created_at,updated_at&order=created_at',
+          '?select=id,release_id,vertical_id,submitted,author_id,author_name,updated_by,updated_name,revision,created_at,updated_at&order=created_at',
         ),
         db('docs_requests', '?select=*&order=created_at.desc'),
       ]);
@@ -480,13 +474,7 @@ async function load() {
       } catch {
         state.unreadNoticeCount = 0;
       }
-      try {
-        state.projectSections = await db('docs_project_sections', '?select=*&order=sort_order.asc');
-      } catch (error) {
-        if (/docs_project_sections|schema cache|does not exist/i.test(error.message))
-          state.projectSections = null;
-        else throw error;
-      }
+      state.projectSections = await db('docs_project_sections', '?select=*&order=sort_order.asc');
     }
   }
 }
@@ -643,7 +631,7 @@ function sidebar(workspace = false) {
   const role = state.member?.role;
   const base = workspace ? '#/workspace' : '#/browse';
   const docs = (workspace ? state.pages : state.published).filter(
-    (p) => !p.archived_at && p.kind !== 'release',
+    (p) => !p.deleted_at && p.kind !== 'release',
   );
   const count = (kind) => docs.filter((p) => p.kind === kind).length;
   const folderLinks = (parent = null, depth = 0) =>
@@ -688,7 +676,7 @@ function empty(title, text, action = '') {
 }
 function workspace() {
   const pages = filterPages(state.pages, state)
-    .filter((p) => !p.archived_at && p.kind !== 'release')
+    .filter((p) => !p.deleted_at && p.kind !== 'release')
     .filter((p) => !state.team || p.team_id === state.team)
     .filter(
       (p) =>
@@ -854,7 +842,7 @@ function editor(id) {
   if (state.releases.some((r) => r.id === id)) {
     const params = new URLSearchParams(routeHash().split('?')[1]);
     if (params.has('settings')) return releaseDetails(id);
-    return contributionEditor.view(id, params.get('section') || params.get('entry'));
+    return contributionEditor.view(id, params.get('section'));
   }
   const p = state.pages.find((x) => x.id === id) || {
     id: crypto.randomUUID(),
@@ -877,7 +865,7 @@ function editor(id) {
       'Return to your workspace.',
       '<a href="#/workspace">Workspace</a>',
     );
-  if (p.archived_at)
+  if (p.deleted_at)
     return empty(
       'This document is archived',
       'Restore it from the archive before editing.',
@@ -1022,20 +1010,12 @@ async function render() {
   let [route, id] = routeParts;
   if (route === 'release-notes') {
     const version = decodeURIComponent(id || ''),
-      oldSlug = decodeURIComponent(routeParts[2] || ''),
-      projectSlug =
-        { 'admin-panel': 'panels', 'partner-app-sample': 'partner-app' }[oldSlug] || oldSlug;
+      projectSlug = decodeURIComponent(routeParts[2] || '');
     const match = releaseRecords(true).find(
       (r) =>
         publishedRoute(r.page, state.projects) ===
         `#/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}`,
     );
-    if (match && oldSlug !== projectSlug)
-      history.replaceState(
-        null,
-        '',
-        `/release-notes/${encodeURIComponent(version)}/${encodeURIComponent(projectSlug)}${search ? '?' + search : ''}`,
-      );
     route = 'doc';
     id = match?.page.slug || '__release_unavailable__';
   }
@@ -1156,7 +1136,7 @@ async function render() {
         view = releaseHub();
         break;
       case 'contribute':
-        view = contributionEditor.view(id, params.get('section') || params.get('entry'));
+        view = contributionEditor.view(id, params.get('section'));
         break;
       case 'upcoming':
         view = await upcoming.view(id, params, {
@@ -1949,8 +1929,7 @@ function bind() {
       const internal = id === 'workspace-search';
       const pages = filterPages(internal ? state.pages : state.published, state)
         .filter(
-          (p) =>
-            !p.archived_at && p.kind !== 'release' && (!state.team || p.team_id === state.team),
+          (p) => !p.deleted_at && p.kind !== 'release' && (!state.team || p.team_id === state.team),
         )
         .filter(
           (p) =>
@@ -2363,7 +2342,7 @@ function releaseRecords(publishedOnly = false) {
   const drafts = state.member && canEdit(state.member.role) && !publishedOnly;
   const source = drafts ? state.pages : state.published;
   return source
-    .filter((p) => p.kind === 'release' && !p.archived_at)
+    .filter((p) => p.kind === 'release' && !p.deleted_at)
     .map((p) => {
       const relation = state.releases.find((r) => r.id === p.id);
       const projectId = relation?.project_id || p.project_id || 'other';
@@ -2421,7 +2400,7 @@ function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } 
 function releaseWorkQueue(projectId = '') {
   if (!state.member || !canEdit(state.member.role)) return [];
   return state.pages
-    .filter((page) => page.kind === 'release' && !page._readOnly && !page.archived_at)
+    .filter((page) => page.kind === 'release' && !page._readOnly && !page.deleted_at)
     .map((page) => {
       const release = state.releases.find((item) => item.id === page.id);
       const project = state.projects.find((item) => item.id === release?.project_id);
@@ -2603,8 +2582,6 @@ function publicView() {
   return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind] || 'Published documents')}</h1><p>Published knowledge for Hoora employees.</p></div></div><div class="library-tools"><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label></div><div id="document-list" class="document-table">${docs.map((p) => row(p)).join('') || empty('No documents in this collection', 'Published Hoora knowledge will appear here.')}</div></main></div>`;
 }
 function projectSectionSettings() {
-  if (state.projectSections === null)
-    return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Configuration becomes available after the project sections migration is applied.</p></div></div></section>`;
   return `<section class="settings-section"><div class="section-heading"><div><h2>Application sections</h2><p>Choose reusable release sections for each application. Archived sections stay in older releases.</p></div></div>${state.projects
     .map((project) => {
       const rows = state.projectSections.filter(
@@ -2619,7 +2596,7 @@ function projectSectionSettings() {
     .join('')}</section>`;
 }
 function configureProjectSections(projectId) {
-  if (state.member?.role !== 'admin' || state.projectSections === null)
+  if (state.member?.role !== 'admin')
     throw new Error('Application section configuration is unavailable.');
   const project = state.projects.find((item) => item.id === projectId);
   if (!project) throw new Error('Application not found.');

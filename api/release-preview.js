@@ -1,11 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
-const platformNames = {
-  'customer-app': 'Customer App',
-  panels: 'Panels',
-  'hoora-on-web': 'Hoora on Web',
-  'partner-app': 'Partner App',
-};
+// Platform slugs are managed in the database; validate the shape only.
+const platformSlug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const escapeHtml = (value) =>
   String(value).replace(
     /[&<>"']/g,
@@ -21,7 +17,7 @@ export default async function handler(req, res) {
   const rawVersion = String(
     Array.isArray(req.query.version) ? req.query.version[0] : req.query.version || '',
   ).replace(/^v/i, '');
-  if (!platformNames[application] || !/^\d+(?:\.\d+){0,3}(?:-[a-z0-9.-]+)?$/i.test(rawVersion))
+  if (!platformSlug.test(application) || !/^\d+(?:\.\d+){0,3}(?:-[a-z0-9.-]+)?$/i.test(rawVersion))
     return res.status(404).send('Release not found');
   // Release links are organization-only. Keep unauthenticated HTML metadata generic so
   // crawlers and link previews cannot disclose release titles or versions.

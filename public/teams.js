@@ -61,7 +61,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
     if (!team)
       return `<main id="main" class="settings-content team-directory"><div class="view-heading"><div><h1>Your teams</h1><p>Shared knowledge, with access managed by each team.</p></div>${canCreate ? '<button class="btn dark" data-team-action="create">New team</button>' : ''}</div><div class="teams-grid">${state.teams.map((item) => `<a class="team-card" href="#/teams/${e(item.slug)}">${icon('users')}<h2>${e(item.name)}</h2><p>${state.teamMembers.filter((member) => member.team_id === item.id).length} members</p><span>${manages(item) ? 'You manage this team' : 'Team member'}</span></a>`).join('') || '<div class="empty"><h2>No teams yet</h2><p>A manager can add your Hoora email to a team. Your access will be ready when you sign in.</p></div>'}</div></main>`;
 
-    const docs = state.pages.filter((page) => page.team_id === team.id && !page.archived_at);
+    const docs = state.pages.filter((page) => page.team_id === team.id && !page.deleted_at);
     const linkedDocs = state.pages.filter((page) => page.team_id === team.id);
     const members = state.teamMembers.filter((member) => member.team_id === team.id);
     const canWrite = manages(team) || ['publisher', 'contributor'].includes(ownRole(team));

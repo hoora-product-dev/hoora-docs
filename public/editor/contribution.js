@@ -45,16 +45,11 @@ export function createContributionEditor({
     '#/contribute/' + releaseId + (sectionKey ? '?section=' + encodeURIComponent(sectionKey) : '');
   /** Active sections configured for a platform, in their configured order. */
   function sections(projectId, include = []) {
-    let choices =
-      state.projectSections === null
-        ? [...state.verticals]
-        : (state.projectSections || [])
-            .filter((section) => section.project_id === projectId && section.active)
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((section) =>
-              state.verticals.find((vertical) => vertical.id === section.vertical_id),
-            )
-            .filter(Boolean);
+    let choices = state.projectSections
+      .filter((section) => section.project_id === projectId && section.active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((section) => state.verticals.find((vertical) => vertical.id === section.vertical_id))
+      .filter(Boolean);
     for (const id of include)
       if (id && !choices.some((choice) => choice.id === id))
         choices = [...choices, ...state.verticals.filter((vertical) => vertical.id === id)];
@@ -103,10 +98,7 @@ export function createContributionEditor({
         entries.map((item) => item.vertical_id),
       );
     if (!choices.length) throw Error('An administrator needs to configure release sections first.');
-    // Legacy links used ?entry=<id>; current links use ?section=<slug>.
-    const byEntry = entries.find((item) => item.id === sectionKey);
     const current =
-      choices.find((item) => item.id === byEntry?.vertical_id) ||
       choices.find((item) => slugify(item.name) === sectionKey) ||
       choices.find((item) =>
         entries.some(
@@ -320,7 +312,6 @@ export function createContributionEditor({
           body: {
             body: source.value,
             vertical_id: verticalId,
-            title: 'Release note',
             submitted,
             ...(!id ? { release_id: releaseId } : {}),
           },

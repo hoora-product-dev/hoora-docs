@@ -384,3 +384,73 @@ details.role-explainer > summary {
 .version-section-tabs::-webkit-scrollbar {
   display: none;
 }
+
+/* Hoora Assist composer: one rounded field with the send button inside. */
+.assistant-form {
+  padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+.assistant-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 5px 5px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--raised);
+  transition: border-color var(--motion-fast);
+}
+.assistant-composer:focus-within {
+  border-color: var(--focus-ring);
+}
+.assistant-form .assistant-composer input,
+.assistant-form .assistant-composer input:focus,
+.assistant-form .assistant-composer input:focus-visible {
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+}
+.assistant-form .assistant-composer button,
+.assistant-form .assistant-composer button:hover,
+.assistant-form .assistant-composer button:focus-visible {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  box-shadow: none;
+  opacity: 1;
+  transform: none;
+}
+.assistant-form .assistant-composer button .icon svg {
+  width: 16px;
+  height: 16px;
+}
+.assistant-composer:has(input:placeholder-shown) button {
+  opacity: 0.35;
+}
+.assistant-form .assistant-composer button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.assistant-shell:has(.assistant-panel:not([hidden])) > .assistant-trigger {
+  display: none;
+}
+@media (max-width: 700px) {
+  .assistant-form .assistant-composer input {
+    font-size: 16px;
+  }
+}

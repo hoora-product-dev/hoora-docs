@@ -22,12 +22,6 @@ const planPath = arg('--plan');
 if (!planPath || !process.argv.includes('--plan')) throw Error('Pass --plan <file.json>.');
 const plan = JSON.parse(readFileSync(planPath, 'utf8'));
 
-// Section names before and after migration 202611070017.
-const aliases = {
-  'Car Services & Repair': ['Car Services & Repair', 'Car Repair & Services'],
-  'Value Added Services': ['Value Added Services', 'Value-added Services'],
-};
-
 const client = new pg.Client(databaseOptions());
 await client.connect();
 const q = (text, values = []) => client.query(text, values);
@@ -39,11 +33,10 @@ try {
   if (!admin) throw Error('An active administrator account is required.');
   const verticals = (await q('select id,name from public.docs_verticals')).rows;
   const vertical = (name) =>
-    verticals.find((v) => (aliases[name] || [name]).includes(v.name)) ||
+    verticals.find((v) => v.name === name) ||
     (() => {
       throw Error('Unknown section: ' + name);
     })();
-  const folder = await one("select id from public.docs_folders where slug='release-notes'");
 
   await q('begin');
   await q("select set_config('request.jwt.claims', $1, true)", [
@@ -108,16 +101,15 @@ try {
       [
         row.id,
         `${changes} changes across ${names.join(', ')}.`,
-        folder?.id || null,
+        null,
         /^https?:/.test(release.source) ? release.source : null,
       ],
     );
     await q('delete from public.docs_entries where release_id=$1', [row.id]);
     for (const [name, body] of Object.entries(release.sections))
       await q(
-        `insert into public.docs_entries(release_id,vertical_id,title,body,tickets,submitted)
-         values($1,$2,$3,$4,'',true)`,
-        [row.id, vertical(name).id, vertical(name).name, body],
+        `insert into public.docs_entries(release_id,vertical_id,body,submitted) values($1,$2,$3,true)`,
+        [row.id, vertical(name).id, body],
       );
     console.log(`${label}: ${names.length} section notes, ${changes} changes`);
   }

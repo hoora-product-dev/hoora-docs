@@ -353,22 +353,24 @@ try {
     body: JSON.stringify({ name: 'Temporary publisher B' }),
   });
   const appId = crypto.randomUUID(),
-    sectionId = crypto.randomUUID();
+    sectionIds = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
   projects.push(appId);
-  sections.push(sectionId);
+  sections.push(...sectionIds);
   await request('/rest/v1/docs_projects', admin.token, {
     id: appId,
     name: 'Release check ' + appId.slice(0, 8),
     visibility: 'private',
   });
-  await request('/rest/v1/docs_verticals', admin.token, {
-    id: sectionId,
-    name: 'Section ' + sectionId.slice(0, 8),
-  });
-  await request('/rest/v1/docs_project_sections', admin.token, {
-    project_id: appId,
-    vertical_id: sectionId,
-  });
+  for (const sectionId of sectionIds) {
+    await request('/rest/v1/docs_verticals', admin.token, {
+      id: sectionId,
+      name: 'Section ' + sectionId.slice(0, 8),
+    });
+    await request('/rest/v1/docs_project_sections', admin.token, {
+      project_id: appId,
+      vertical_id: sectionId,
+    });
+  }
   let releaseId;
   await ok('Application releases receive stable readable version slugs', async () => {
     const r = await rpc('docs_create_release', publisherA, {
@@ -386,21 +388,27 @@ try {
         .status >= 400,
     );
   });
-  await ok('Multiple people contribute under reusable application sections', async () => {
-    for (const [person, title, submitted] of [
-      [publisherA, 'First team contribution', true],
-      [publisherB, 'Second team contribution', true],
-      [publisherA, 'Not ready', false],
+  await ok('Each section holds one complete note from its owner', async () => {
+    for (const [person, label, submitted, sectionId] of [
+      [publisherA, 'First team contribution', true, sectionIds[0]],
+      [publisherB, 'Second team contribution', true, sectionIds[1]],
+      [publisherA, 'Not ready', false, sectionIds[2]],
     ]) {
       const r = await request('/rest/v1/docs_entries', person.token, {
         release_id: releaseId,
         vertical_id: sectionId,
-        title,
-        body: '## Details\n\nReady work from ' + title,
+        body: '### 1. ' + label,
         submitted,
       });
       assert.equal(r.status, 201, JSON.stringify(r.data));
     }
+    const duplicate = await request('/rest/v1/docs_entries', publisherB.token, {
+      release_id: releaseId,
+      vertical_id: sectionIds[0],
+      body: 'A second note in the same section',
+      submitted: true,
+    });
+    assert.ok(duplicate.status >= 400, 'A section accepts only one note');
   });
   await ok(
     'Publishing includes ready contributions with real authors and separate publisher',

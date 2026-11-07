@@ -85,6 +85,10 @@ Pasted Markdown is database text, rather than a second `.md` object. Drafts, pub
 
 Vectors share Postgres capacity with other rows; binary files use the separate Storage quota. Actual limits and usage depend on the project’s current Supabase plan and dashboard. Published snapshots and indexes are not backups.
 
+### Free-plan budget
+
+Postgres holds text and metadata only (documents, release section notes, published snapshots, permissions). Every file (images, PDFs, HTML artifacts, drawings) is stored in the private Storage bucket, with images converted to WebP at most 1,920px. The daily `/api/cleanup` job purges the 30-day recycle bin, removes page-view activity after 30 days, other activity after a year, and expired rate-limit rows.
+
 ## Access boundaries
 
 Company roles are administrator, manager, publisher and viewer. Team viewer/publisher roles are separate; members may grant only equal or lower team access. Database policies remain authoritative for reading, editing, publishing and attachments.

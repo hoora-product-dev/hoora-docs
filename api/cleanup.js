@@ -21,7 +21,10 @@ export default async function handler(req, res) {
       method: 'POST',
       body: '{}',
     });
-    return res.status(200).json({ ok: true, purged: Number(purged || 0) });
+    const pruned = await call('/rest/v1/rpc/docs_prune_activity', { method: 'POST', body: '{}' });
+    return res
+      .status(200)
+      .json({ ok: true, purged: Number(purged || 0), pruned: Number(pruned || 0) });
   } catch (error) {
     return res.status(error.status || 500).json({ error: error.message || 'Cleanup failed.' });
   }

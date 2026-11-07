@@ -95,7 +95,7 @@ export function workspaceFeatures({
     const published = mine.filter((p) => state.published.some((x) => x.id === p.id));
     return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>My contributions</h1><p>${published.length} published · ${mine.length - published.length} drafts</p></div><a href="#/new" class="btn dark">New document</a></div><div class="document-table">${
       mine
-        .filter((p) => !p.archived_at)
+        .filter((p) => !p.deleted_at)
         .map((p) => row(p, true))
         .join('') ||
       '<div class="empty"><h2>Your contributions start here</h2><p>Create a guide or add your notes to an application release.</p></div>'
@@ -103,8 +103,8 @@ export function workspaceFeatures({
   }
   function archive() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
-    const archived = state.pages.filter((p) => p.archived_at);
-    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Recycle bin</h1><p>Deleted knowledge is hidden immediately and permanently removed after 30 days.</p></div><button class="btn outline" data-hub-action="cleanup">Run cleanup</button></div>${archived.map((p) => `<div class="structure-row"><div><strong>${e(p.title)}</strong><small>Deleted ${new Date(p.deleted_at || p.archived_at).toLocaleDateString('en-IN')} · permanently removed ${p.purge_after ? new Date(p.purge_after).toLocaleDateString('en-IN') : 'after 30 days'}</small></div><button class="btn outline" data-hub-action="restore" data-id="${p.id}">Restore</button><button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete permanently</button></div>`).join('') || '<div class="empty"><h2>Recycle bin is empty</h2><p>Deleted documents will remain here for 30 days before cleanup.</p></div>'}</main>`;
+    const archived = state.pages.filter((p) => p.deleted_at);
+    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Recycle bin</h1><p>Deleted knowledge is hidden immediately and permanently removed after 30 days.</p></div><button class="btn outline" data-hub-action="cleanup">Run cleanup</button></div>${archived.map((p) => `<div class="structure-row"><div><strong>${e(p.title)}</strong><small>Deleted ${new Date(p.deleted_at || p.deleted_at).toLocaleDateString('en-IN')} · permanently removed ${p.purge_after ? new Date(p.purge_after).toLocaleDateString('en-IN') : 'after 30 days'}</small></div><button class="btn outline" data-hub-action="restore" data-id="${p.id}">Restore</button><button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete permanently</button></div>`).join('') || '<div class="empty"><h2>Recycle bin is empty</h2><p>Deleted documents will remain here for 30 days before cleanup.</p></div>'}</main>`;
   }
   async function activity() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
