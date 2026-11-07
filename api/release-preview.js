@@ -23,8 +23,10 @@ export default async function handler(req, res) {
   ).replace(/^v/i, '');
   if (!platformNames[application] || !/^\d+(?:\.\d+){0,3}(?:-[a-z0-9.-]+)?$/i.test(rawVersion))
     return res.status(404).send('Release not found');
-  const title = `${platformNames[application]} · v${rawVersion} — Hoora Docs`;
-  const description = `Release notes for ${platformNames[application]} version ${rawVersion}.`;
+  // Release links are organization-only. Keep unauthenticated HTML metadata generic so
+  // crawlers and link previews cannot disclose release titles or versions.
+  const title = 'Hoora Docs — Microsoft sign-in required';
+  const description = 'Sign in with your Hoora Microsoft account to view this release.';
   const origin = `https://${req.headers['x-forwarded-host'] || req.headers.host}`;
   const canonical = `${origin}/release-notes/${encodeURIComponent(rawVersion)}/${encodeURIComponent(application)}`;
   let html;
@@ -53,6 +55,6 @@ export default async function handler(req, res) {
 </head>`,
     );
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=3600');
+  res.setHeader('Cache-Control', 'private, no-store');
   return res.status(200).send(req.method === 'HEAD' ? undefined : html);
 }

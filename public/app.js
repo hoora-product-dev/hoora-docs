@@ -454,7 +454,7 @@ function header() {
   const route = routeHash().split('?')[0];
   const auth = route === '#/login' || route === '#/app-welcome';
   const native = route.startsWith('#/artifact/') || route.startsWith('#/preview/');
-  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a>${!auth && !native ? '<span class="topbar-divider"></span><nav><a href="#/releases">Releases</a><a href="#/browse">Library</a>' + '</nav>' : ''}</div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
+  return `<header class="topbar"><div class="topbar-left">${!auth && !native ? `<button class="iconbtn mobile-menu" data-action="menu" aria-label="Toggle navigation">${icon('menu')}</button>` : ''}<a class="product-brand" href="#/home"><img class="logo-light" src="/hoora-light.png" alt="Hoora"><img class="logo-dark" src="/hoora-dark.png" alt="Hoora"></a></div><div class="topbar-right"><button class="iconbtn" data-action="theme" aria-label="Switch light or dark theme">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>${state.member && !auth ? `<a class="iconbtn notification-bell" href="#/notifications" aria-label="Notifications${state.unreadNoticeCount ? `, ${state.unreadNoticeCount} unread` : ''}">${icon('bell')}${state.unreadNoticeCount ? `<span class="notification-count" aria-hidden="true">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</span>` : ''}</a>` : !state.member && !auth ? '<a class="btn dark" data-header-login href="#/login">Sign in</a>' : ''}</div></header>`;
 }
 function enhanceRail() {
   navigation.prepare();
@@ -510,7 +510,7 @@ function sidebar(workspace = false) {
           `<a class="sidelink ${state.folder === f.id ? 'active' : ''}" style="--depth:${depth}" href="#/workspace?folder=${e(f.slug || f.id)}">${toneIcon(f.icon, f.color)}<span>${e(f.name)}</span>${f.visibility === 'private' ? icon('lock') : ''}</a>${depth < 12 ? folderLinks(f.id, depth + 1) : ''}`,
       )
       .join('');
-  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${workspace ? '#/workspace' : '#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member ? `<a class="sidelink" href="#/teams">${icon('users')}<span>Your teams</span></a><a class="sidelink" href="#/notifications">${icon('bell')}<span>Notifications</span>${state.unreadNoticeCount ? `<small class="nav-count">${state.unreadNoticeCount > 99 ? '99+' : state.unreadNoticeCount}</small>` : ''}</a>${canEdit(role) ? `<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}${['admin', 'publisher'].includes(role) ? `<a class="sidelink" href="#/requests">${icon('clock')}<span>Requests</span>${state.pendingRequestCount ? `<small class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</small>` : ''}</a>` : ''}` : ''}${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<div class="rail-label">Collections</div>${state.types
+  return `<aside class="sidebar library-sidebar" aria-label="Library navigation"><div class="rail-heading">Library</div><a class="sidelink ${!state.kind && !state.folder ? 'active' : ''}" href="${workspace ? '#/workspace' : '#/browse'}">${icon('grid')}<span>All documents</span><small>${docs.length}</small></a>${state.member ? `${canEdit(role) ? `<a class="sidelink" href="#/contributions">${icon('edit')}<span>My contributions</span></a>` : ''}${['admin', 'publisher'].includes(role) ? `<a class="sidelink" href="#/requests">${icon('clock')}<span>Requests</span>${state.pendingRequestCount ? `<small class="nav-count">${state.pendingRequestCount > 99 ? '99+' : state.pendingRequestCount}</small>` : ''}</a>` : ''}` : ''}${state.member ? `<a class="sidelink" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}<div class="rail-label">Collections</div>${state.types
     .filter((t) => t.key !== 'release')
     .map(
       (t) =>
@@ -676,7 +676,7 @@ function article(slug, full = false) {
   if (!p) {
     if (!state.member) {
       sessionStorage.setItem('hoora-return-to', routeHash());
-      return `<main id="main" class="access-gate">${icon('lock')}<h1>Sign in to continue</h1><p>This link may belong to your team’s private library. Sign in with your work account to check access.</p><a class="btn dark" href="#/login">Sign in with your work account</a><a href="#/releases">Browse public releases</a></main>`;
+      return `<main id="main" class="access-gate">${icon('lock')}<h1>Sign in to continue</h1><p>Hoora Docs is an employee workspace. Sign in with your Hoora Microsoft account to view this content.</p><a class="btn dark" href="#/login">Continue with Microsoft</a></main>`;
     }
     return `<main id="main" class="article">${empty('Document unavailable', 'This page may have been removed or unpublished.', '<a class="btn outline" href="#/workspace">Open library</a>')}</main>`;
   }
@@ -794,7 +794,7 @@ async function shareCurrentPage() {
   dialog(
     `<h2>Share this page</h2><p class="small">${e(page.title)}</p>
     <div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button>${navigator.share ? '<button type="button" class="btn outline" data-action="native-share">Share…</button>' : ''}</div>
-    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="public" ${access === 'public' ? 'selected' : ''}>Anyone · public</option><option value="private" ${access === 'private' ? 'selected' : ''}>Hoora employees · Microsoft sign-in</option><option value="restricted" ${access === 'restricted' ? 'selected' : ''}>Selected Hoora people only</option>${page.team_id ? `<option value="team" ${access === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div><div class="field share-emails" ${access === 'restricted' ? '' : 'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map((row) => row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. People sign in with Microsoft before opening the link. The owner, team manager and administrators retain access.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access === 'restricted' ? 'Only selected people and the document’s owners can open this link.' : access === 'team' ? 'Members of this document’s team must sign in to open this link.' : access === 'private' ? 'Hoora employees must sign in with Microsoft to open this link.' : 'Anyone can open this public link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
+    ${canManage ? `<form><div class="field"><label for="share-access">Who can view</label><select id="share-access" name="access_mode"><option value="private" ${access === 'private' ? 'selected' : ''}>Hoora organization · Microsoft sign-in</option><option value="restricted" ${access === 'restricted' ? 'selected' : ''}>Selected Hoora people only</option>${page.team_id ? `<option value="team" ${access === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select></div><div class="field share-emails" ${access === 'restricted' ? '' : 'hidden'}><label for="share-emails">People with access</label><textarea id="share-emails" name="emails" rows="4" placeholder="name@hoora.me, another@hoora.me">${e(grants.map((row) => row.email).join(', '))}</textarea><small>Add up to 100 Hoora email addresses. Everyone signs in with Microsoft before opening a document.</small></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save access</button></div></form>` : `<form><p class="small">${access === 'restricted' ? 'Only selected people and the document’s owners can open this link.' : access === 'team' ? 'Members of this document’s team must sign in to open this link.' : 'Hoora employees must sign in with Microsoft to open this link.'}</p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`}`,
     async (form) => {
       if (!canManage) return;
       const allowed_emails = String(form.get('emails') || '')
@@ -908,6 +908,14 @@ async function render() {
     'activity',
     'app-welcome',
   ].includes(route);
+  const authExempt = ['login', 'install', 'app-welcome'];
+  if (!state.member && !authExempt.includes(route)) {
+    sessionStorage.setItem('hoora-return-to', routeHash() || '#/home');
+    if (route !== 'login') {
+      location.hash = '#/login';
+      return render();
+    }
+  }
   if (state.member && !state.member.password_setup_complete && route !== 'install') {
     app.innerHTML = header() + onboarding() + footer();
     enhanceRail();
@@ -2049,7 +2057,7 @@ document.addEventListener('click', async (ev) => {
   if (a === 'delete-release') {
     confirmAction(
       'Delete this release?',
-      'The release, contributions, and public page will be permanently removed.',
+      'The release, contributions, and organization page will be permanently removed.',
       async () => {
         await appApi('/api/content', { action: 'delete', id });
         await load();
@@ -2106,7 +2114,7 @@ function roleName(role) {
 function pageAccess(p) {
   if (p.visibility === 'team') return 'team';
   if (p.visibility === 'restricted') return 'restricted';
-  if (p.visibility === 'private') return 'private';
+  if (p.visibility === 'private' || p.visibility === 'public') return 'private';
   if (p.project_id && state.projects.find((c) => c.id === p.project_id)?.visibility === 'private')
     return 'private';
   let folder = state.folders.find((f) => f.id === p.folder_id);
@@ -2125,7 +2133,7 @@ function accessText(p) {
       ? 'Selected people'
       : access === 'private'
         ? 'Hoora sign-in'
-        : 'Public';
+        : 'Hoora sign-in';
 }
 function typeFields(p) {
   const type = state.types.find((t) => t.key === p.kind);
@@ -2133,7 +2141,7 @@ function typeFields(p) {
 }
 function visibilityField(p) {
   return state.member?.role === 'admin'
-    ? `<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility === 'private' ? 'selected' : ''}>Hoora employees · sign-in required</option><option value="restricted" ${p.visibility === 'restricted' ? 'selected' : ''}>Selected people · use Share to add emails</option><option value="public" ${p.visibility === 'public' ? 'selected' : ''}>Public · anyone can view</option></select><small>Private folders and applications always require sign-in.</small></div>`
+    ? `<div class="field"><label for="visibility">Document access</label><select id="visibility" name="visibility"><option value="private" ${p.visibility !== 'restricted' && p.visibility !== 'team' ? 'selected' : ''}>Hoora organization · Microsoft sign-in</option><option value="restricted" ${p.visibility === 'restricted' ? 'selected' : ''}>Selected people · use Share to add emails</option>${p.team_id ? `<option value="team" ${p.visibility === 'team' ? 'selected' : ''}>Document team only</option>` : ''}</select><small>Every document requires a Hoora Microsoft sign-in.</small></div>`
     : `<p class="properties-help">${icon('lock')}A manager or administrator controls sharing.</p>`;
 }
 function customFieldList(p) {
@@ -2331,7 +2339,7 @@ function draftPreview(id) {
 }
 function publicView() {
   const docs = filterPages(state.published, state).filter((p) => p.kind !== 'release');
-  return `<div class="layout">${sidebar(!!state.member)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind] || 'Published documents')}</h1><p>${state.member ? 'Published knowledge available to your team.' : 'Public documents. Internal knowledge requires sign-in.'}</p></div></div><div class="library-tools"><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label></div><div id="document-list" class="document-table">${docs.map((p) => row(p)).join('') || empty('No public documents in this collection', 'Sign in with your company account to view internal documents.', '<a class="btn dark" href="#/workspace">Open team library</a>')}</div></main></div>`;
+  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(names[state.kind] || 'Published documents')}</h1><p>Published knowledge for Hoora employees.</p></div></div><div class="library-tools"><label class="search compact"><span class="sr-only">Search documents</span>${icon('search')}<input id="public-search" type="search" value="${e(state.query)}" placeholder="Search documents…"></label></div><div id="document-list" class="document-table">${docs.map((p) => row(p)).join('') || empty('No documents in this collection', 'Published Hoora knowledge will appear here.')}</div></main></div>`;
 }
 function projectSectionSettings() {
   if (state.projectSections === null)
@@ -2396,8 +2404,8 @@ function configureProjectSections(projectId) {
 }
 function structureView() {
   const card = (kind, item) =>
-    `<div class="structure-row">${toneIcon(item.icon, item.color)}<div><strong>${e(item.name)}</strong><small>${kind === 'vertical' ? 'Release section' : item.visibility === 'public' ? 'Public by default' : 'Private · sign-in required'}${item.parent_id ? ' · inside ' + e(state.folders.find((f) => f.id === item.parent_id)?.name || 'folder') : ''}</small></div><button class="btn outline" data-action="manage-${kind}" data-id="${item.id}">Edit</button><button class="iconbtn danger" data-action="remove-${kind}" data-id="${item.id}" aria-label="Delete ${e(item.name)}">${icon('trash')}</button></div>`;
-  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>Structure & visibility</h1><p>Organize content, choose icons, and control public access.</p></div></div><section class="settings-section"><div class="section-heading"><div><h2>Release applications</h2><p>Each application has its own versions. All applications can share a version view.</p></div><button class="btn dark" data-action="manage-project">New application</button></div>${state.projects.map((p) => card('project', p)).join('')}</section>${projectSectionSettings()}<section class="settings-section"><div class="section-heading"><div><h2>Library folders</h2><p>Nested folders organize SOPs and documentation. A private parent keeps all its contents private.</p></div><button class="btn outline" data-action="manage-folder">New folder</button></div>${state.folders.map((f) => card('folder', f)).join('') || '<p class="muted">No folders yet.</p>'}</section><section class="settings-section"><div class="section-heading"><div><h2>Release sections</h2><p>Vertical headings used within each application’s release.</p></div><button class="btn outline" data-action="manage-vertical">New section</button></div>${state.verticals.map((v) => card('vertical', v)).join('')}</section><section class="settings-section"><div class="section-heading"><div><h2>Document collections & fields</h2><p>Add document types, icons, default access, and optional custom text fields.</p></div><button class="btn outline" data-action="manage-type">New collection</button></div>${state.types.map((t) => `<div class="structure-row">${toneIcon(t.icon, t.color)}<div><strong>${e(t.name)}</strong><small>${t.default_visibility === 'public' ? 'Public' : 'Private'} by default${t.fields.length ? ' · ' + e(t.fields.join(', ')) : ''}</small></div><button class="btn outline" data-action="manage-type" data-id="${t.key}">Edit</button>${!['release', 'sop', 'documentation'].includes(t.key) ? `<button class="iconbtn danger" data-action="remove-type" data-id="${t.key}" aria-label="Delete ${e(t.name)}">${icon('trash')}</button>` : ''}</div>`).join('')}</section></main></div>`;
+    `<div class="structure-row">${toneIcon(item.icon, item.color)}<div><strong>${e(item.name)}</strong><small>${kind === 'vertical' ? 'Release section' : 'Hoora sign-in required'}${item.parent_id ? ' · inside ' + e(state.folders.find((f) => f.id === item.parent_id)?.name || 'folder') : ''}</small></div><button class="btn outline" data-action="manage-${kind}" data-id="${item.id}">Edit</button><button class="iconbtn danger" data-action="remove-${kind}" data-id="${item.id}" aria-label="Delete ${e(item.name)}">${icon('trash')}</button></div>`;
+  return `<div class="layout">${sidebar(true)}<main id="main" class="settings-content"><div class="view-heading"><div><h1>Structure & visibility</h1><p>Organize content, choose icons, and control Hoora organization access.</p></div></div><section class="settings-section"><div class="section-heading"><div><h2>Release applications</h2><p>Each application has its own versions. All applications can share a version view.</p></div><button class="btn dark" data-action="manage-project">New application</button></div>${state.projects.map((p) => card('project', p)).join('')}</section>${projectSectionSettings()}<section class="settings-section"><div class="section-heading"><div><h2>Library folders</h2><p>Nested folders organize SOPs and documentation. All content requires Hoora sign-in.</p></div><button class="btn outline" data-action="manage-folder">New folder</button></div>${state.folders.map((f) => card('folder', f)).join('') || '<p class="muted">No folders yet.</p>'}</section><section class="settings-section"><div class="section-heading"><div><h2>Release sections</h2><p>Vertical headings used within each application’s release.</p></div><button class="btn outline" data-action="manage-vertical">New section</button></div>${state.verticals.map((v) => card('vertical', v)).join('')}</section><section class="settings-section"><div class="section-heading"><div><h2>Document collections & fields</h2><p>Add document types, icons, default access, and optional custom text fields.</p></div><button class="btn outline" data-action="manage-type">New collection</button></div>${state.types.map((t) => `<div class="structure-row">${toneIcon(t.icon, t.color)}<div><strong>${e(t.name)}</strong><small>Hoora sign-in required${t.fields.length ? ' · ' + e(t.fields.join(', ')) : ''}</small></div><button class="btn outline" data-action="manage-type" data-id="${t.key}">Edit</button>${!['release', 'sop', 'documentation'].includes(t.key) ? `<button class="iconbtn danger" data-action="remove-type" data-id="${t.key}" aria-label="Delete ${e(t.name)}">${icon('trash')}</button>` : ''}</div>`).join('')}</section></main></div>`;
 }
 function appearanceFields(item = {}) {
   return `<div class="form-columns"><div class="field"><label for="structure-icon">Icon</label><select id="structure-icon" name="icon">${['folder', 'book', 'documentation', 'release', 'phone', 'web', 'settings', 'car', 'tool', 'bag', 'users', 'grid', 'check'].map((k) => `<option value="${k}" ${item.icon === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div><div class="field"><label for="structure-color">Icon color</label><select id="structure-color" name="color">${['blue', 'green', 'violet', 'orange', 'slate'].map((c) => `<option ${item.color === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div></div>`;
@@ -2418,7 +2426,7 @@ function manageStructure(kind, id) {
   }[kind];
   const item = items.find((x) => (x.id || x.key) === id) || {};
   dialog(
-    `<h2>${id ? 'Edit' : 'New'} ${kind === 'project' ? 'application' : kind === 'vertical' ? 'release section' : kind === 'type' ? 'document collection' : 'folder'}</h2><form><div class="field"><label for="structure-name">Name</label><input id="structure-name" name="name" required maxlength="80" value="${e(item.name || '')}"></div>${kind === 'project' || kind === 'vertical' ? `<div class="field"><label for="structure-description">Description</label><textarea id="structure-description" name="description" maxlength="500">${e(item.description || '')}</textarea></div>` : ''}${appearanceFields(item)}${kind !== 'vertical' ? `<div class="field"><label for="structure-visibility">${kind === 'type' ? 'Default document access' : 'Access'}</label><select id="structure-visibility" name="${kind === 'type' ? 'default_visibility' : 'visibility'}"><option value="private" ${(item.visibility || item.default_visibility) !== 'public' ? 'selected' : ''}>Private · sign-in required</option><option value="public" ${(item.visibility || item.default_visibility) === 'public' ? 'selected' : ''}>Public · no sign-in required</option></select></div>` : ''}${
+    `<h2>${id ? 'Edit' : 'New'} ${kind === 'project' ? 'application' : kind === 'vertical' ? 'release section' : kind === 'type' ? 'document collection' : 'folder'}</h2><form><div class="field"><label for="structure-name">Name</label><input id="structure-name" name="name" required maxlength="80" value="${e(item.name || '')}"></div>${kind === 'project' || kind === 'vertical' ? `<div class="field"><label for="structure-description">Description</label><textarea id="structure-description" name="description" maxlength="500">${e(item.description || '')}</textarea></div>` : ''}${appearanceFields(item)}${kind !== 'vertical' ? `<div class="field"><label for="structure-visibility">${kind === 'type' ? 'Default document access' : 'Access'}</label><select id="structure-visibility" name="${kind === 'type' ? 'default_visibility' : 'visibility'}"><option value="private" selected>Hoora organization · sign-in required</option></select></div>` : ''}${
       kind === 'folder'
         ? `<div class="field"><label for="parent-folder">Parent folder</label><select name="parent_id" id="parent-folder">${options(
             state.folders.filter((f) => f.id !== id),
@@ -2767,7 +2775,7 @@ document.addEventListener('click', async (ev) => {
   if (action === 'delete-document') {
     confirmAction(
       'Delete this document?',
-      'The draft, public copy, and contributions will be removed. This cannot be undone.',
+      'The draft, organization copy, and contributions will be removed. This cannot be undone.',
       async () => {
         await appApi('/api/content', {
           action: 'delete',
