@@ -40,14 +40,18 @@ try {
   await page.goto(base + '/app');
   await page.locator('.app-welcome-card').waitFor();
   await page.locator('[data-action=app-continue]').click();
-  await page.getByRole('heading', { name: 'All updates', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: 'Hoora knowledge, in one place.', exact: true })
+    .waitFor();
   await page.goto(base + '/home');
   await page
     .getByRole('heading', { name: 'Hoora knowledge, in one place.', exact: true })
     .waitFor();
   assert.equal(await page.locator('.footer-install').count(), 0);
   await page.goto(base + '/app');
-  await page.getByRole('heading', { name: 'All updates', exact: true }).waitFor();
+  await page
+    .getByRole('heading', { name: 'Hoora knowledge, in one place.', exact: true })
+    .waitFor();
   console.log(
     'PASS Installed-app emulation: login first, notification choice, releases home, returning launch and hidden install promotion.',
   );
