@@ -138,14 +138,12 @@ try {
   console.log(
     'PASS One-page platform/version/section writing, WebP paste, retained private draft, direct publication and ready contribution flow',
   );
-  await p.getByRole('link', { name: 'Edit my contribution', exact: true }).click();
-  await p.getByLabel('More actions', { exact: true }).click();
-  await p.getByRole('button', { name: 'Email announcement', exact: true }).click();
-  await p.getByText('rahul@hoora.me', { exact: true }).waitFor();
-  assert.equal(await p.getByRole('button', { name: 'Send test to Rahul', exact: true }).count(), 1);
-  await p.screenshot({ path: 'test-results/admin-email-preview.png' });
-  await p.getByRole('button', { name: 'Close', exact: true }).click();
-  console.log('PASS Administrator email template previews without sending');
+  await p.goto(base + '/announce');
+  await p.getByRole('heading', { name: 'Announce a release' }).waitFor();
+  assert.equal(await p.getByRole('button', { name: 'Copy email' }).count(), 1);
+  assert.equal(await p.getByRole('button', { name: 'Open in Outlook' }).count(), 1);
+  await p.screenshot({ path: 'test-results/admin-announce.png' });
+  console.log('PASS Administrator announce page previews the email without sending');
   assert.deepEqual(errors, []);
 } finally {
   await browser?.close();

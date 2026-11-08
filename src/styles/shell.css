@@ -1474,7 +1474,10 @@ select option,
 select optgroup {
   background-color: var(--raised);
   color: var(--ink);
-  font: 400 14px/1.5 Geist, Arial, sans-serif;
+  font:
+    400 14px/1.5 Geist,
+    Arial,
+    sans-serif;
   letter-spacing: normal;
 }
 @supports (appearance: base-select) {
@@ -1516,5 +1519,76 @@ select optgroup {
   select:not([multiple]) option:disabled {
     color: var(--subtle);
     cursor: default;
+  }
+}
+
+/* Announce (administrators): release picker and actions above a live email preview. */
+.announce-page {
+  max-width: 760px;
+}
+.announce-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+.announce-bar .field {
+  flex: 1 1 260px;
+  margin: 0;
+}
+.announce-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.announce-actions .btn {
+  min-height: 38px;
+  gap: 6px;
+}
+.announce-actions .icon svg {
+  width: 15px;
+  height: 15px;
+}
+.announce-subject {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 20px 0 10px;
+  font-size: 14px;
+}
+.announce-subject small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.announce-subject span {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+body .announce-subject .btn {
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.announce-preview {
+  display: block;
+  width: 100%;
+  min-height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f4f4f4;
+}
+.announce-hint {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 640px) {
+  .announce-actions,
+  .announce-actions .btn {
+    flex: 1 1 auto;
   }
 }

@@ -1,5 +1,9 @@
 import { serverClient, requireMember } from '../server/supabase.js';
-import { announcement, TEST_RECIPIENT } from '../server/email.js';
+import { announcement } from '../server/email.js';
+
+// Release announcement emails, for administrators only. Hoora Docs never sends them:
+// it shows the email, and can place it as a draft in the administrator's own Outlook
+// so they choose the recipients and press Send themselves.
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -9,68 +13,63 @@ export default async function handler(req, res) {
     if (member.role !== 'admin')
       return res
         .status(403)
-        .json({ error: 'Only administrators can preview or send email announcements.' });
+        .json({ error: 'Only administrators can prepare email announcements.' });
     const b = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-    if (!/^[a-f0-9-]{36}$/i.test(b.id || '')) throw new Error('Invalid document.');
+    if (!/^[a-f0-9-]{36}$/i.test(b.id || '')) throw new Error('Invalid release.');
     const [page] = await call(`/rest/v1/docs_published?id=eq.${b.id}&select=*`);
-    if (!page) throw new Error('Publish the document before preparing an announcement.');
+    if (!page || page.kind !== 'release')
+      throw new Error('Choose a published release to announce.');
     const email = announcement(page, member);
-    const ready = member.auth_source === 'microsoft';
-    if (b.action === 'preview')
-      return res.status(200).json({ ...email, to: TEST_RECIPIENT, mode: 'test', ready });
-    if (b.action !== 'send-test') throw new Error('Invalid action.');
-    if (b.to || b.cc || b.bcc) throw new Error('Recipients cannot be changed during testing.');
+    if (b.action === 'preview') return res.status(200).json(email);
+    if (b.action !== 'draft') throw new Error('Invalid action.');
+
     if (typeof b.providerToken !== 'string' || b.providerToken.length > 20000)
-      throw new Error('Connect Outlook to send this test email.');
-    if (!/^[a-f0-9-]{36}$/i.test(b.requestId || '')) throw new Error('Invalid send request.');
+      throw new Error('Connect Outlook to open this email there.');
     const graphHeaders = { Authorization: 'Bearer ' + b.providerToken };
     const identityResponse = await fetch('https://graph.microsoft.com/oidc/userinfo', {
       headers: graphHeaders,
       signal: AbortSignal.timeout(10000),
     });
-    const graphIdentity = await identityResponse.json();
+    const graphIdentity = await identityResponse.json().catch(() => ({}));
     if (
       !identityResponse.ok ||
       !member.microsoft_subject ||
       graphIdentity.sub !== member.microsoft_subject
     )
       throw new Error('Connect the same Microsoft account you use for Hoora Docs.');
-    const claims = JSON.parse(Buffer.from(b.providerToken.split('.')[1], 'base64url').toString());
+    let claims = {};
+    try {
+      claims = JSON.parse(Buffer.from(b.providerToken.split('.')[1], 'base64url').toString());
+    } catch {}
     if (
       claims.tid !== process.env.MICROSOFT_TENANT_ID ||
-      !claims.scp?.split(' ').includes('Mail.Send')
+      !claims.scp?.split(' ').includes('Mail.ReadWrite')
     )
-      throw new Error('Outlook mail permission has not been granted. Connect Outlook again.');
-    await call('/rest/v1/docs_mail_tests', {
-      method: 'POST',
-      body: JSON.stringify({
-        id: b.requestId,
-        actor_id: member.id,
-        page_id: page.id,
-      }),
-    });
-    const result = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+      throw new Error('Outlook permission has not been granted. Connect Outlook again.');
+    // A draft with no recipients: it opens in Outlook, where the administrator adds the
+    // contact list and sends it from their own mailbox.
+    const draft = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
       method: 'POST',
       headers: { ...graphHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: {
-          subject: email.subject,
-          body: { contentType: 'HTML', content: email.html },
-          toRecipients: [{ emailAddress: { address: TEST_RECIPIENT } }],
-        },
-        saveToSentItems: true,
+        subject: email.subject,
+        body: { contentType: 'HTML', content: email.html },
       }),
       signal: AbortSignal.timeout(15000),
     });
-    if (!result.ok) {
-      const error = await result.json().catch(() => null);
-      throw new Error(error?.error?.message || 'Outlook could not send the test email.');
-    }
-    await call('/rest/v1/docs_mail_tests?id=eq.' + b.requestId, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'accepted' }),
-    });
-    return res.status(200).json({ ok: true, to: TEST_RECIPIENT, provider: 'outlook' });
+    const created = await draft.json().catch(() => null);
+    if (!draft.ok || !created?.id)
+      throw new Error(created?.error?.message || 'Outlook could not create the draft.');
+    await call('/rest/v1/docs_audit_log', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: member.id,
+        page_id: page.id,
+        action: 'announcement_drafted',
+        metadata: {},
+      }),
+    }).catch(() => {});
+    return res.status(200).json({ ok: true, webLink: created.webLink || '' });
   } catch (error) {
     return res.status(error.status || 400).json({ error: error.message });
   }

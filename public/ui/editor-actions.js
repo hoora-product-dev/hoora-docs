@@ -21,9 +21,6 @@ export function documentActions({
     (!isNew && !canPublish
       ? item('clock', 'Request approval', `data-action="request-publish" data-id="${id}"`)
       : '') +
-    (published && role === 'admin'
-      ? item('mail', 'Email announcement', `data-action="email-preview" data-id="${id}"`)
-      : '') +
     (published && canPublish ? item('archive', 'Unpublish', 'data-action="unpublish"') : '') +
     (!isNew && role === 'admin'
       ? item('trash', 'Delete document', 'class="danger" data-action="delete-document"')

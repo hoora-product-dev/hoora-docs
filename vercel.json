@@ -188,6 +188,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/announce",
+      "destination": "/index.html"
+    },
+    {
       "source": "/folders",
       "destination": "/index.html"
     },

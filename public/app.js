@@ -2,6 +2,7 @@ import { icon } from './vendor/icons.js';
 import { assistantAvatarMarkup } from './assistant-avatar.js';
 import { moods } from './vendor/assistant-moods.js';
 import { makerFeature } from './ui/maker.js';
+import { announceFeature } from './ui/announce.js';
 import { createFileCache } from './file-cache.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { accountMenu, settingsLinks } from './ui/account.js';
@@ -712,6 +713,15 @@ const settingsRoutes = [
   'feedback',
   'archive',
 ];
+const announce = announceFeature({
+  e,
+  icon,
+  appApi: (...args) => appApi(...args),
+  toast: (...args) => toast(...args),
+  busy: (...args) => busy(...args),
+  releases: () => releaseRecords(true),
+  connectOutlook: () => startMicrosoftSignIn(true),
+});
 const maker = makerFeature({
   state,
   e,
@@ -1472,6 +1482,7 @@ async function render() {
     'contributions',
     'archive',
     'activity',
+    'announce',
     'app-welcome',
   ].includes(route);
   const authExempt = ['login', 'install', 'app-welcome'];
@@ -1585,6 +1596,11 @@ async function render() {
       case 'preview':
         view = draftPreview(id);
         break;
+      case 'announce':
+        // Hidden page: administrators only, and it does not admit to existing for anyone else.
+        if (state.member.role !== 'admin') throw new Error('This page doesn’t exist.');
+        view = await announce.view(params);
+        break;
       case 'folders':
         if (state.member.role !== 'admin') throw new Error('Administrator access required.');
         view = folders();
@@ -1608,6 +1624,7 @@ async function render() {
         'artifact',
         'contribute',
         'users',
+        'announce',
         'install',
         'login',
         'app-welcome',
@@ -1627,6 +1644,7 @@ async function render() {
     hydrateImages();
     sources.hydrate();
     features.hydrate();
+    if (route === 'announce') announce.hydrate();
     const viewed = route === 'doc' ? state.published.find((p) => p.slug === id) : null;
     if (viewed && state.member)
       db('rpc/docs_track', '', {
@@ -1907,8 +1925,9 @@ async function oauth() {
   }
   return oauthClient;
 }
-async function appApi(path, body) {
-  markWorkspaceStale();
+async function appApi(path, body, { readOnly = false } = {}) {
+  // Reads (such as an email preview) leave the cached workspace alone.
+  if (!readOnly) markWorkspaceStale();
   const token = await getToken();
   const r = await fetch(path, {
     signal: AbortSignal.timeout(60000),
@@ -1942,12 +1961,15 @@ async function completeMicrosoftSignIn() {
     const outlookReturn = sessionStorage.getItem('hoora-outlook-return');
     if (outlookReturn) {
       sessionStorage.setItem('hoora-outlook-token', provider_token);
+      sessionStorage.setItem('hoora-outlook-connected', '1');
       sessionStorage.removeItem('hoora-outlook-return');
     }
     history.replaceState(
       null,
       '',
-      outlookReturn ? '/#/edit/' + outlookReturn : '/' + completeLoginRoute(),
+      outlookReturn
+        ? '/#/announce?release=' + encodeURIComponent(outlookReturn)
+        : '/' + completeLoginRoute(),
     );
   } catch (err) {
     saveSession(null);
@@ -1966,7 +1988,7 @@ async function startMicrosoftSignIn(mail = false) {
     options: {
       scopes:
         'email profile https://graph.microsoft.com/User.Read' +
-        (mail ? ' https://graph.microsoft.com/Mail.Send' : ''),
+        (mail ? ' https://graph.microsoft.com/Mail.ReadWrite' : ''),
       redirectTo: location.origin + '/?auth_callback=1',
     },
   });
@@ -2477,13 +2499,6 @@ function releaseHub() {
 function requestsView() {
   return `<div class="layout">${settingsSidebar('requests')}<main class="content" id="main"><h1>Requests & approvals</h1><p class="subtitle">Review publication requests and manage access to your workspace.</p>${state.requests.map((r) => `<article class="request-card"><div class="section-top"><h2>${r.kind === 'access' ? 'Editor access' : 'Publication approval'}</h2><span class="badge ${r.status === 'approved' ? 'published' : 'draft'}">${e(r.status)}</span></div><p class="small">Requested by ${e(r.requester_name)} · ${date(r.created_at)}</p>${r.page_id ? `<a class="request-document" href="#/edit/${r.page_id}">${e(state.pages.find((p) => p.id === r.page_id)?.title || 'Document')}</a>` : ''}<p>${e(r.reason)}</p>${r.resolution ? `<p class="small">Reviewer response: ${e(r.resolution)}</p>` : ''}${r.status === 'pending' && (state.member.role === 'admin' || (r.kind === 'publish' && state.member.role === 'publisher')) ? `<div class="toolbar-actions"><button class="btn primary" data-action="resolve-request" data-id="${r.id}" data-approve="true">${r.kind === 'publish' ? 'Approve & publish' : 'Approve publisher access'}</button><button class="btn outline" data-action="resolve-request" data-id="${r.id}" data-approve="false">Decline</button></div>` : ''}</article>`).join('') || empty('No requests yet', 'Your access and publication requests will appear here.')}</main></div>`;
 }
-async function emailPreview(id) {
-  const preview = await appApi('/api/notifications', { id, action: 'preview' });
-  dialog(
-    `<h2>Email announcement</h2><p class="small">Test mode · Only <strong>rahul@hoora.me</strong> will receive this email. Publishing never sends an email automatically.</p><p class="small">Subject: ${e(preview.subject)}</p><iframe class="email-preview" title="Outlook email preview" sandbox=""></iframe><p class="error" role="alert"></p><div class="dialog-actions"><button class="btn outline" data-close>Close</button><button class="btn outline" data-action="connect-outlook" data-id="${id}">Connect Outlook</button><button class="btn primary" data-action="send-test-email" data-id="${id}" data-request="${crypto.randomUUID()}">Send test to Rahul</button></div>`,
-  );
-  modal.querySelector('iframe').srcdoc = preview.html;
-}
 function bindWorkspace() {
   document.querySelector('#setup-password-form')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -2660,31 +2675,8 @@ document.addEventListener('click', async (ev) => {
     );
     return;
   }
-  if (a === 'email-preview') {
-    await busy(b, () => emailPreview(id));
-    return;
-  }
-  if (a === 'connect-outlook') {
-    await busy(b, async () => {
-      sessionStorage.setItem('hoora-outlook-return', id);
-      await startMicrosoftSignIn(true);
-    });
-    return;
-  }
-  if (a === 'send-test-email') {
-    await busy(b, async () => {
-      const providerToken = sessionStorage.getItem('hoora-outlook-token');
-      if (!providerToken)
-        throw new Error('Connect Outlook first to grant permission to send this test email.');
-      await appApi('/api/notifications', {
-        id,
-        action: 'send-test',
-        requestId: b.dataset.request,
-        providerToken,
-      });
-      toast('Test email sent only to rahul@hoora.me.');
-      modal.close();
-    });
+  if (a.startsWith('announce-')) {
+    await announce.action(a, b);
     return;
   }
 });

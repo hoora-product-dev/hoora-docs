@@ -1,5 +1,6 @@
 import {
   createElement,
+  Copy,
   Search,
   ArrowRight,
   ArrowLeft,
@@ -88,6 +89,7 @@ const nodes = {
   expand: Maximize2,
   reload: RotateCw,
   link: Link2,
+  copy: Copy,
   list: List,
   paperclip: Paperclip,
   theme: SunMoon,
