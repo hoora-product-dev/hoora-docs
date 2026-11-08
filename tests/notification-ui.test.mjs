@@ -51,6 +51,8 @@ test('Notification cards render with icons, unread filtering and a single device
   assert.equal(root.querySelectorAll('.notice-item').length, 0);
   assert.equal(state.unreadNoticeCount, 0);
   assert.ok(root.querySelector('[data-hub-action="push-enable"]'));
-  assert.ok(root.querySelector('[data-hub-action="install"]'));
+  // Installing has its own page; the inbox keeps one device setting.
+  assert.equal(root.querySelector('[data-hub-action="install"]'), null);
+  assert.ok(root.querySelector('[data-hub-action="show-all"]'));
   assert.equal(root.querySelector('[data-hub-action="push-disable"]'), null);
 });

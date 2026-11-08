@@ -73,7 +73,8 @@ export function releaseCard({ platform, version, publishedAt, entries = [] }) {
   };
 }
 
-async function describe(call, { type, slug, version, application }) {
+async function describe(call, target) {
+  const { type, slug, version, application } = target;
   if (type === 'release' && slugShape.test(application) && versionShape.test(version)) {
     const [project] = await call(
       `/rest/v1/docs_projects?slug=eq.${application}&select=name&limit=1`,
@@ -90,10 +91,12 @@ async function describe(call, { type, slug, version, application }) {
         publishedAt: live ? page.published_at : null,
         entries: live ? page.release_snapshot?.entries : [],
       }),
+      path: `/release-notes/${version}/${application}`,
       image: { kind: 'release', version, application, v: stamp(live && page.updated_at) },
     };
   }
-  if (type === 'doc' && slugShape.test(slug)) {
+  if ((type === 'doc' || type === 'artifact') && slugShape.test(slug)) {
+    const path = `/${type === 'artifact' ? 'artifact' : 'docs'}/${slug}`;
     const [page] = await call(
       `/rest/v1/docs_published?slug=eq.${slug}&select=id,title,summary,kind,visibility,team_id,published_at,updated_at,version,release_snapshot&limit=1`,
     );
@@ -106,7 +109,8 @@ async function describe(call, { type, slug, version, application }) {
           publishedAt: page.published_at,
           entries: page.release_snapshot.entries,
         }),
-        image: { kind: 'doc', slug, v: stamp(page.updated_at) },
+        path,
+        image: { kind: type, slug, v: stamp(page.updated_at) },
       };
     // Only documents shared with the whole organization show their title.
     if (page.visibility !== 'private')
@@ -116,7 +120,8 @@ async function describe(call, { type, slug, version, application }) {
         meta: 'Restricted access · Sign in with your Hoora account to open it',
         pageTitle: 'Shared document · Hoora Docs',
         description: 'This document is restricted. Sign in with your Hoora account to open it.',
-        image: { kind: 'doc', slug, v: stamp(page.updated_at) },
+        path,
+        image: { kind: type, slug, v: stamp(page.updated_at) },
       };
     const [[docType], [team]] = await Promise.all([
       call(`/rest/v1/docs_types?key=eq.${encodeURIComponent(page.kind)}&select=name&limit=1`),
@@ -134,7 +139,8 @@ async function describe(call, { type, slug, version, application }) {
       meta: `Updated ${day(page.updated_at || page.published_at)}`,
       pageTitle: `${clip(page.title, 70)} · Hoora Docs`,
       description: clip(`${label}. ${page.summary || ''}`, 200),
-      image: { kind: 'doc', slug, v: stamp(page.updated_at) },
+      path,
+      image: { kind: type, slug, v: stamp(page.updated_at) },
     };
   }
   if (type === 'upcoming' && slugShape.test(slug)) {
@@ -143,6 +149,7 @@ async function describe(call, { type, slug, version, application }) {
     );
     if (!release) return homeCard;
     const image = { kind: 'upcoming', slug, v: stamp(release.updated_at) };
+    const path = `/upcoming/${slug}`;
     if (!release.enabled)
       return {
         eyebrow: 'Upcoming release',
@@ -150,6 +157,7 @@ async function describe(call, { type, slug, version, application }) {
         meta: 'Sign in with your Hoora account to view it',
         pageTitle: 'Upcoming release · Hoora Docs',
         description: 'Sign in with your Hoora account to view this upcoming release.',
+        path,
         image,
       };
     const planned = release.release_date
@@ -161,10 +169,87 @@ async function describe(call, { type, slug, version, application }) {
       meta: `${planned} · Tickets from Jira`,
       pageTitle: `${release.title} · Upcoming release`,
       description: `${planned}. See the tickets in this release on Hoora Docs.`,
+      path,
       image,
     };
   }
+  if (type === 'page') return pageCard(call, target);
   return homeCard;
+}
+
+// Main pages: fixed wording, except Release notes, which shows the latest release.
+const pages = {
+  upcoming: {
+    eyebrow: 'Upcoming releases',
+    title: 'What ships next across Hoora',
+    meta: 'Planned releases and their Jira tickets',
+    path: '/upcoming',
+  },
+  install: {
+    eyebrow: 'Install Hoora Docs',
+    title: 'Release notes and SOPs, one tap away',
+    meta: 'iPhone, Android and desktop · Alerts when updates ship',
+    path: '/install',
+  },
+  library: {
+    eyebrow: 'Library',
+    title: 'SOPs and team documentation',
+    meta: 'Sign in with your Hoora account to browse',
+    path: '/browse',
+  },
+};
+
+async function pageCard(call, { page, project }) {
+  if (page === 'releases') {
+    const [projects, releases, removed] = await Promise.all([
+      call('/rest/v1/docs_projects?select=name,slug&order=name'),
+      call(
+        '/rest/v1/docs_published?kind=eq.release&select=id,version,published_at,updated_at,project:release_snapshot->>project&order=published_at.desc&limit=200',
+      ),
+      call('/rest/v1/docs_pages?kind=eq.release&deleted_at=not.is.null&select=id'),
+    ]);
+    const gone = new Set(removed.map((row) => row.id));
+    const platform = slugShape.test(project) ? projects.find((p) => p.slug === project) : null;
+    const shown = releases.filter(
+      (release) => !gone.has(release.id) && (!platform || release.project === platform.name),
+    );
+    const latest = shown[0];
+    const image = { kind: 'page', page, project: platform?.slug, v: stamp(latest?.updated_at) };
+    if (platform)
+      return {
+        eyebrow: `Release notes · ${platform.name}`,
+        headline: latest ? `v${latest.version}` : platform.name,
+        meta: latest
+          ? `Latest release · ${day(latest.published_at)} · ${plural(shown.length, 'version')}`
+          : 'No releases published yet',
+        pageTitle: `${platform.name} release notes · Hoora Docs`,
+        description: latest
+          ? `Latest: ${platform.name} v${latest.version}, released ${day(latest.published_at)}. Every version and what changed.`
+          : `Release notes for ${platform.name}.`,
+        path: `/releases?project=${platform.slug}`,
+        image,
+      };
+    return {
+      eyebrow: 'Release notes',
+      title: 'What’s new across Hoora',
+      meta: latest
+        ? `Latest: ${latest.project} v${latest.version} · ${day(latest.published_at)}`
+        : 'Every platform, every version',
+      chips: projects.map((p) => p.name),
+      pageTitle: 'Release notes · Hoora Docs',
+      description: `Release notes for ${list(projects.map((p) => p.name))}.${latest ? ` Latest: ${latest.project} v${latest.version}.` : ''}`,
+      path: '/releases',
+      image,
+    };
+  }
+  const card = pages[page];
+  if (!card) return homeCard;
+  return {
+    ...card,
+    pageTitle: `${card.eyebrow} · Hoora Docs`,
+    description: `${card.title}. ${card.meta}.`,
+    image: { kind: 'page', page },
+  };
 }
 
 async function deleted(call, id) {
@@ -174,7 +259,7 @@ async function deleted(call, id) {
 
 function imageUrl(origin, image) {
   const params = new URLSearchParams({ image: image.kind });
-  for (const key of ['version', 'application', 'slug', 'v'])
+  for (const key of ['version', 'application', 'slug', 'page', 'project', 'v'])
     if (image[key]) params.set(key, image[key]);
   return `${origin}/api/preview?${params}`;
 }
@@ -354,6 +439,8 @@ export default async function handler(req, res) {
     slug: query('slug').toLowerCase(),
     version: query('version').replace(/^v/i, ''),
     application: query('application').toLowerCase(),
+    page: query('page'),
+    project: query('project').toLowerCase(),
   };
   let card = homeCard;
   try {
@@ -362,14 +449,7 @@ export default async function handler(req, res) {
     card = homeCard;
   }
   const origin = `https://${req.headers['x-forwarded-host'] || req.headers.host}`;
-  const path =
-    target.type === 'release' && card !== homeCard
-      ? `/release-notes/${target.version}/${target.application}`
-      : target.type === 'doc' && card !== homeCard
-        ? `/docs/${target.slug}`
-        : target.type === 'upcoming' && card !== homeCard
-          ? `/upcoming/${target.slug}`
-          : '/';
+  const path = card.path || '/';
 
   if (imageKind) {
     const { fonts, mark } = await loadAssets();

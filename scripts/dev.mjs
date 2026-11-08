@@ -50,8 +50,17 @@ http
         return await handler(req, res);
       }
       // Shared links get their preview tags, as the Vercel rewrites do in production.
-      const shared = new URL(req.url, 'http://localhost').pathname.match(
-        /^\/(?:release-notes\/([^/]+)\/([^/]+)|(docs|upcoming)\/([^/]+))\/?$/,
+      const url = new URL(req.url, 'http://localhost');
+      const pagePreviews = {
+        releases: 'releases',
+        upcoming: 'upcoming',
+        install: 'install',
+        browse: 'library',
+        workspace: 'library',
+        home: 'home',
+      };
+      const shared = url.pathname.match(
+        /^\/(?:release-notes\/([^/]+)\/([^/]+)|(docs|upcoming|artifact)\/([^/]+)|(releases|upcoming|install|browse|workspace|home))\/?$/,
       );
       if (shared) {
         const { default: handler } = await import('../api/preview.js');
@@ -59,7 +68,16 @@ http
         res.send = (body) => res.end(body);
         req.query = shared[1]
           ? { type: 'release', version: shared[1], application: shared[2] }
-          : { type: shared[3] === 'docs' ? 'doc' : 'upcoming', slug: shared[4] };
+          : shared[5]
+            ? {
+                type: 'page',
+                page: pagePreviews[shared[5]],
+                project: url.searchParams.get('project') || '',
+              }
+            : {
+                type: { docs: 'doc', upcoming: 'upcoming', artifact: 'artifact' }[shared[3]],
+                slug: shared[4],
+              };
         return await handler(req, res);
       }
       if (req.url.split('?')[0] === '/config.js') {

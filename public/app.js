@@ -1,5 +1,6 @@
 import { icon } from './vendor/icons.js';
 import { assistantAvatarMarkup } from './assistant-avatar.js';
+import { moods } from './vendor/assistant-moods.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { accountMenu, settingsLinks } from './ui/account.js';
 import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
@@ -116,10 +117,69 @@ const navigation = createNavigation({
 const assistantMessages = [];
 let assistantOpen = false;
 let assistantBusy = false;
-let assistantMood = false;
 const assistantCache = new Map();
 const assistantAvatar = (className = '') =>
-  `<span class="assistant-inline-avatar ${className} ${assistantMood ? 'assistant-mood' : ''}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
+  `<span class="assistant-inline-avatar ${className}" aria-hidden="true">${assistantAvatarMarkup}</span>`;
+// Hoora Assist's face: thinking while it searches, a reaction to each answer, a new
+// expression on every tap, and sleepy when left alone. Poses morph through blobatar's CSS.
+const tapMoods = [
+  'happy',
+  'wink',
+  'surprised',
+  'love',
+  'smug',
+  'shy',
+  'unsure',
+  'sleepy',
+  'sad',
+  'scared',
+  'mad',
+  'sick',
+];
+const moodProperties = [...new Set(Object.values(moods).flatMap((mood) => Object.keys(mood.vars)))];
+let assistantExpression = 'idle';
+let tapMood = -1;
+let moodTimer = 0;
+let sleepTimer = 0;
+function paintMood() {
+  const mood = moods[assistantExpression] || moods.idle;
+  for (const face of document.querySelectorAll('.assistant-blobatar')) {
+    face.getBoundingClientRect(); // a face drawn this frame morphs instead of snapping
+    for (const property of moodProperties) face.style.removeProperty(property);
+    for (const [property, value] of Object.entries(mood.vars))
+      face.style.setProperty(property, value);
+    face.style.setProperty('--mo-head', mood.head);
+    face.style.setProperty('--mo-eye', mood.eye);
+    face.classList.toggle('mo-expr', assistantExpression !== 'idle');
+  }
+}
+function setAssistantMood(name, holdFor = 0) {
+  window.clearTimeout(moodTimer);
+  assistantExpression = name;
+  paintMood();
+  if (holdFor)
+    moodTimer = window.setTimeout(
+      () => setAssistantMood(assistantBusy ? 'thinking' : 'idle'),
+      holdFor,
+    );
+}
+function nextTapMood() {
+  tapMood = (tapMood + 1) % tapMoods.length;
+  setAssistantMood(tapMoods[tapMood], 1800);
+}
+function restartSleepTimer() {
+  window.clearTimeout(sleepTimer);
+  if (assistantOpen)
+    sleepTimer = window.setTimeout(() => {
+      if (!assistantBusy) setAssistantMood('sleepy');
+    }, 45000);
+}
+// Answers are plain text with light Markdown: escape first, then format.
+const assistantText = (text) =>
+  e(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- /gm, '• ')
+    .replace(/\n/g, '<br>');
 function assistantUI() {
   const route = routeHash();
   if (
@@ -147,13 +207,13 @@ function assistantUI() {
             ? `<nav class="assistant-actions" aria-label="Related Jira tickets"><span class="assistant-actions-label">Related tickets</span>${m.tickets.map((t) => `<a class="assistant-action assistant-ticket" href="${e(t.url)}" target="_blank" rel="noopener noreferrer">${icon('external')}<span>${e(t.key)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
           const avatar = m.role === 'assistant' ? assistantAvatar('assistant-response-avatar') : '';
-          return `<div class="assistant-message ${m.role}">${avatar}<div class="assistant-response-body"><div class="assistant-copy">${e(m.text).replace(/\n/g, '<br>')}</div>${sources}${tickets}</div></div>`;
+          return `<div class="assistant-message ${m.role}">${avatar}<div class="assistant-response-body"><div class="assistant-copy">${assistantText(m.text)}</div>${sources}${tickets}</div></div>`;
         })
         .join('')
     : `<div class="assistant-message assistant assistant-welcome">${assistantAvatar('assistant-response-avatar')}<div class="assistant-response-body"><div class="assistant-copy"><strong>${e(
         `${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}${state.member?.name ? `, ${state.member.name}` : ''}!`,
       )}</strong><span>How can I help you today with releases, SOPs, or documentation?</span></div></div></div>`;
-  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand">${assistantAvatar()}<div><strong>Hoora Assist</strong><small>Ask me about releases, SOPs and documentation.</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><div class="assistant-composer"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about a release, SOP or document…" required><button type="submit" aria-label="Send question" title="Send">${icon('arrow')}</button></div></form></section></div>`;
+  return `<div class="assistant-shell"><button type="button" class="assistant-trigger" data-assistant="toggle" aria-label="Hoora Assist" aria-expanded="${assistantOpen}">${assistantAvatar()}<span>Hoora Assist</span></button><section class="assistant-panel" aria-label="Hoora Assist knowledge assistant" ${assistantOpen ? '' : 'hidden'}><div class="assistant-header"><div class="assistant-brand"><button type="button" class="assistant-face" data-assistant="mood" aria-label="Change Hoora Assist’s expression">${assistantAvatar()}</button><div><strong>Hoora Assist</strong><small>Ask me about releases, SOPs and documentation.</small></div></div><button class="iconbtn" type="button" data-assistant="toggle" aria-label="Close assistant">${icon('close')}</button></div><div class="assistant-messages" aria-live="polite">${messageMarkup}</div><form class="assistant-form" id="assistant-form"><div class="assistant-composer"><label class="sr-only" for="assistant-question">Your question</label><input id="assistant-question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about a release, SOP or document…" required><button type="submit" aria-label="Send question" title="Send">${icon('arrow')}</button></div></form></section></div>`;
 }
 function syncAssistantViewport() {
   const viewport = window.visualViewport;
@@ -188,6 +248,7 @@ function renderAssistant() {
   const messages = document.querySelector('.assistant-messages');
   if (messages) messages.scrollTop = atBottom ? messages.scrollHeight : scrollTop;
   syncAssistantViewport();
+  window.requestAnimationFrame(paintMood);
 }
 const canEdit = (role) =>
   canEditRole(role) ||
@@ -689,12 +750,13 @@ function workspace() {
           ? !state.published.some((x) => x.id === p.id)
           : state.published.some((x) => x.id === p.id)),
     );
-  const title = state.folder
-    ? state.folders.find((f) => f.id === state.folder)?.name
-    : state.team
-      ? state.teams.find((t) => t.id === state.team)?.name
-      : names[state.kind] || 'All documents';
-  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading"><div><h1>${e(title)}</h1></div>${canEdit(state.member.role) ? `<div class="toolbar-actions"><a class="btn dark" href="#/new">${icon('plus')}New document</a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
+  const title =
+    (state.folder
+      ? state.folders.find((f) => f.id === state.folder)?.name
+      : state.team
+        ? state.teams.find((t) => t.id === state.team)?.name
+        : names[state.kind]) || 'All documents';
+  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading library-heading"><div><h1>${e(title)}</h1></div>${canEdit(state.member.role) ? `<div class="toolbar-actions"><a class="btn dark" href="#/new" aria-label="New document">${icon('plus')}<span>New<span class="wide-only"> document</span></span></a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
 function login() {
@@ -961,7 +1023,7 @@ async function users() {
   };
   const pool = `<aside class="people-pool board-column" data-drop-team="" aria-label="Unassigned"><header><strong>Unassigned</strong><span>${unassigned.length}</span></header><input class="people-search" type="search" placeholder="Find a person…" autocomplete="off" aria-label="Find a person" data-people-search><div class="board-cards">${unassigned.map((m) => card(m)).join('') || '<p class="board-empty">Everyone has a team</p>'}</div><form class="board-assign" data-board-assign><strong>Add to a team</strong><input name="email" list="people-emails" placeholder="Name or email" aria-label="Person" required><datalist id="people-emails">${state.members.map((m) => `<option value="${e(m.email)}">${e(m.name || '')}</option>`).join('')}</datalist><select name="team" aria-label="Team" required><option value="">Team…</option>${state.teams.map((t) => `<option value="${e(t.id)}">${e(t.name)}</option>`).join('')}</select><button class="btn outline" type="submit">Add</button></form></aside>`;
   const canvas = `<div class="people-board team-board"><div class="team-board-toolbar" role="toolbar" aria-label="Board view"><button type="button" class="iconbtn" data-canvas-zoom="-0.1" aria-label="Zoom out">−</button><output data-canvas-level>100%</output><button type="button" class="iconbtn" data-canvas-zoom="0.1" aria-label="Zoom in">+</button><button type="button" class="btn text" data-canvas-fit>Fit</button><button type="button" class="btn text" data-canvas-full aria-pressed="false">Full screen</button></div>${pool}<div class="team-canvas" data-canvas tabindex="0" aria-label="Teams board. Drag empty space to move around."><div class="canvas-world">${state.teams.map(table).join('')}</div></div></div>`;
-  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>Everyone joins as a viewer in Unassigned. Drag people onto a team and set their role there.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div>${canvas}<section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><p><strong>Viewer</strong> Reads release notes, upcoming releases and every document shared with them.</p><p><strong>Editor</strong> Writes and edits drafts for their team.</p><p><strong>Publisher</strong> Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</p><p><strong>Manager</strong> Everything a publisher can do, plus managing the team’s people and sharing its documents.</p><p><strong>Administrator</strong> Organization role with full control. Set it from a person’s name.</p></details></main></div>`;
+  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>Everyone joins as a viewer in Unassigned. Drag people onto a team and set their role there.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div>${canvas}<section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><dl class="role-list"><div><dt>Viewer</dt><dd>Reads release notes, upcoming releases and every document shared with them.</dd></div><div><dt>Editor</dt><dd>Writes and edits drafts for their team.</dd></div><div><dt>Publisher</dt><dd>Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</dd></div><div><dt>Manager</dt><dd>Everything a publisher can do, plus managing the team’s people and sharing its documents.</dd></div><div><dt>Administrator</dt><dd>Organization role with full control. Set it from a person’s name.</dd></div></dl></details></main></div>`;
 }
 /** People board: drag between columns, or use the role and "Add person" menus. */
 function bindPeopleBoard() {
@@ -3111,21 +3173,6 @@ document.addEventListener('click', async (ev) => {
     b.title = pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded';
     return;
   }
-  if (action === 'reindex-knowledge' && state.member?.role === 'admin') {
-    await busy(b, async () => {
-      let count = 0;
-      for (const page of state.published) {
-        try {
-          await appApi('/api/ai-index', { documentId: page.id });
-          count++;
-        } catch (error) {
-          console.warn('AI index skipped:', page.slug, error.message);
-        }
-      }
-      toast(`AI index refreshed for ${count} documents.`);
-    });
-    return;
-  }
   if (action === 'menu') {
     navigation.setOpen(!document.querySelector('.layout')?.classList.contains('menu-open'));
     return;
@@ -3386,13 +3433,16 @@ document.addEventListener('click', async (event) => {
 });
 
 document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-assistant="mood"]')) {
+    nextTapMood();
+    restartSleepTimer();
+    return;
+  }
   if (!event.target.closest('[data-assistant="toggle"]')) return;
-  assistantMood = true;
   assistantOpen = !assistantOpen;
   renderAssistant();
-  window.setTimeout(() => {
-    assistantMood = false;
-  }, 900);
+  nextTapMood();
+  restartSleepTimer();
   if (assistantOpen) document.querySelector('#assistant-question')?.focus({ preventScroll: true });
   else document.querySelector('.assistant-trigger')?.focus({ preventScroll: true });
 });
@@ -3432,6 +3482,9 @@ document.addEventListener('submit', async (event) => {
     .toLocaleLowerCase()
     .replace(/\s+/g, ' ')}`;
   assistantBusy = true;
+  window.clearTimeout(sleepTimer);
+  setAssistantMood('thinking');
+  let reaction = 'happy';
   const thinkingStartedAt = performance.now();
   assistantMessages.push({ role: 'user', text: question }, { role: 'assistant', thinking: true });
   input.value = '';
@@ -3460,6 +3513,7 @@ document.addEventListener('submit', async (event) => {
       setTimeout(resolve, Math.max(0, 450 - (performance.now() - thinkingStartedAt))),
     );
     assistantMessages.pop();
+    if (!data.sources?.length && !data.tickets?.length) reaction = 'unsure';
     assistantMessages.push({
       role: 'assistant',
       text: data.answer,
@@ -3469,9 +3523,12 @@ document.addEventListener('submit', async (event) => {
   } catch (error) {
     assistantMessages.pop();
     assistantMessages.push({ role: 'assistant', text: error.message || 'Please try again.' });
+    reaction = 'sad';
   }
   assistantBusy = false;
   renderAssistant();
+  setAssistantMood(reaction, 2400);
+  restartSleepTimer();
   document.querySelector('.assistant-messages')?.scrollTo({ top: 99999, behavior: 'smooth' });
   document.querySelector('#assistant-question')?.focus();
 });

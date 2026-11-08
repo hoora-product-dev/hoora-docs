@@ -143,10 +143,7 @@ export default async function handler(req, res) {
     }
     if (b.action !== 'notify' || !/^[a-f0-9-]{36}$/i.test(b.id || ''))
       return res.status(400).json({ error: 'Invalid notice request.' });
-    if (!['admin', 'manager'].includes(member.role))
-      return res
-        .status(403)
-        .json({ error: 'Only administrators and team managers can send notices.' });
+    // docs_notify decides: administrators and the managers of the document's team.
     const notice = await call('/rest/v1/rpc/docs_notify', {
       method: 'POST',
       headers: { Authorization: req.headers.authorization },

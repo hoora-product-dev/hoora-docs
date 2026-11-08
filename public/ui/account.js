@@ -28,5 +28,5 @@ export function accountMenu({ state, e, icon, avatar, theme }) {
     )
     .join(
       '',
-    )}<div class="account-menu-divider"></div><button type="button" data-action="theme">${icon(theme === 'dark' ? 'sun' : 'moon')}<span>${theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button>${member.role === 'admin' ? `<button type="button" data-action="reindex-knowledge">${icon('reload')}<span>Refresh AI index</span></button>` : ''}<button type="button" data-action="logout">${icon('logout')}<span>Sign out</span></button></div></details>`;
+    )}<div class="account-menu-divider"></div><button type="button" data-action="theme">${icon(theme === 'dark' ? 'sun' : 'moon')}<span>${theme === 'dark' ? 'Light theme' : 'Dark theme'}</span></button><button type="button" data-action="logout">${icon('logout')}<span>Sign out</span></button></div></details>`;
 }

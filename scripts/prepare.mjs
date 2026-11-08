@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { mkdir, copyFile, writeFile, rm, cp } from 'node:fs/promises';
+import * as expressions from 'blobatar/expression';
 await rm(new URL('../public/vendor/', import.meta.url), { recursive: true, force: true });
 await mkdir('public/vendor', { recursive: true });
 await mkdir('public/fonts', { recursive: true });
@@ -96,3 +97,21 @@ await writeFile(
   "@font-face{font-family:Geist;font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/geist-latin.woff2') format('woff2')}\n",
 );
 console.log('Prepared local Markdown, OAuth, and font assets.');
+
+// Hoora Assist's facial expressions, taken from blobatar so they match the library's
+// own morph. Each is a set of CSS custom properties, and the tinted ones recolour the
+// face; the base colours are the assistant avatar's own.
+const face = { head: '#a5ddff', eye: '#071117' };
+const moods = Object.fromEntries(
+  Object.entries(expressions)
+    .filter(([, expression]) => expression?.p)
+    .map(([name, expression]) => {
+      const tint = expression.tint?.({ ...face }, expression.p) || face;
+      return [name, { vars: expression.vars(expression.p), head: tint.head, eye: tint.eye }];
+    }),
+);
+await writeFile(
+  'public/vendor/assistant-moods.js',
+  `export const moods = ${JSON.stringify(moods)};
+`,
+);

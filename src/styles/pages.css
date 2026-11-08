@@ -401,12 +401,6 @@
   top: -3px;
   right: -5px;
 }
-.notice-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 .notice-item.unread {
   background: color-mix(in srgb, #d92d20 5%, var(--surface));
   border-radius: 8px;
@@ -429,26 +423,7 @@
   background: color-mix(in srgb, #d92d20 12%, var(--surface));
   color: #d92d20;
 }
-.notification-settings {
-  margin-top: 24px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
-.notification-settings > summary {
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.notification-settings > .toolbar-actions {
-  margin-top: 14px;
-}
-.notification-settings > .small {
-  margin-top: 10px;
-}
 @media (max-width: 700px) {
-  .notice-actions {
-    width: 100%;
-  }
   .notice-item {
     gap: 10px;
   }

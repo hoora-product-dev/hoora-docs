@@ -66,14 +66,11 @@ export function workspaceFeatures({
         subscribed: false,
       },
       pushAction = push.subscribed
-        ? '<button class="btn outline" data-hub-action="push-disable">Disable notifications</button>'
+        ? '<button class="btn outline" data-hub-action="push-disable">Turn off</button>'
         : push.supported && push.permission !== 'denied'
-          ? '<button class="btn dark" data-hub-action="push-enable">Enable notifications</button>'
-          : '<span class="notification-status">Browser notifications unavailable</span>',
-      installAction = push.installed
-        ? ''
-        : '<button class="btn outline" data-hub-action="install">Install Hoora Docs</button>';
-    return `<main id="main" class="settings-content notifications-page"><div class="view-heading"><div><h1>Notifications</h1>${unread.length ? `<p>${unread.length} unread update${unread.length === 1 ? '' : 's'}</p>` : ''}</div><div class="notice-actions">${unread.length ? '<button class="btn outline" data-hub-action="mark-all-read">Mark all as read</button>' : ''}<button class="btn outline" data-hub-action="toggle-notice-history">${showAllNotices ? 'Show unread' : 'Show all'}</button></div></div><div class="notice-list">${
+          ? '<button class="btn dark" data-hub-action="push-enable">Turn on</button>'
+          : '';
+    return `<main id="main" class="settings-content notifications-page"><div class="notice-heading"><h1>Notifications</h1>${unread.length ? '<button class="btn text" data-hub-action="mark-all-read">Mark all as read</button>' : ''}</div><nav class="notice-tabs" aria-label="Notifications"><button type="button" class="${showAllNotices ? '' : 'active'}" data-hub-action="show-unread" aria-pressed="${!showAllNotices}">Unread${unread.length ? ` <span>${unread.length}</span>` : ''}</button><button type="button" class="${showAllNotices ? 'active' : ''}" data-hub-action="show-all" aria-pressed="${showAllNotices}">All</button></nav><div class="notice-list">${
       visible
         .map((n) => {
           const p = state.published.find((p) => p.id === n.page_id);
@@ -83,7 +80,7 @@ export function workspaceFeatures({
         })
         .join('') ||
       `<div class="empty notice-empty"><h2>${showAllNotices ? 'No notifications yet' : 'You’re all caught up'}</h2><p>${showAllNotices ? 'Updates shared with you will appear here.' : 'New updates will appear here when a manager shares them.'}</p></div>`
-    }</div><details class="notification-settings"><summary>Notification settings</summary><div class="notification-settings-card"><div><strong>Browser notifications</strong><p>${push.subscribed ? 'Enabled on this browser.' : push.permission === 'denied' ? 'Allow notifications in your browser settings to receive release updates.' : 'Get an alert when a release or document is shared with you.'}</p></div><div class="toolbar-actions">${pushAction}${installAction}</div></div></details></main>`;
+    }</div><section class="notification-setting" aria-label="Notification settings"><div><strong>Alerts on this device</strong><p>${push.subscribed ? 'On. You get an alert when a release or document is shared with you.' : push.permission === 'denied' ? 'Blocked in this browser’s settings.' : 'Get an alert when a release or document is shared with you.'}</p></div>${pushAction}</section></main>`;
   }
   function contributions() {
     const mine = state.pages.filter(
@@ -134,8 +131,8 @@ export function workspaceFeatures({
       );
       return;
     }
-    if (type === 'toggle-notice-history') {
-      showAllNotices = !showAllNotices;
+    if (type === 'show-unread' || type === 'show-all') {
+      showAllNotices = type === 'show-all';
       await render();
       return;
     }
@@ -157,11 +154,6 @@ export function workspaceFeatures({
       showAllNotices = false;
       await render();
       toast('All notifications marked as read.');
-      return;
-    }
-    if (type === 'install') {
-      await pwa.install();
-      await render();
       return;
     }
     if (type === 'push-enable') {

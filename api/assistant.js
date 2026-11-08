@@ -1,4 +1,5 @@
 import { serverKeyHeaders } from '../server/supabase.js';
+import { embedding as embeddingModel } from '../server/ai-index.js';
 
 export const maxDuration = 60;
 const models = ['nvidia/nemotron-3.5-lightning-free', 'reflection/beam-free'];
@@ -6,7 +7,8 @@ const idPattern = /^[a-f0-9-]{36}$/i;
 const ticketPattern = /\b[A-Z][A-Z0-9]{2,12}-\d{1,8}\b/g;
 const noDocumentMessage =
   'I could not find an accessible Hoora document for that question. Open a document you can read, or ask about a published release, SOP, or upcoming release.';
-const assistantIdentity = 'I’m Hoora Assist. I can help with the releases, SOPs, tickets, and documentation you can access.';
+const assistantIdentity =
+  'I’m Hoora Assist. I can help with the releases, SOPs, tickets, and documentation you can access.';
 const normalizeAssistantAnswer = (value) =>
   String(value || '')
     .replace(/[—–]/g, ' ')
@@ -88,7 +90,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid document.' });
     const conversational = conversationalAnswer(question);
     if (conversational)
-      return res.status(200).json({ answer: normalizeAssistantAnswer(conversational), sources: [], tickets: [] });
+      return res
+        .status(200)
+        .json({ answer: normalizeAssistantAnswer(conversational), sources: [], tickets: [] });
     const url = process.env.SUPABASE_URL,
       key = process.env.SUPABASE_ANON_KEY;
     const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
@@ -127,7 +131,7 @@ export default async function handler(req, res) {
       const embedding = await fetch('https://ai-gateway.vercel.sh/v1/embeddings', {
         method: 'POST',
         headers: { Authorization: `Bearer ${gatewayToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai/text-embedding-3-small', input: question }),
+        body: JSON.stringify({ ...embeddingModel, input: question }),
         signal: AbortSignal.timeout(12000),
       });
       if (embedding.ok) {
@@ -184,7 +188,9 @@ export default async function handler(req, res) {
       .filter(idPattern.test.bind(idPattern))
       .slice(0, 9);
     if (!ids.length && !upcoming.releases.length)
-      return res.status(200).json({ answer: normalizeAssistantAnswer(noDocumentMessage), sources: [], tickets: [] });
+      return res
+        .status(200)
+        .json({ answer: normalizeAssistantAnswer(noDocumentMessage), sources: [], tickets: [] });
     let rows = [];
     if (ids.length) {
       const response = await fetch(
@@ -202,7 +208,9 @@ export default async function handler(req, res) {
       .filter(Boolean)
       .slice(0, 6);
     if (!ordered.length && !upcoming.releases.length)
-      return res.status(200).json({ answer: normalizeAssistantAnswer(noDocumentMessage), sources: [], tickets: [] });
+      return res
+        .status(200)
+        .json({ answer: normalizeAssistantAnswer(noDocumentMessage), sources: [], tickets: [] });
     const documentSources = ordered.map((row, index) => ({
       number: index + 1,
       title: row.title,
@@ -338,9 +346,11 @@ export default async function handler(req, res) {
       return res.status(lastStatus).json({
         error: 'Hoora Assist is temporarily unavailable. Please try again shortly.',
       });
-    const safeAnswer = normalizeAssistantAnswer(String(answer).replace(/\[(\d+)\]/g, (match, number) =>
-      Number(number) >= 1 && Number(number) <= sources.length ? match : '',
-    ));
+    const safeAnswer = normalizeAssistantAnswer(
+      String(answer).replace(/\[(\d+)\]/g, (match, number) =>
+        Number(number) >= 1 && Number(number) <= sources.length ? match : '',
+      ),
+    );
     return res.status(200).json({ answer: safeAnswer, sources, tickets });
   } catch (error) {
     return res.status(500).json({

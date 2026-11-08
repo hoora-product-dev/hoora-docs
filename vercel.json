@@ -8,6 +8,10 @@
     {
       "path": "/api/cleanup",
       "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/ai-index",
+      "schedule": "45 2 * * *"
     }
   ],
   "headers": [
@@ -65,7 +69,7 @@
     },
     {
       "source": "/upcoming",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=upcoming"
     },
     {
       "source": "/upcoming/:slug",
@@ -73,11 +77,11 @@
     },
     {
       "source": "/install",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=install"
     },
     {
       "source": "/home",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=home"
     },
     {
       "source": "/release-notes/:version/:application",
@@ -89,7 +93,7 @@
     },
     {
       "source": "/releases",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=releases"
     },
     {
       "source": "/app",
@@ -97,11 +101,11 @@
     },
     {
       "source": "/workspace",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=library"
     },
     {
       "source": "/browse",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=page&page=library"
     },
     {
       "source": "/login",
@@ -121,7 +125,7 @@
     },
     {
       "source": "/artifact/:slug",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=artifact&slug=:slug"
     },
     {
       "source": "/teams",
