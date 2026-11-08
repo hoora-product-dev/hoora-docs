@@ -974,3 +974,59 @@ body.board-full {
 .tablewrap {
   scrollbar-width: thin;
 }
+
+/* Calm focus. Taps and clicks never draw rings or flashes. A field shows only a quiet
+   border change while typing; keyboard users still get a ring on buttons and links. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+:is(input, select, textarea, [contenteditable='true']):is(:focus, :focus-visible),
+[tabindex='-1']:focus {
+  outline: none;
+  box-shadow: none;
+}
+.search:focus-within,
+.home-search:focus-within,
+.assistant-composer:focus-within,
+:is(.field, .search-result-filters, .library-tools) :is(input, select, textarea):focus {
+  border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
+  box-shadow: none;
+  outline: none;
+}
+/* The browser's own clear button is replaced by plain backspace. */
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Search page: a compact round submit, like the assistant's send button. */
+.search-submit {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  cursor: pointer;
+  transition: opacity var(--motion-fast);
+}
+.search-submit .icon svg {
+  width: 16px;
+  height: 16px;
+}
+.search:has(input:placeholder-shown) .search-submit {
+  opacity: 0.35;
+}
+.search-submit:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* While a search runs, only "Searching…" shows, not the empty-state message too. */
+[aria-busy='true'] > .empty {
+  display: none;
+}
