@@ -72,8 +72,8 @@ test('Announcement template escapes contributor content and includes the public 
   assert.match(mail.html, /Rahul Tripathi/);
   assert.match(mail.html, /View release notes/);
   assert.match(mail.html, /Install Hoora Docs/);
-  assert.match(mail.html, /Hoora Product team/);
-  assert.match(mail.html, /Planned and documented by the/);
+  assert.match(mail.html, /Product &amp; Tech teams/);
+  assert.match(mail.html, /Shipped by the/);
   assert.match(mail.html, /Hoora Docs<\/a> &middot; Rahul Tripathi/);
   assert.ok(!mail.html.includes('Reply to this email'));
   assert.ok(!mail.body.includes('display:none'), 'The copy has no hidden preview text');

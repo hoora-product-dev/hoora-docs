@@ -122,7 +122,7 @@ export function announcement(page, origin = 'https://hoora-docs.vercel.app', hig
     points.length
       ? `<tr><td class="pad" style="padding:28px 36px 4px;${FONT}"><p class="muted" style="margin:0 0 14px;font-size:12px;line-height:16px;font-weight:600;color:#737373;letter-spacing:0.2px;${FONT}">What’s new</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${pointRows}</table></td></tr>`
       : ''
-  }<tr><td class="pad" style="padding:26px 36px 28px;${FONT}"><table role="presentation" cellpadding="0" cellspacing="0" class="btn-table"><tr><td class="btn-cell" style="padding:0 10px 10px 0">${primaryButton(url, 'View release notes')}</td><td class="btn-cell" style="padding:0 0 10px 0">${secondaryButton(install, 'Install Hoora Docs')}</td></tr></table></td></tr>${badges}<tr><td class="pad line" style="padding:20px 36px 22px;border-top:1px solid #efefef;${FONT}"><p class="muted" style="margin:0;font-size:13px;line-height:20px;color:#737373;${FONT}">Planned and documented by the <span class="ink" style="color:#111111;font-weight:600">Hoora Product team</span></p></td></tr></table><table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px"><tr><td align="center" class="foot" style="padding:20px 24px 0;font-size:11px;line-height:18px;color:#9a9a9a;${FONT}">Sent with <a href="${origin}" style="color:#9a9a9a;text-decoration:underline">Hoora Docs</a> &middot; Rahul Tripathi</td></tr></table></td></tr></table>`;
+  }<tr><td class="pad" style="padding:26px 36px 28px;${FONT}"><table role="presentation" cellpadding="0" cellspacing="0" class="btn-table"><tr><td class="btn-cell" style="padding:0 10px 10px 0">${primaryButton(url, 'View release notes')}</td><td class="btn-cell" style="padding:0 0 10px 0">${secondaryButton(install, 'Install Hoora Docs')}</td></tr></table></td></tr>${badges}<tr><td class="pad line" style="padding:20px 36px 22px;border-top:1px solid #efefef;${FONT}"><p class="muted" style="margin:0;font-size:13px;line-height:20px;color:#737373;${FONT}">Shipped by the <span class="ink" style="color:#111111;font-weight:600">Product &amp; Tech teams</span></p></td></tr></table><table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px"><tr><td align="center" class="foot" style="padding:20px 24px 0;font-size:11px;line-height:18px;color:#9a9a9a;${FONT}">Sent with <a href="${origin}" style="color:#9a9a9a;text-decoration:underline">Hoora Docs</a> &middot; Rahul Tripathi</td></tr></table></td></tr></table>`;
 
   // The inbox preview line goes only in the sent email; a pasted copy could show it.
   const hidden = `<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#f3f3f4">${esc(preheader)}${'&#8204;&nbsp;'.repeat(60)}</div>`;
@@ -161,7 +161,7 @@ a{text-decoration:none}
         ]
       : []),
     '',
-    'Planned and documented by the Hoora Product team',
+    'Shipped by the Product & Tech teams',
     '',
     'Sent with Hoora Docs · Rahul Tripathi',
   ]
