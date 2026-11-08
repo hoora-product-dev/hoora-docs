@@ -16,9 +16,7 @@
     "scripts/**/*.{mjs,cjs}",
     "tests/**/*.{mjs,js}"
   ],
-  "ignoreDependencies": [
-    "@fontsource-variable/geist"
-  ],
+  "ignoreDependencies": ["@fontsource-variable/geist"],
   "ignoreExportsUsedInFile": true,
   "ignoreUnresolved": [
     "./config.js",
