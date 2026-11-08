@@ -144,30 +144,9 @@ select:focus-visible {
   padding-top: 22px;
   border-top: 1px solid var(--line);
 }
-.related-knowledge h2,
 .recent-knowledge h2 {
   font-size: 18px;
   margin: 25px 0 15px;
-}
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-.related-grid a {
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--line);
-  padding: 16px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-.related-grid small {
-  font-size: 11px;
-  color: var(--muted);
-}
-.related-grid a:hover {
-  background: var(--raised);
 }
 .related-options {
   display: grid;

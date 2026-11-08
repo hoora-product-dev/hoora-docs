@@ -1319,20 +1319,76 @@ dialog:focus {
   border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
 }
 
-/* Page actions under a document or release: one quiet row. */
-.knowledge-page-tools {
-  align-items: center;
-  gap: 6px;
-  margin: 28px 0 0;
-  padding-top: 18px;
-}
-.knowledge-page-tools .btn {
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
+/* Related pages: small links in the same style as previous / next, never full width. */
+.related-knowledge {
+  margin-top: 28px;
 }
 .related-knowledge:empty {
   display: none;
+}
+.related-knowledge h2 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+.related-grid a {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.related-grid a:hover {
+  background: var(--surface);
+}
+.related-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.related-grid strong {
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* Page actions for editors: one quiet row of text buttons at the very end. */
+.knowledge-page-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: 28px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.knowledge-page-tools:empty {
+  display: none;
+}
+body .knowledge-page-tools .btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+body .knowledge-page-tools .btn:first-child {
+  margin-left: -10px;
+}
+body .knowledge-page-tools .btn:hover {
+  background: var(--surface);
+  color: var(--ink);
 }
 
 /* Previous / next, for documents and release versions: two quiet links that sit

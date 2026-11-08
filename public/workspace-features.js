@@ -24,7 +24,7 @@ export function workspaceFeatures({
   let showAllNotices = false;
   function pageTools(p) {
     if (!state.member) return '';
-    return `<div class="knowledge-page-tools">${manages(p) ? `<button class="btn outline" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div><section class="related-knowledge" data-related-page="${p.id}"></section>`;
+    return `<section class="related-knowledge" data-related-page="${p.id}"></section><div class="knowledge-page-tools">${manages(p) ? `<button class="btn text" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div>`;
   }
   async function hydrate() {
     for (const root of document.querySelectorAll('[data-related-page]')) {
@@ -38,7 +38,7 @@ export function workspaceFeatures({
           pages = state.published.filter((p) => ids.includes(p.id));
         if (root.isConnected)
           root.innerHTML = pages.length
-            ? `<h2>Related knowledge</h2><div class="related-grid">${pages.map((p) => `<a href="${publishedRoute(p, state.projects)}"><small>${e(state.types.find((t) => t.key === p.kind)?.name || p.kind)}</small><strong>${e(p.title)}</strong></a>`).join('')}</div>`
+            ? `<h2>Related</h2><div class="related-grid">${pages.map((p) => `<a href="${publishedRoute(p, state.projects)}"><small>${e(state.types.find((t) => t.key === p.kind)?.name || p.kind)}</small><strong>${e(p.title)}</strong></a>`).join('')}</div>`
             : '';
       } catch {
         if (root.isConnected)
