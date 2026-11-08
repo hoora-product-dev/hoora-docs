@@ -62,3 +62,35 @@
     transition: none;
   }
 }
+/* Launch: the same sweep in pure CSS, running before any script has loaded. */
+.vehicle-loader.is-booting .vehicle-loader-letter {
+  animation: vehicle-boot-sweep 1.75s ease-in-out calc(0.18s + var(--i) * 71ms) infinite both;
+}
+@keyframes vehicle-boot-sweep {
+  0%,
+  18%,
+  100% {
+    opacity: 0.32;
+    transform: none;
+  }
+  9% {
+    opacity: 1;
+    transform: translateY(-1.5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion keeps the brightness sweep and drops the lift. */
+  .vehicle-loader.is-booting .vehicle-loader-letter {
+    animation: vehicle-boot-glow 1.75s ease-in-out calc(0.18s + var(--i) * 71ms) infinite both !important;
+  }
+  @keyframes vehicle-boot-glow {
+    0%,
+    18%,
+    100% {
+      opacity: 0.32;
+    }
+    9% {
+      opacity: 1;
+    }
+  }
+}

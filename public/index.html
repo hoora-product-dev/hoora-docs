@@ -34,22 +34,54 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Hoora Docs" />
     <script src="/theme-init.js"></script>
+    <link
+      rel="preload"
+      href="/loader/plus-jakarta-sans-700.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/loader/plus-jakarta-sans-800.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
     <link rel="stylesheet" href="/vendor/ui.css" />
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <div id="app" aria-busy="true"></div>
+    <!-- Smart Vehicle 360 is on screen from the first frame of every launch; the app
+         fades it out once the first page is ready. -->
     <div
       id="vehicle-loader"
-      class="vehicle-loader"
+      class="vehicle-loader is-visible is-booting"
       role="status"
       aria-live="polite"
       aria-label="Loading Hoora Docs"
-      aria-hidden="true"
-      hidden
     >
       <div class="vehicle-loader-content">
-        <div class="vehicle-loader-word" aria-hidden="true"></div>
+        <div class="vehicle-loader-word" aria-hidden="true">
+          <span class="vehicle-loader-letter" style="--i: 0">S</span
+          ><span class="vehicle-loader-letter" style="--i: 1">m</span
+          ><span class="vehicle-loader-letter" style="--i: 2">a</span
+          ><span class="vehicle-loader-letter" style="--i: 3">r</span
+          ><span class="vehicle-loader-letter" style="--i: 4">t</span
+          ><span class="vehicle-loader-gap"> </span
+          ><span class="vehicle-loader-letter" style="--i: 6">V</span
+          ><span class="vehicle-loader-letter" style="--i: 7">e</span
+          ><span class="vehicle-loader-letter" style="--i: 8">h</span
+          ><span class="vehicle-loader-letter" style="--i: 9">i</span
+          ><span class="vehicle-loader-letter" style="--i: 10">c</span
+          ><span class="vehicle-loader-letter" style="--i: 11">l</span
+          ><span class="vehicle-loader-letter" style="--i: 12">e</span
+          ><span class="vehicle-loader-gap"> </span
+          ><span class="vehicle-loader-letter is-number" style="--i: 14">3</span
+          ><span class="vehicle-loader-letter is-number" style="--i: 15">6</span
+          ><span class="vehicle-loader-letter is-number" style="--i: 16">0</span>
+        </div>
       </div>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>

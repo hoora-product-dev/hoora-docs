@@ -18,21 +18,24 @@ export function createLoading({ app, element }) {
     frame = 0;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const word = element?.querySelector('.vehicle-loader-word');
-  // Every character, including spaces, takes a position along the sweep.
-  const characters = word
-    ? Array.from(WORD, (character, index) => {
-        const span = document.createElement('span');
-        span.textContent = character;
-        span.className =
-          character === ' '
-            ? 'vehicle-loader-gap'
-            : index >= WORD.lastIndexOf(' ') + 1
-              ? 'vehicle-loader-letter is-number'
-              : 'vehicle-loader-letter';
-        return span;
-      })
-    : [];
-  word?.replaceChildren(...characters);
+  // Every character, including spaces, takes a position along the sweep. The page
+  // ships the letters already in place so the launch animation needs no script.
+  const characters = word?.children.length
+    ? [...word.children]
+    : word
+      ? Array.from(WORD, (character, index) => {
+          const span = document.createElement('span');
+          span.textContent = character;
+          span.className =
+            character === ' '
+              ? 'vehicle-loader-gap'
+              : index >= WORD.lastIndexOf(' ') + 1
+                ? 'vehicle-loader-letter is-number'
+                : 'vehicle-loader-letter';
+          return span;
+        })
+      : [];
+  if (word && !word.children.length) word.replaceChildren(...characters);
   const last = characters.length - 1;
 
   function paint(now) {
@@ -67,9 +70,17 @@ export function createLoading({ app, element }) {
     app.inert = false;
     hideTimer = setTimeout(() => {
       cancelAnimationFrame(frame);
+      element.classList.remove('is-booting');
       element.hidden = true;
       element.setAttribute('aria-hidden', 'true');
     }, FADE_OUT);
+  }
+  // Launch: the loader is already visible (CSS sweep). Count it as shown from the start
+  // of the page so the first screen replaces it as soon as it is ready.
+  if (element?.classList.contains('is-booting')) {
+    visibleAt = 1;
+    document.body.classList.add('vehicle-loading');
+    app.inert = true;
   }
   async function during(work) {
     tasks++;
