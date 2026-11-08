@@ -1,5 +1,5 @@
 /** Home: one search, the latest releases and recently updated documents. */
-export function homePage({ state, e, icon, platformName, versionKey, date, link, siteFooter }) {
+export function homePage({ state, e, icon, platformName, versionKey, date, link }) {
   const pages = state.member ? state.published : [];
   const releases = pages.filter((page) => page.kind === 'release').slice(0, 5),
     documents = pages
@@ -30,5 +30,5 @@ export function homePage({ state, e, icon, platformName, versionKey, date, link,
     documents,
     (page) =>
       `<a href="${link(page)}"><span>${e(page.title)}</span><small>${e(state.types.find((type) => type.key === page.kind)?.name || 'Document')}</small></a>`,
-  )}</div>${siteFooter('home-footer')}</main>`;
+  )}</div></main>`;
 }

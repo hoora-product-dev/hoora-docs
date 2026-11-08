@@ -1,12 +1,4 @@
 /* One workspace shell, with an overlay drawer below the desktop breakpoint. */
-.site-footer > .footer-install {
-  display: inline-flex;
-  width: auto;
-  max-width: 100%;
-}
-.home-footer .footer-install {
-  gap: 7px;
-}
 body .topbar {
   height: var(--header);
   min-height: var(--header);
@@ -131,9 +123,6 @@ body .home {
 .home-list > a small {
   font-size: 11px;
   flex: none;
-}
-.home-footer {
-  width: 100%;
 }
 .view-heading,
 .reader-heading {

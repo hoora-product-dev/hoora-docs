@@ -12,6 +12,7 @@ export const settingsLinks = (member, pendingRequests = 0) => {
       ['users', 'users', 'People & access'],
       ['folders', 'folder', 'Structure'],
       ['activity', 'list', 'Activity'],
+      ['feedback', 'chat', 'Feedback'],
       ['archive', 'archive', 'Recycle bin'],
     );
   return links;

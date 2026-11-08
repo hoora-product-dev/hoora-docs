@@ -1030,3 +1030,223 @@ input[type='search']::-webkit-search-cancel-button {
 [aria-busy='true'] > .empty {
   display: none;
 }
+
+/* Launch screen of the installed app; never shown in a browser tab. */
+.launch-splash {
+  display: none;
+}
+@media (display-mode: standalone) {
+  .launch-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    background: #fefce8;
+    transition: opacity 300ms ease;
+  }
+  .launch-splash img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .launch-splash.is-done {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* End of every page: install prompt (only without the app) and the developer credit. */
+.page-end {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin: 40px 0 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.install-nudge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.install-nudge img {
+  flex: none;
+  border-radius: 10px;
+}
+.install-nudge > span:not(.install-nudge-action) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.install-nudge strong {
+  font-size: 14px;
+}
+.install-nudge small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.install-nudge-action {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--contrast);
+  color: var(--on-contrast);
+  font-size: 13px;
+  font-weight: 600;
+}
+.maker-credit {
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.maker-credit strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.maker-credit:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The credit popup: two clear choices. */
+.maker-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.maker-head img {
+  border-radius: 12px;
+}
+.maker-head h2,
+.maker-head p {
+  margin: 0;
+}
+.maker-options {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+}
+.maker-options > * {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.maker-options > * + * {
+  border-top: 1px solid var(--line);
+}
+.maker-options > *:hover {
+  background: var(--raised);
+}
+.maker-options span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+.maker-options small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Report form */
+.feedback-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 16px 0;
+  padding: 0;
+  border: 0;
+}
+.feedback-kinds label {
+  position: relative;
+}
+.feedback-kinds input {
+  position: absolute;
+  opacity: 0;
+}
+.feedback-kinds span {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius, 8px);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.feedback-kinds input:checked + span {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--raised);
+}
+.feedback-kinds input:focus-visible + span {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.feedback-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+.feedback-form .optional {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Administrators: Feedback inbox */
+.feedback-item {
+  display: grid;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.feedback-item.resolved {
+  opacity: 0.6;
+}
+.feedback-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.feedback-meta small {
+  color: var(--muted);
+}
+.feedback-item p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.feedback-shot {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 12px auto;
+  border-radius: 8px;
+}

@@ -5,6 +5,34 @@ import '@excalidraw/excalidraw/index.css';
 import { validateDrawing } from '../public/editor/drawing-data.js';
 
 /** Fullscreen drawing workspace, loaded only when a drawing is opened. */
+/**
+ * Photos placed in a drawing are stored inside it, so they get the same treatment as
+ * every other upload: at most 1920px on the long side and WebP. Vector images stay as is.
+ */
+async function compressDrawingImages(files) {
+  const out = {};
+  for (const [id, file] of Object.entries(files)) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.mimeType)) {
+      out[id] = file;
+      continue;
+    }
+    const image = new Image();
+    image.src = file.dataURL;
+    await image.decode();
+    const ratio = Math.min(1, 1920 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    const dataURL = canvas.toDataURL('image/webp', 0.76);
+    out[id] =
+      dataURL.startsWith('data:image/webp') && dataURL.length < file.dataURL.length
+        ? { ...file, mimeType: 'image/webp', dataURL }
+        : file;
+  }
+  return out;
+}
+
 export function openDrawingWorkspace({
   initialData = null,
   readOnly = false,
@@ -101,7 +129,7 @@ export function openDrawingWorkspace({
         const elements = api.getSceneElements();
         if (!elements.length) throw Error('Add something to your drawing first.');
         const appState = api.getAppState(),
-          files = api.getFiles();
+          files = await compressDrawingImages(api.getFiles());
         const preview = await exportToBlob({
           elements,
           appState: { ...appState, exportBackground: false },

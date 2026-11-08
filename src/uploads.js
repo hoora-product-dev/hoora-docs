@@ -10,10 +10,15 @@ const types = {
 export async function prepareUpload(file) {
   if (file.type.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv|mpeg|m4v)$/i.test(file.name))
     throw new Error('Video uploads are not supported.');
-  if (/^image\/(png|jpeg|webp)$/.test(file.type)) {
+  // Every raster image, pasted, dropped or picked, is resized and stored as WebP.
+  if (/^image\/(png|jpeg|webp|gif|bmp|avif|heic|heif|tiff)$/.test(file.type)) {
     if (file.size > 40 * 1024 * 1024)
       throw new Error('Choose an image smaller than 40 MB for compression.');
-    const bitmap = await createImageBitmap(file);
+    const bitmap = await createImageBitmap(file).catch(() => {
+      throw new Error(
+        'This image format cannot be opened here. Save it as JPEG or PNG and try again.',
+      );
+    });
     if (bitmap.width * bitmap.height > 80000000) {
       bitmap.close();
       throw new Error('Image dimensions are too large.');

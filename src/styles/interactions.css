@@ -42,8 +42,7 @@ a:hover {
 .document-nav-home:hover,
 .document-nav-footer a:hover,
 .document-breadcrumbs a:hover,
-.document-pagination a:hover > span,
-.site-footer a:hover {
+.document-pagination a:hover > span {
   color: var(--ink);
   text-decoration: none;
 }

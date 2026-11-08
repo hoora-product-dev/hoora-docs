@@ -1,6 +1,7 @@
 import { icon } from './vendor/icons.js';
 import { assistantAvatarMarkup } from './assistant-avatar.js';
 import { moods } from './vendor/assistant-moods.js';
+import { makerFeature } from './ui/maker.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { accountMenu, settingsLinks } from './ui/account.js';
 import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
@@ -645,7 +646,43 @@ function enhanceRail() {
 }
 
 /** Settings pages share one sidebar: personal items first, administration after. */
-const settingsRoutes = ['account', 'teams', 'requests', 'users', 'folders', 'activity', 'archive'];
+const settingsRoutes = [
+  'account',
+  'teams',
+  'requests',
+  'users',
+  'folders',
+  'activity',
+  'feedback',
+  'archive',
+];
+const maker = makerFeature({
+  state,
+  e,
+  icon,
+  dialog: (...args) => dialog(...args),
+  modal,
+  toast: (...args) => toast(...args),
+  db: (...args) => db(...args),
+  upload: uploadFeedbackScreenshot,
+  isInstalled: () => isStandaloneApp(),
+});
+/** A screenshot for a report: compressed to WebP, stored in the reporter's own folder. */
+async function uploadFeedbackScreenshot(file) {
+  const image = await prepareUpload(file);
+  if (image.type !== 'image/webp') throw new Error('Choose an image for the screenshot.');
+  const path = `feedback/${state.member.id}/${crypto.randomUUID()}.webp`;
+  const r = await fetch(config.url + '/storage/v1/object/hoora-docs/' + path, {
+    method: 'POST',
+    headers: { apikey: config.key, ...authHeaders(await getToken()), 'Content-Type': 'image/webp' },
+    body: image,
+  });
+  if (!r.ok)
+    throw new Error(
+      (await r.json().catch(() => ({}))).message || 'The screenshot could not be uploaded.',
+    );
+  return path;
+}
 function settingsSidebar(route) {
   const links = settingsLinks(state.member, state.pendingRequestCount);
   const personal = links.filter(([key]) => ['account', 'teams', 'requests'].includes(key));
@@ -682,9 +719,6 @@ function footer() {
     ['#/search', 'search', 'Search'],
   ];
   return `<nav class="tabbar" aria-label="Primary">${tabs.map(([href, glyph, label]) => `<a href="${href}" class="${area === { Home: 'home', Releases: 'releases', Library: 'library', Search: 'search' }[label] ? 'active' : ''}">${icon(glyph)}<span>${label}</span></a>`).join('')}</nav>`;
-}
-function siteFooter(className = 'site-footer') {
-  return `<footer class="site-footer ${className}">${isStandaloneApp() ? '' : `<a class="btn outline footer-install" href="#/install">${icon('download')}Install Hoora Docs</a>`}<a class="site-footer-credit" href="https://rahul-tripathi.web.app" target="_blank" rel="noopener noreferrer">Hoora Docs · Maintained by Rahul Tripathi</a></footer>`;
 }
 function sidebar(workspace = false) {
   const role = state.member?.role;
@@ -815,7 +849,6 @@ function home() {
     versionKey,
     date,
     link: (page) => publishedRoute(page, state.projects),
-    siteFooter,
   });
 }
 
@@ -1464,6 +1497,9 @@ async function render() {
       case 'archive':
         view = features.archive();
         break;
+      case 'feedback':
+        view = `<main id="main" class="settings-content feedback-page"><div class="view-heading"><div><h1>Feedback</h1><p>Bugs, feature ideas and thanks sent from Hoora Docs.</p></div></div>${await maker.inbox()}</main>`;
+        break;
       case 'activity':
         view = await features.activity();
         break;
@@ -1508,6 +1544,20 @@ async function render() {
     }
     if (rid !== renderId) return;
     app.innerHTML = header() + view + footer() + assistantUI();
+    if (
+      ![
+        'new',
+        'edit',
+        'preview',
+        'artifact',
+        'contribute',
+        'users',
+        'install',
+        'login',
+        'app-welcome',
+      ].includes(route)
+    )
+      document.querySelector('main#main')?.insertAdjacentHTML('beforeend', maker.pageEnd());
     enhanceRail();
     updateReleaseSectionTabs();
     if (route === 'doc' && state.section)
@@ -2848,7 +2898,7 @@ function releaseDocumentNew(p) {
     configured.length && !selectedSection
       ? `<section class="release-missing" aria-label="Sections without a note"><h2>Not in this release yet</h2>${configured.map((section) => `<a href="${editHref(section.name)}">${toneIcon(section.icon, section.color)}<span>${e(section.name)}</span><small>${icon('plus')}Add note</small></a>`).join('')}</section>`
       : '';
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span>${versionSwitcher(project, p)}</h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}${siteFooter('native-site-footer')}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span>${versionSwitcher(project, p)}</h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}</div></main></div>`;
 }
 
 function nativeArtifact(page, draft) {
@@ -3171,6 +3221,27 @@ document.addEventListener('click', async (ev) => {
     b.innerHTML = icon(pinned ? 'panelClose' : 'panelOpen');
     b.setAttribute('aria-label', pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded');
     b.title = pinned ? 'Allow sidebar to collapse' : 'Keep sidebar expanded';
+    return;
+  }
+  if (action === 'about-maker') return maker.about();
+  if (action === 'report-issue') return maker.report();
+  if (action === 'feedback-resolve' && state.member?.role === 'admin') {
+    await busy(b, async () => {
+      await db('docs_feedback', '?id=eq.' + b.dataset.id, {
+        method: 'PATCH',
+        body: { status: 'resolved' },
+      });
+      await render();
+    });
+    return;
+  }
+  if (action === 'feedback-screenshot' && state.member?.role === 'admin') {
+    const blob = await resolveEditorImage('attachment:' + b.dataset.path);
+    const url = URL.createObjectURL(blob);
+    dialog(
+      `<h2>Screenshot</h2><img class="feedback-shot" src="${url}" alt="Screenshot attached to the report"><div class="dialog-actions"><button type="button" class="btn outline" data-close>Close</button></div>`,
+    );
+    modal.addEventListener('close', () => URL.revokeObjectURL(url), { once: true });
     return;
   }
   if (action === 'menu') {
@@ -3552,4 +3623,15 @@ try {
     `<main class="article" id="main"><h1>Let’s get connected.</h1><div class="content-error">${e(err.message)}</div><p class="small">Please refresh to try again, or contact your administrator.</p></main>` +
     footer();
   bind();
+} finally {
+  // The installed app opens on the Hoora launch screen and fades into the first page.
+  const splash = document.querySelector('#launch-splash');
+  if (splash)
+    window.setTimeout(
+      () => {
+        splash.classList.add('is-done');
+        window.setTimeout(() => splash.remove(), 320);
+      },
+      Math.max(0, 900 - performance.now()),
+    );
 }
