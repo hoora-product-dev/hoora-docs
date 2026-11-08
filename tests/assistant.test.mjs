@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import handler from '../api/assistant.js';
+import handler, { answerDepth, persona } from '../api/assistant.js';
 const id = '00000000-0000-4000-8000-000000000001';
 const response = () => ({
   setHeader() {},
@@ -59,15 +59,20 @@ function prepare(t, readable = true, includeUpcoming = false) {
     } else if (url.endsWith('/chat/completions')) {
       generations++;
       const body = JSON.parse(options.body);
-      assert.equal(body.model, 'nvidia/nemotron-3.5-lightning-free');
+      assert.equal(body.model, 'openai/gpt-5.4-nano');
+      // The fixed persona leads every request so the provider can cache it.
+      assert.equal(body.messages[0].content, persona);
+      assert.deepEqual(body.providerOptions, { gateway: { caching: 'auto' } });
       if (includeUpcoming)
-        assert.match(body.messages[1].content, /Target release date: 2026-11-20/);
+        assert.match(body.messages[1].content, /Target release date: 20 Nov 2026/);
       data = {
         choices: [
           {
-            finish_reason: body.reasoning?.effort === 'none' ? 'stop' : 'length',
+            finish_reason: ['low', 'medium'].includes(body.reasoning?.effort) ? 'stop' : 'length',
             message: {
-              content: body.reasoning?.effort === 'none' ? 'Track booking progress [1] [9].' : '',
+              content: ['low', 'medium'].includes(body.reasoning?.effort)
+                ? 'Track booking progress [1] [9].'
+                : '',
             },
           },
         ],
@@ -137,11 +142,11 @@ test('Latest release metadata survives long documents and a failed primary reach
       models.push(payload.model);
       assert.match(
         payload.messages[1].content,
-        /Customer App 8; version 8.0.0; release date 2026-10-08/,
+        /Customer App 8; version 8.0.0; release date 8 Oct 2026/,
       );
       assert.match(
         payload.messages[1].content,
-        /Customer App 3; version 3.0.0; release date 2026-10-03/,
+        /Customer App 3; version 3.0.0; release date 3 Oct 2026/,
       );
       if (models.length === 1) throw new TypeError('Transport unavailable');
       data = { choices: [{ message: { content: 'Version 8.0.0 released on 8 October [1].' } }] };
@@ -159,7 +164,7 @@ test('Latest release metadata survives long documents and a failed primary reach
   );
   assert.equal(res.code, 200);
   assert.equal(res.data.sources[0].url, '/release-notes/8.0.0/customer-app');
-  assert.deepEqual(models, ['nvidia/nemotron-3.5-lightning-free', 'reflection/beam-free']);
+  assert.deepEqual(models, ['openai/gpt-5.4-nano', 'openai/gpt-5-mini']);
 });
 test('An inaccessible document never enters the generation context', async (t) => {
   const generations = prepare(t, false),
@@ -191,4 +196,12 @@ test('The assistant grounds upcoming release dates in the authorized release fee
   assert.equal(res.code, 200);
   assert.equal(res.data.sources[1].url, '/upcoming/customer-app-5-12-0');
   assert.equal(generations(), 1);
+});
+
+test('Quick lookups think lightly; questions that compare or explain think more', () => {
+  assert.equal(answerDepth('When did Customer App 5.11.0 go out?').effort, 'low');
+  assert.equal(answerDepth('Why did car wash prices change?').effort, 'medium');
+  assert.equal(answerDepth('Compare 5.10 and 5.11 for Auto Care').effort, 'medium');
+  assert.equal(answerDepth('anyway, what shipped last week?').effort, 'low');
+  assert.ok(answerDepth('Why?').maxTokens > answerDepth('When?').maxTokens);
 });

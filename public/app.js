@@ -164,6 +164,29 @@ function setAssistantMood(name, holdFor = 0) {
       holdFor,
     );
 }
+/**
+ * While Hoora Assist works, it looks like it: thinking first, then a focused look, a
+ * puzzled look if it is taking a while, and back to thinking. The status line says
+ * what it is doing in plain words.
+ */
+function startWorkingMoods() {
+  const steps = [
+    [0, 'thinking', 'Searching Hoora Docs'],
+    [2500, 'smug', 'Reading what I found'],
+    [5000, 'thinking', 'Writing your answer'],
+    [9000, 'unsure', 'Taking a little longer'],
+    [12000, 'thinking', 'Almost there'],
+  ];
+  const timers = steps.map(([at, mood, label]) =>
+    window.setTimeout(() => {
+      if (!assistantBusy) return;
+      setAssistantMood(mood);
+      const status = document.querySelector('.assistant-working-label');
+      if (status) status.firstChild.textContent = label;
+    }, at),
+  );
+  return () => timers.forEach((timer) => window.clearTimeout(timer));
+}
 function nextTapMood() {
   tapMood = (tapMood + 1) % tapMoods.length;
   setAssistantMood(tapMoods[tapMood], 1800);
@@ -200,7 +223,7 @@ function assistantUI() {
     ? assistantMessages
         .map((m) => {
           if (m.thinking)
-            return `<div class="assistant-message assistant thinking" role="status" aria-live="polite">${assistantAvatar('thinking-avatar')}<span class="assistant-working"><span class="assistant-working-label">Thinking<span class="assistant-thinking-dots" aria-hidden="true"></span></span></span></div>`;
+            return `<div class="assistant-message assistant thinking" role="status" aria-live="polite">${assistantAvatar('thinking-avatar')}<span class="assistant-working"><span class="assistant-working-label">Searching Hoora Docs<span class="assistant-thinking-dots" aria-hidden="true"></span></span></span></div>`;
           const sources = m.sources?.length
             ? `<nav class="assistant-actions" aria-label="Related documentation"><span class="assistant-actions-label">Sources</span>${m.sources.map((s) => `<a class="assistant-action" href="${e(s.url)}">${icon('book')}<span>[${s.number}] ${e(s.title)}</span>${icon('chevron')}</a>`).join('')}</nav>`
             : '';
@@ -3577,6 +3600,7 @@ document.addEventListener('submit', async (event) => {
   assistantBusy = true;
   window.clearTimeout(sleepTimer);
   setAssistantMood('thinking');
+  const stopWorking = startWorkingMoods();
   let reaction = 'happy';
   const thinkingStartedAt = performance.now();
   assistantMessages.push({ role: 'user', text: question }, { role: 'assistant', thinking: true });
@@ -3616,8 +3640,14 @@ document.addEventListener('submit', async (event) => {
   } catch (error) {
     assistantMessages.pop();
     assistantMessages.push({ role: 'assistant', text: error.message || 'Please try again.' });
-    reaction = 'sad';
+    // Busy or rate limited: sleepy. Slow: sad. Anything else: unwell.
+    reaction = /many|limit|busy/i.test(error.message || '')
+      ? 'sleepy'
+      : /too long|timed? out/i.test(error.message || '')
+        ? 'sad'
+        : 'sick';
   }
+  stopWorking();
   assistantBusy = false;
   renderAssistant();
   setAssistantMood(reaction, 2400);
