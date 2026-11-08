@@ -12,7 +12,7 @@ export function makerFeature({ state, e, icon, dialog, modal, toast, db, upload,
     const install = isInstalled()
       ? ''
       : `<a class="install-nudge" href="#/install"><img src="/app-icon-192.png" alt="" width="32" height="32"><span><strong>Hoora Docs app</strong><small>Faster, with release alerts</small></span><span class="install-nudge-action">Install</span></a>`;
-    return `<footer class="page-end">${install}<button type="button" class="maker-credit" data-action="about-maker">Developed by <span>Rahul Tripathi</span></button></footer>`;
+    return `<footer class="page-end">${install}<button type="button" class="maker-credit" data-action="about-maker"><span>Help improve Hoora Docs</span></button></footer>`;
   }
 
   function about() {
