@@ -258,7 +258,8 @@ async function deleted(call, id) {
 }
 
 function imageUrl(origin, image) {
-  const params = new URLSearchParams({ image: image.kind });
+  // `d` is the card design; raising it gives every link a fresh image after a redesign.
+  const params = new URLSearchParams({ image: image.kind, d: '2' });
   for (const key of ['version', 'application', 'slug', 'page', 'project', 'v'])
     if (image[key]) params.set(key, image[key]);
   return `${origin}/api/preview?${params}`;
@@ -308,11 +309,10 @@ export function cardElement(card, mark, path) {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '60px 72px 56px',
+        padding: '64px 72px 56px',
         fontFamily: 'Jakarta',
         color: ink,
         backgroundColor: '#0C0C0C',
-        borderTop: `10px solid ${yellow}`,
       },
     },
     h(

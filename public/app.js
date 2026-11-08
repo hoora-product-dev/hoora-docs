@@ -901,7 +901,7 @@ function documentPage(p, draft = false) {
    <div class="document-article-actions">${draft ? '<span class="badge draft">Saved draft preview</span>' : `<span class="access-label">${icon(pageAccess(p) === 'public' ? 'web' : 'lock')}${e(accessText(p))}</span>`}<div>${draft ? `<a class="btn outline" href="#/edit/${p.id}">Back to editing</a>` : `<button class="btn text" data-action="share">${icon('link')}Share</button>${state.pages.some((d) => d.id === p.id && !d._readOnly) && canEdit(state.member?.role) ? `<a class="btn outline" href="#/edit/${p.id}">Edit page</a>` : ''}`}</div></div>
    <header class="document-article-heading"><h1>${e(p.title)}</h1>${p.summary ? `<p>${e(p.summary)}</p>` : ''}<div class="document-article-meta"><span>${draft ? 'Saved' : 'Published'} ${date(draft ? p.updated_at : p.published_at)}</span>${p.version ? `<span>${e(p.version)}</span>` : ''}${p.owner_name ? `<span>Owner: ${e(p.owner_name)}</span>` : ''}${!draft && p.published_by_name && p.published_by_name !== p.owner_name ? `<span>By ${e(p.published_by_name)}</span>` : ''}</div></header>
    ${customFieldList(p)}${sources.preview(p)}${outline.mobile}${p.format === 'html' ? `${draft ? '' : `<a class="open-artifact" href="#/artifact/${e(p.slug)}">${icon('expand')}Open full-page HTML preview</a>`}${artifactFrame(p, draft)}` : ''}<div class="prose document-prose">${content.html}</div>
-   ${draft ? '' : features.pageTools(p)}<nav class="document-pagination" aria-label="More in this collection">${previous ? `<a href="#/doc/${e(previous.slug)}"><small>Previous page</small><span>${icon('back')}${e(previous.title)}</span></a>` : '<span></span>'}${next ? `<a href="#/doc/${e(next.slug)}"><small>Next page</small><span>${e(next.title)}${icon('chevron')}</span></a>` : '<span></span>'}</nav>
+   ${draft ? '' : features.pageTools(p)}<nav class="document-pagination" aria-label="More in this collection">${previous ? `<a href="#/doc/${e(previous.slug)}"><small>Previous page</small><span>${icon('back')}${e(previous.title)}</span></a>` : '<span></span>'}${next ? `<a href="#/doc/${e(next.slug)}"><small>Next page</small><span>${e(next.title)}${icon('arrow')}</span></a>` : '<span></span>'}</nav>
    </div>${outline.desktop}</main></div>`;
 }
 function article(slug, full = false) {
@@ -1597,7 +1597,10 @@ async function busy(button, fn) {
 function dialog(html, callback) {
   modal.className = '';
   modal.innerHTML = html;
+  modal.tabIndex = -1;
   modal.showModal();
+  // Focus the dialog itself, so no field or button shows a focus ring on open.
+  if (!modal.querySelector('[autofocus]')) modal.focus();
   modal.querySelector('[data-close]')?.addEventListener('click', () => modal.close());
   modal.querySelector('form')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -2854,6 +2857,22 @@ function versionSwitcher(project, page) {
     )
     .join('')}</select></label>`;
 }
+/** End of a release: the previous (older) and next (newer) version of the same platform. */
+function versionPagination(project, page) {
+  const versions = releaseRecords(true)
+    .filter((r) => r.project.id === project.id)
+    .sort((a, b) => compareVersions(a.version, b.version));
+  const index = versions.findIndex((r) => r.page.id === page.id);
+  if (index < 0 || versions.length < 2) return '';
+  // Versions are listed newest first.
+  const older = versions[index + 1],
+    newer = versions[index - 1];
+  const card = (record, label, next) =>
+    record
+      ? `<a href="${e(publishedRoute(record.page, state.projects))}"><small>${label}</small><span>${next ? '' : icon('back')}v${e(record.version)}${next ? icon('arrow') : ''}</span></a>`
+      : '<span></span>';
+  return `<nav class="document-pagination" aria-label="Other versions">${card(older, 'Previous version', false)}${card(newer, 'Next version', true)}</nav>`;
+}
 function releaseDocumentNew(p) {
   const records = releaseRecords(true),
     record = records.find((r) => r.page.id === p.id);
@@ -2898,7 +2917,7 @@ function releaseDocumentNew(p) {
     configured.length && !selectedSection
       ? `<section class="release-missing" aria-label="Sections without a note"><h2>Not in this release yet</h2>${configured.map((section) => `<a href="${editHref(section.name)}">${toneIcon(section.icon, section.color)}<span>${e(section.name)}</span><small>${icon('plus')}Add note</small></a>`).join('')}</section>`
       : '';
-  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span>${versionSwitcher(project, p)}</h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}</div></main></div>`;
+  return `<div class="layout release-layout native-release-layout">${rail}<main id="main" class="native-release-reader"><div class="native-release-document"><header class="native-release-header"><h1 class="native-release-title"><span class="native-release-platform">${e(project.name)}</span>${versionSwitcher(project, p)}</h1><div class="native-release-meta"><div class="native-release-facts"><time datetime="${e(p.published_at)}">Released ${date(p.published_at)}</time></div><div class="native-release-actions"><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div></div></header>${tabs}<div class="native-release-body">${notes.length ? notes.map((note) => releaseSection(note, { heading: true, editHref: editable ? editHref(note.vertical) : '' })).join('') : `<div class="prose">${markdown(p.body)}</div>`}${missing}</div>${features.pageTools(p)}${versionPagination(project, p)}</div></main></div>`;
 }
 
 function nativeArtifact(page, draft) {

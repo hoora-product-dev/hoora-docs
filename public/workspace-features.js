@@ -24,7 +24,7 @@ export function workspaceFeatures({
   let showAllNotices = false;
   function pageTools(p) {
     if (!state.member) return '';
-    return `<div class="knowledge-page-tools">${manages(p) ? `<button class="btn outline" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Manage related knowledge</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div><section class="related-knowledge" data-related-page="${p.id}"></section>`;
+    return `<div class="knowledge-page-tools">${manages(p) ? `<button class="btn outline" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div><section class="related-knowledge" data-related-page="${p.id}"></section>`;
   }
   async function hydrate() {
     for (const root of document.querySelectorAll('[data-related-page]')) {
