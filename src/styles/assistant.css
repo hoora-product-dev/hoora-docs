@@ -744,3 +744,7 @@ body.navigation-open .assistant-shell {
   outline-offset: 2px;
   border-radius: 50%;
 }
+.assistant-message .assistant-inline-avatar {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}

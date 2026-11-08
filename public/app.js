@@ -3433,7 +3433,10 @@ document.addEventListener('click', async (event) => {
 });
 
 document.addEventListener('click', (event) => {
-  if (event.target.closest('[data-assistant="mood"]')) {
+  // The header face and the face beside each reply both change expression on tap.
+  if (
+    event.target.closest('[data-assistant="mood"], .assistant-message .assistant-inline-avatar')
+  ) {
     nextTapMood();
     restartSleepTimer();
     return;
