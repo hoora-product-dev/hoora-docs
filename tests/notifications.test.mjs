@@ -48,32 +48,35 @@ test('Publishers and viewers cannot preview or draft announcements', async () =>
   }
 });
 test('Announcement template escapes contributor content and includes the public release link', () => {
-  const mail = announcement(
-    {
-      title: '<script>alert(1)</script>',
-      slug: 'demo-release',
-      kind: 'release',
-      summary: 'A & B',
-      published_at: '2026-11-05',
-      release_snapshot: {
-        entries: [
-          {
-            vertical: 'Garage',
-            body: [
-              '### 1. [HC-1](https://x.test/HC-1) · <img onerror=alert(1)>',
-              '### 2. Second change',
-            ].join('\n'),
-          },
-        ],
-      },
+  const mail = announcement({
+    title: '<script>alert(1)</script>',
+    slug: 'demo-release',
+    kind: 'release',
+    summary: 'A & B',
+    published_at: '2026-11-05',
+    release_snapshot: {
+      entries: [
+        {
+          vertical: 'Garage',
+          body: [
+            '### 1. [HC-1](https://x.test/HC-1) · <img onerror=alert(1)>',
+            '### 2. Second change',
+          ].join('\n'),
+        },
+      ],
     },
-    { name: 'Rahul Tripathi' },
-  );
+  });
   assert.ok(!mail.html.includes('<script>'));
   assert.match(mail.html, /&lt;img/);
   assert.match(mail.html, /https:\/\/hoora-docs.vercel.app\/docs\/demo-release/);
-  assert.match(mail.html, /Workspace maintained by Rahul Tripathi/);
-  assert.match(mail.html, /Read the release notes/);
+  assert.match(mail.html, /Rahul Tripathi/);
+  assert.match(mail.html, /View release notes/);
+  assert.match(mail.html, /Install Hoora Docs/);
+  assert.match(mail.html, /Hoora Product team/);
+  assert.match(mail.html, /Planned and documented by the/);
+  assert.match(mail.html, /Hoora Docs<\/a> &middot; Rahul Tripathi/);
+  assert.ok(!mail.html.includes('Reply to this email'));
+  assert.ok(!mail.body.includes('display:none'), 'The copy has no hidden preview text');
   assert.ok(mail.html.includes('https://hoora-docs.vercel.app/install'));
   assert.match(mail.html, /Second change/);
   assert.ok(!mail.html.includes('HC-1'), 'Ticket keys stay out of the email');
@@ -157,7 +160,7 @@ test('Open in Outlook only creates a draft with no recipients and never sends', 
     );
     assert.equal(res.code, 200, JSON.stringify(res.data));
     assert.match(res.data.webLink, /ItemID=draft-id/);
-    assert.equal(draft.subject, 'Customer App v5.11.0 is live · Release notes');
+    assert.equal(draft.subject, 'Customer App v5.11.0 is now live');
     assert.equal(draft.toRecipients, undefined);
     assert.equal(draft.bccRecipients, undefined);
     assert.ok(

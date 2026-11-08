@@ -1,5 +1,6 @@
 import { serverClient, requireMember } from '../server/supabase.js';
-import { announcement } from '../server/email.js';
+import { announcement, releaseSections } from '../server/email.js';
+import { releaseHighlights } from '../server/highlights.js';
 
 // Release announcement emails, for administrators only. Hoora Docs never sends them:
 // it shows the email, and can place it as a draft in the administrator's own Outlook
@@ -19,9 +20,19 @@ export default async function handler(req, res) {
     const [page] = await call(`/rest/v1/docs_published?id=eq.${b.id}&select=*`);
     if (!page || page.kind !== 'release')
       throw new Error('Choose a published release to announce.');
-    const email = announcement(page, member);
+    // Local previews point images and links at the local site; everything else uses production.
+    const host = String(req.headers?.host || '');
+    const origin = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)
+      ? 'http://' + host
+      : 'https://hoora-docs.vercel.app';
+    if (b.action !== 'preview' && b.action !== 'draft') throw new Error('Invalid action.');
+    // Short written highlights, cached per published version of the release.
+    const highlights = await releaseHighlights(
+      `${page.id}:${page.updated_at || page.published_at || ''}`,
+      releaseSections(page),
+    );
+    const email = announcement(page, origin, highlights);
     if (b.action === 'preview') return res.status(200).json(email);
-    if (b.action !== 'draft') throw new Error('Invalid action.');
 
     if (typeof b.providerToken !== 'string' || b.providerToken.length > 20000)
       throw new Error('Connect Outlook to open this email there.');
