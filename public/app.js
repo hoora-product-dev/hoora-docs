@@ -3623,15 +3623,4 @@ try {
     `<main class="article" id="main"><h1>Let’s get connected.</h1><div class="content-error">${e(err.message)}</div><p class="small">Please refresh to try again, or contact your administrator.</p></main>` +
     footer();
   bind();
-} finally {
-  // The installed app opens on the Hoora launch screen and fades into the first page.
-  const splash = document.querySelector('#launch-splash');
-  if (splash)
-    window.setTimeout(
-      () => {
-        splash.classList.add('is-done');
-        window.setTimeout(() => splash.remove(), 320);
-      },
-      Math.max(0, 900 - performance.now()),
-    );
 }
