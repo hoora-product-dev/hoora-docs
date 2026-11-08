@@ -8,12 +8,15 @@ const SHOW_AFTER = 600,
   MIN_VISIBLE = 1200,
   FADE_OUT = 260,
   SWEEP = 1500,
-  REST = 250;
+  REST = 250,
+  // However slow the work, the loader steps aside after this and the app stays usable.
+  GIVE_UP_AFTER = 15000;
 
 export function createLoading({ app, element }) {
   let tasks = 0,
     delay,
     hideTimer,
+    giveUp,
     visibleAt = 0,
     frame = 0;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
@@ -60,10 +63,12 @@ export function createLoading({ app, element }) {
     requestAnimationFrame(() => element.classList.add('is-visible'));
     document.body.classList.add('vehicle-loading');
     app.inert = true;
+    giveUp = setTimeout(hide, GIVE_UP_AFTER);
     paint(visibleAt);
   }
   function hide() {
     if (!visibleAt) return;
+    clearTimeout(giveUp);
     visibleAt = 0;
     element.classList.remove('is-visible');
     document.body.classList.remove('vehicle-loading');
@@ -81,6 +86,7 @@ export function createLoading({ app, element }) {
     visibleAt = 1;
     document.body.classList.add('vehicle-loading');
     app.inert = true;
+    giveUp = setTimeout(hide, GIVE_UP_AFTER);
   }
   async function during(work) {
     tasks++;

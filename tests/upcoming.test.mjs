@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import handler, { validateRelease, canViewRelease } from '../api/upcoming.js';
 import { filterIdFromUrl, searchTickets, VERTICAL_FIELD, OWNER_FIELD } from '../server/jira.js';
+// These tests check every Jira call, so the shared ticket cache is off here;
+// the last test turns it on to check caching itself.
+process.env.JIRA_CACHE = 'off';
 const id = 'df7328d8-c004-4596-b9b1-b2d3a1ccc598';
 const release = {
   id,
@@ -208,4 +211,21 @@ test('Jira pagination retrieves every title without broadening the query', async
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test('Repeat views of the same filter are answered from the cache, not Jira', async (t) => {
+  process.env.JIRA_CACHE = 'on';
+  t.after(() => (process.env.JIRA_CACHE = 'off'));
+  Object.assign(process.env, { JIRA_EMAIL: 'bot@hoora.me', JIRA_API_TOKEN: 'token' });
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    return new Response(
+      JSON.stringify({ issues: [{ key: 'HCUS-1', fields: { summary: 'One' } }], isLast: true }),
+    );
+  });
+  const first = await searchTickets('987654321');
+  const second = await searchTickets('987654321');
+  assert.deepEqual(second, first);
+  assert.equal(calls, 1);
 });

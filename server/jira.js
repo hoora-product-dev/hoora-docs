@@ -1,3 +1,4 @@
+import { getCache } from '@vercel/functions';
 const SITE = 'https://hooratechteam.atlassian.net';
 const CLOUD_ID = 'fa2b39bd-d6de-43e4-8a70-d40ce1bd145f';
 export const VERTICAL_FIELD = 'customfield_11075';
@@ -93,7 +94,37 @@ export function ticketSummary(issue) {
   };
 }
 
+/**
+ * Jira answers are shared by everyone allowed to see a release, so they are kept in
+ * Vercel's Runtime Cache for two minutes: repeat views of an upcoming release don't
+ * call Jira again. If the cache is unavailable, Jira is asked directly.
+ */
+const JIRA_CACHE_SECONDS = 120;
 export async function searchTickets(filterId, issueKey = null) {
+  const key = `jira:${filterId}:${issueKey || 'all'}`;
+  let cache = null;
+  try {
+    if (process.env.JIRA_CACHE === 'off') throw Error('Cache disabled');
+    cache = getCache();
+    const hit = await cache.get(key);
+    if (Array.isArray(hit)) return hit;
+  } catch {
+    cache = null;
+  }
+  const issues = await fetchTickets(filterId, issueKey);
+  try {
+    await cache?.set(key, issues, {
+      ttl: JIRA_CACHE_SECONDS,
+      tags: [`jira-filter-${filterId}`],
+      name: 'Jira tickets',
+    });
+  } catch {
+    /* Caching is an optimisation; the answer is already in hand. */
+  }
+  return issues;
+}
+
+async function fetchTickets(filterId, issueKey) {
   if (!/^[1-9]\d{0,15}$/.test(String(filterId))) throw failure('Invalid saved filter.');
   if (issueKey && !/^[A-Z][A-Z0-9_]{0,30}-[1-9]\d{0,12}$/.test(issueKey))
     throw failure('Invalid ticket.');

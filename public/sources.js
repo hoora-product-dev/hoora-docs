@@ -29,6 +29,7 @@ export function detectSource(value) {
   return { type: 'OTHER_URL', label: 'External link' };
 }
 export function sourcesFeature({
+  files,
   state,
   db,
   e,
@@ -177,22 +178,14 @@ export function sourcesFeature({
       const page = state.published.find((p) => p.id === root.dataset.pdfPage);
       if (!page?.file_metadata) continue;
       try {
-        const token = await getToken();
-        const response = await fetch(
-          config.url +
-            '/storage/v1/object/authenticated/hoora-docs/' +
-            page.file_metadata.storage_path,
-          {
-            headers: { apikey: config.key, ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-          },
-        );
-        if (!response.ok)
+        const pdf = await files.get(page.file_metadata.storage_path).catch(() => {
           throw Error('PDF access is unavailable. Sign in again or ask the team manager.');
+        });
         const { mountPdf } = await import('./vendor/pdf-viewer.js');
         if (root.isConnected)
           await mountPdf(
             root,
-            new Uint8Array(await response.arrayBuffer()),
+            new Uint8Array(await pdf.arrayBuffer()),
             page.file_metadata.filename,
           );
       } catch (error) {

@@ -2,6 +2,7 @@ import { icon } from './vendor/icons.js';
 import { assistantAvatarMarkup } from './assistant-avatar.js';
 import { moods } from './vendor/assistant-moods.js';
 import { makerFeature } from './ui/maker.js';
+import { createFileCache } from './file-cache.js';
 import { createSearchService, searchResultsPage, bindSearchPage } from './search.js';
 import { accountMenu, settingsLinks } from './ui/account.js';
 import { documentActions, editorMenu, bindEditorMenus } from './ui/editor-actions.js';
@@ -303,7 +304,9 @@ window.addEventListener('hoora-app-installed', () => {
   if (state.member?.password_setup_complete) pwa.recordInstall().catch(() => {});
   if (routeHash().split('?')[0] === '#/install') render();
 });
+const files = createFileCache({ url: config.url, key: config.key, getToken: () => getToken() });
 const sources = sourcesFeature({
+  files,
   state,
   db: (...args) => db(...args),
   e,
@@ -411,6 +414,7 @@ async function getToken() {
   if (!refreshing)
     refreshing = (async () => {
       const r = await fetch(config.url + '/auth/v1/token?grant_type=refresh_token', {
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
         method: 'POST',
         headers: { apikey: config.key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: state.session.refresh_token }),
@@ -428,9 +432,23 @@ async function getToken() {
     })().finally(() => (refreshing = null));
   return refreshing;
 }
+/** Requests give up after 20 seconds, so a stalled connection never freezes the app. */
+const REQUEST_TIMEOUT = 20000;
+const timedOut = (error) =>
+  error?.name === 'TimeoutError' || error?.name === 'AbortError'
+    ? new Error('Hoora Docs is taking too long to respond. Check your connection and try again.')
+    : error;
 async function api(path, { method = 'GET', body, headers = {}, authRetry = 0 } = {}) {
+  // Any change to the data means the cached workspace must be read again.
+  // Read-only lookups (search, permission checks, view counts) don't change it.
+  if (
+    method !== 'GET' &&
+    !/^\/rest\/v1\/rpc\/docs_(search|track|can_publish_page_for)\b/.test(path)
+  )
+    markWorkspaceStale();
   const token = await getToken();
   const r = await fetch(config.url + path, {
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT),
     method,
     headers: {
       apikey: config.key,
@@ -439,6 +457,8 @@ async function api(path, { method = 'GET', body, headers = {}, authRetry = 0 } =
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((error) => {
+    throw timedOut(error);
   });
   const text = await r.text();
   let d;
@@ -474,7 +494,19 @@ async function admin(body) {
   if (!r.ok) throw new Error(d.error || 'User management failed.');
   return d;
 }
+/**
+ * The workspace (documents, releases, teams, people) is read once and reused while
+ * moving between pages for two minutes. Any change made in the app marks it stale,
+ * so the next page shows fresh data.
+ */
+const WORKSPACE_FRESH_FOR = 120000;
+let workspaceLoadedAt = 0;
+function markWorkspaceStale() {
+  workspaceLoadedAt = 0;
+}
+const workspaceIsFresh = () => Date.now() - workspaceLoadedAt < WORKSPACE_FRESH_FOR;
 async function load() {
+  workspaceLoadedAt = 0;
   searchService.clear();
   const [types, verticals, published] = await Promise.all([
     db('docs_types', '?select=*&order=name'),
@@ -560,6 +592,7 @@ async function load() {
       state.projectSections = await db('docs_project_sections', '?select=*&order=sort_order.asc');
     }
   }
+  workspaceLoadedAt = Date.now();
 }
 async function hydrateRoute(route, id) {
   if (!id) return;
@@ -1875,8 +1908,10 @@ async function oauth() {
   return oauthClient;
 }
 async function appApi(path, body) {
+  markWorkspaceStale();
   const token = await getToken();
   const r = await fetch(path, {
+    signal: AbortSignal.timeout(60000),
     method: 'POST',
     headers: {
       ...authHeaders(token),
@@ -2479,12 +2514,9 @@ async function resolveEditorImage(src) {
   const path = src.slice('attachment:'.length);
   if (!src.startsWith('attachment:') || !/^[a-zA-Z0-9/_.-]+$/.test(path))
     throw new Error('Invalid image attachment');
-  const token = await getToken();
-  const response = await fetch(config.url + '/storage/v1/object/authenticated/hoora-docs/' + path, {
-    headers: { apikey: config.key, ...authHeaders(token) },
+  const blob = await files.get(path).catch(() => {
+    throw new Error('Image unavailable');
   });
-  if (!response.ok) throw new Error('Image unavailable');
-  const blob = await response.blob();
   if (!['image/webp', 'image/png', 'image/jpeg'].includes(blob.type))
     throw new Error('Invalid image');
   return blob;
@@ -3235,12 +3267,7 @@ document.addEventListener('click', async (ev) => {
     await busy(file, async () => {
       const p = file.dataset.file;
       if (!/^[a-zA-Z0-9/_.-]+$/.test(p)) throw new Error('Invalid attachment');
-      const token = await getToken();
-      const r = await fetch(config.url + '/storage/v1/object/authenticated/hoora-docs/' + p, {
-        headers: { apikey: config.key, ...authHeaders(token) },
-      });
-      if (!r.ok) throw new Error('This attachment is unavailable or you don’t have access.');
-      const u = URL.createObjectURL(await r.blob());
+      const u = URL.createObjectURL(await files.get(p));
       const a = document.createElement('a');
       a.href = u;
       a.download = p
@@ -3298,6 +3325,8 @@ document.addEventListener('click', async (ev) => {
       } finally {
         saveSession(null);
         sessionStorage.removeItem('hoora-outlook-token');
+        files.clear();
+        markWorkspaceStale();
         state.member = null;
         state.pages = [];
         state.folders = [];
@@ -3459,8 +3488,9 @@ window.addEventListener('hashchange', async () => {
   state.dirty = false;
   const route = routeHash();
   try {
+    // Fresh workspace data is reused; the loader only appears if the page is slow.
     await withVehicleLoader(async () => {
-      await load();
+      if (!workspaceIsFresh()) await load();
       if (route === routeHash()) await render();
     });
   } catch (err) {
@@ -3506,11 +3536,15 @@ document.addEventListener('click', (event) => {
 });
 window.addEventListener('storage', (ev) => {
   if (ev.key === 'hoora-session') {
+    const previousUser = state.session?.user?.id || null;
     try {
       state.session = JSON.parse(ev.newValue);
     } catch {
       state.session = null;
     }
+    // Another tab refreshing the same sign-in only updates the token; reload the
+    // workspace only when someone signs in or out.
+    if ((state.session?.user?.id || null) === previousUser) return;
     withVehicleLoader(async () => {
       await load();
       await render();

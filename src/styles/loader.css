@@ -94,3 +94,18 @@
     }
   }
 }
+/* Safety net for the launch screen: if the app's code never loads, step aside. */
+.vehicle-loader.is-booting {
+  animation: vehicle-boot-give-up 0s linear 20s forwards;
+}
+@keyframes vehicle-boot-give-up {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vehicle-loader.is-booting {
+    animation: vehicle-boot-give-up 0s linear 20s forwards !important;
+  }
+}
