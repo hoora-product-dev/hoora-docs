@@ -1335,47 +1335,56 @@ dialog:focus {
   display: none;
 }
 
-/* Previous / next, for documents and release versions: two bordered cards. */
+/* Previous / next, for documents and release versions: two quiet links that sit
+   at the end of the content, each only as wide as its text. */
 .document-pagination {
-  gap: 10px;
-  margin-top: 24px;
-  padding-top: 0;
-  border-top: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
 }
 .document-pagination a {
   display: grid;
-  gap: 4px;
-  padding: 12px 14px;
+  gap: 2px;
+  min-width: 0;
+  max-width: 48%;
+  padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: var(--panel-radius);
+  border-radius: 8px;
   color: var(--ink);
   text-decoration: none;
 }
 .document-pagination a:hover {
   background: var(--surface);
 }
-.document-pagination a:last-child:not(:first-child) {
+.document-pagination a.next {
+  margin-left: auto;
   text-align: right;
 }
 .document-pagination small {
-  margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.4;
 }
 .document-pagination a > span {
   display: flex;
   align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  font-size: 14px;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
-.document-pagination a:last-child:not(:first-child) > span {
+.document-pagination a.next > span {
   justify-content: flex-end;
 }
+.document-pagination .icon,
 .document-pagination .icon svg {
-  width: 16px;
-  height: 16px;
+  display: inline-flex;
+  flex: none;
+  width: 14px;
+  height: 14px;
 }
 /* The page end follows the release directly; no double spacing. */
 .native-release-document {
