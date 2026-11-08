@@ -1465,3 +1465,56 @@ input[type='checkbox'] {
 .share-option small {
   font-size: 12px;
 }
+
+/* Dropdown menus, everywhere: the open list follows the theme, uses normal text size
+   (even for the large version switcher) and never shows white on white. Browsers that
+   support styleable selects get a matching floating menu; others keep their native
+   menu with the same colours. */
+select option,
+select optgroup {
+  background-color: var(--raised);
+  color: var(--ink);
+  font: 400 14px/1.5 Geist, Arial, sans-serif;
+  letter-spacing: normal;
+}
+@supports (appearance: base-select) {
+  select:not([multiple]) {
+    appearance: base-select;
+  }
+  select:not([multiple])::picker-icon {
+    display: none;
+  }
+  select:not([multiple])::picker(select) {
+    appearance: base-select;
+    max-height: min(320px, 50vh);
+    margin-block: 4px;
+    padding: 4px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--raised);
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  }
+  select:not([multiple]) option {
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    outline: 0;
+  }
+  select:not([multiple]) option::checkmark {
+    display: none;
+  }
+  select:not([multiple]) option:is(:hover, :focus-visible) {
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+  }
+  select:not([multiple]) option:checked {
+    font-weight: 600;
+  }
+  select:not([multiple]) option:disabled {
+    color: var(--subtle);
+    cursor: default;
+  }
+}
