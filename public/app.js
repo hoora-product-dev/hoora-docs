@@ -215,6 +215,7 @@ const teams = teamsFeature({
 const searchService = createSearchService((...args) => db(...args));
 const pwa = pwaFeature({ appApi, getToken, toast });
 window.addEventListener('hoora-app-installed', () => {
+  if (state.member?.password_setup_complete) pwa.recordInstall().catch(() => {});
   if (routeHash().split('?')[0] === '#/install') render();
 });
 const sources = sourcesFeature({
@@ -1339,6 +1340,7 @@ async function render() {
     syncAssistantViewport();
     return;
   }
+  if (state.member) pwa.sync(state.member.id);
   if (internal && !state.member) {
     app.innerHTML =
       header() +

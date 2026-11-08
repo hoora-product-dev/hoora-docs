@@ -108,27 +108,18 @@ export function workspaceFeatures({
   }
   async function activity() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
-    const [records, people] = await Promise.all([
+    const [records, people, devices] = await Promise.all([
       db('docs_audit_log', '?select=*&order=created_at.desc&limit=200'),
       db('docs_members', '?select=id,name,email'),
+      pwa.deviceStats().catch(() => null),
     ]);
-    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Workspace activity</h1><p>Recent changes, access updates and document use. Edit snapshots are not retained.</p></div></div><div class="tablewrap"><table><thead><tr><th>Action</th><th>Person</th><th>Document</th><th>When</th></tr></thead><tbody>${records.map((r) => `<tr><td>${e(r.action.replace(/_/g, ' '))}</td><td>${e(people.find((p) => p.id === r.user_id)?.name || 'System / removed member')}</td><td>${e(state.pages.find((p) => p.id === r.page_id)?.title || '—')}</td><td>${new Date(r.created_at).toLocaleString('en-IN')}</td></tr>`).join('')}</tbody></table></div></main>`;
-  }
-  async function recent() {
-    if (!state.member) return '';
-    const pages = await db('rpc/docs_recent', '?select=id,title,slug', {
-      method: 'POST',
-      body: {},
-    });
-    return pages.length
-      ? `<section class="recent-knowledge"><h2>Recently viewed</h2><div class="related-grid">${pages
-          .slice(0, 4)
-          .map(
-            (p) =>
-              `<a href="${publishedRoute(state.published.find((item) => item.id === p.id) || p, state.projects)}"><strong>${e(p.title)}</strong></a>`,
-          )
-          .join('')}</div></section>`
+    const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const stat = (label, s) =>
+      `<div class="device-stat"><span>${label}</span><strong>${count(s.active, 'device')}</strong><small>${count(s.people, 'person').replace('persons', 'people')}${s.total > s.active ? ` · ${s.total - s.active} inactive` : ''}</small></div>`;
+    const deviceSummary = devices
+      ? `<section class="device-stats" aria-label="Devices active in the last ${devices.activeDays} days">${stat('Installed app', devices.installs)}${stat('Notifications on', devices.notifications)}<p>Counted from devices that opened Hoora Docs in the last ${devices.activeDays} days. Uninstalled apps stop counting after that.</p></section>`
       : '';
+    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Workspace activity</h1><p>Recent changes, access updates and document use. Edit snapshots are not retained.</p></div></div>${deviceSummary}<div class="tablewrap"><table><thead><tr><th>Action</th><th>Person</th><th>Document</th><th>When</th></tr></thead><tbody>${records.map((r) => `<tr><td>${e(r.action.replace(/_/g, ' '))}</td><td>${e(people.find((p) => p.id === r.user_id)?.name || 'System / removed member')}</td><td>${e(state.pages.find((p) => p.id === r.page_id)?.title || '—')}</td><td>${new Date(r.created_at).toLocaleString('en-IN')}</td></tr>`).join('')}</tbody></table></div></main>`;
   }
   async function action(button) {
     const type = button.dataset.hubAction,
@@ -188,7 +179,11 @@ export function workspaceFeatures({
         `<h2>Notify readers?</h2><p>Send “${e(noticeTitle(p))}” to readers who can access this release and enabled browser notifications.</p><p class="small">Your name appears in Hoora Docs. You can notify about this release once every three hours. This does not send email.</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Notify readers</button></div></form>`,
         async () => {
           const result = await appApi('/api/push', { action: 'notify', id });
-          toast(`Notification sent to ${result.delivered} browsers.`);
+          toast(
+            result.delivered
+              ? `Sent to ${result.people} ${result.people === 1 ? 'person' : 'people'} on ${result.delivered} ${result.delivered === 1 ? 'device' : 'devices'}.${result.removed ? ` Removed ${result.removed} expired.` : ''}`
+              : 'Nobody with access has notifications turned on yet.',
+          );
         },
       );
       return;
@@ -266,5 +261,5 @@ export function workspaceFeatures({
     });
     state.unreadNoticeCount = Math.max(0, state.unreadNoticeCount - 1);
   }
-  return { pageTools, hydrate, inbox, contributions, archive, activity, recent, action, markRead };
+  return { pageTools, hydrate, inbox, contributions, archive, activity, action, markRead };
 }

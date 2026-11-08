@@ -56,6 +56,21 @@ export function pushMessage(page) {
     body: String(page?.summary || 'Open Hoora Docs to read the latest update.').slice(0, 160),
   };
 }
+const devicePlatforms = ['android', 'ios', 'windows', 'macos', 'linux', 'other'];
+const activeDays = 30;
+/** Installs and notification devices that opened Hoora Docs in the last 30 days. */
+export function deviceStats(installs, subscriptions, now = Date.now()) {
+  const since = now - activeDays * 86400000;
+  const summary = (rows) => {
+    const active = rows.filter((row) => Date.parse(row.last_seen_at) >= since);
+    return {
+      active: active.length,
+      people: new Set(active.map((row) => row.user_id)).size,
+      total: rows.length,
+    };
+  };
+  return { activeDays, installs: summary(installs), notifications: summary(subscriptions) };
+}
 async function vapid(call) {
   const config =
     process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
@@ -69,9 +84,37 @@ export default async function handler(req, res) {
     const call = serverClient(),
       { member } = await requireMember(req, call);
     const keys = await vapid(call);
+    if (req.method === 'GET' && req.query?.stats) {
+      if (member.role !== 'admin')
+        return res.status(403).json({ error: 'Administrator access required.' });
+      const [installs, subscriptions] = await Promise.all([
+        call('/rest/v1/docs_app_installs?select=user_id,last_seen_at'),
+        call('/rest/v1/docs_push_subscriptions?select=user_id,last_seen_at'),
+      ]);
+      return res.status(200).json(deviceStats(installs, subscriptions));
+    }
     if (req.method === 'GET') return res.status(200).json({ publicKey: keys?.publicKey || null });
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const b = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+    if (b.action === 'device') {
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          b.deviceId || '',
+        )
+      )
+        return res.status(400).json({ error: 'This device could not be identified.' });
+      await call('/rest/v1/docs_app_installs?on_conflict=device_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          device_id: b.deviceId.toLowerCase(),
+          user_id: member.id,
+          platform: devicePlatforms.includes(b.platform) ? b.platform : 'other',
+          last_seen_at: new Date().toISOString(),
+        }),
+      });
+      return res.status(200).json({ ok: true });
+    }
     if (b.action === 'subscribe') {
       if (!validSubscription(b.subscription))
         return res.status(400).json({ error: 'This browser subscription is invalid.' });
@@ -83,6 +126,7 @@ export default async function handler(req, res) {
           user_id: member.id,
           endpoint: b.subscription.endpoint,
           subscription: b.subscription,
+          last_seen_at: new Date().toISOString(),
         }),
       });
       return res.status(200).json({ ok: true });
@@ -109,7 +153,9 @@ export default async function handler(req, res) {
       body: JSON.stringify({ document_id: b.id }),
     });
     let delivered = 0,
-      failed = 0;
+      failed = 0,
+      removed = 0;
+    const reached = new Set();
     if (keys) {
       webpush.setVapidDetails('mailto:rahul@hoora.me', keys.publicKey, keys.privateKey);
       const subscriptions = await call('/rest/v1/docs_push_subscriptions?select=*');
@@ -142,18 +188,23 @@ export default async function handler(req, res) {
                 { TTL: 3600, timeout: 5000 },
               );
               delivered++;
+              reached.add(sub.user_id);
             } catch (error) {
               failed++;
-              if ([404, 410].includes(error.statusCode))
+              if ([404, 410].includes(error.statusCode)) {
+                removed++;
                 await call('/rest/v1/docs_push_subscriptions?id=eq.' + sub.id, {
                   method: 'DELETE',
                 });
+              }
             }
           }),
         );
       }
     }
-    return res.status(200).json({ ok: true, notice, delivered, failed });
+    return res
+      .status(200)
+      .json({ ok: true, notice, delivered, people: reached.size, failed, removed });
   } catch (error) {
     return res
       .status(error.status || 400)

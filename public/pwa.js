@@ -1,3 +1,26 @@
+/** Where an installed copy runs, for the install count. */
+export function devicePlatform(
+  agent = navigator.userAgent,
+  touchPoints = navigator.maxTouchPoints,
+) {
+  const ua = agent.toLowerCase();
+  if (/android/.test(ua)) return 'android';
+  if (/iphone|ipad|ipod/.test(ua) || (/macintosh/.test(ua) && touchPoints > 1)) return 'ios';
+  if (/windows/.test(ua)) return 'windows';
+  if (/macintosh|mac os x/.test(ua)) return 'macos';
+  if (/linux|cros/.test(ua)) return 'linux';
+  return 'other';
+}
+const isInstalled = () =>
+  matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function deviceId() {
+  let id = localStorage.getItem('hoora-device-id');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id || '')) {
+    id = crypto.randomUUID();
+    localStorage.setItem('hoora-device-id', id);
+  }
+  return id;
+}
 export function pwaFeature({ appApi, getToken, toast }) {
   let installPrompt;
   window.addEventListener('beforeinstallprompt', (event) => {
@@ -64,12 +87,53 @@ export function pwaFeature({ appApi, getToken, toast }) {
     await disconnect();
     toast('Browser notifications disabled.');
   }
+  /** Count this device as an installed app. */
+  async function recordInstall() {
+    await appApi('/api/push', {
+      action: 'device',
+      deviceId: deviceId(),
+      platform: devicePlatform(),
+    });
+  }
+  /**
+   * Once a day per account: an installed copy confirms it is still in use, and this
+   * browser's notification subscription is refreshed, or removed if permission was revoked.
+   * Devices that stop opening Hoora Docs leave the counts after 30 days.
+   */
+  async function sync(memberId) {
+    const key = `hoora-device-sync:${memberId}`;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      if (localStorage.getItem(key) === today) return;
+      if (isInstalled()) await recordInstall();
+      if ('Notification' in window && 'serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration('/');
+        const subscription = await reg?.pushManager?.getSubscription();
+        if (subscription && Notification.permission === 'granted')
+          await appApi('/api/push', { action: 'subscribe', subscription: subscription.toJSON() });
+        else if (subscription) {
+          await appApi('/api/push', { action: 'unsubscribe', endpoint: subscription.endpoint });
+          await subscription.unsubscribe();
+        }
+      }
+      localStorage.setItem(key, today);
+    } catch {
+      /* Counting is best effort and retried on the next visit. */
+    }
+  }
+  /** Administrators: installed apps and notification devices in use. */
+  async function deviceStats() {
+    const response = await fetch('/api/push?stats=1', {
+      headers: { Authorization: 'Bearer ' + (await getToken()) },
+    });
+    const data = await response.json();
+    if (!response.ok) throw Error(data.error || 'Unable to load device counts.');
+    return data;
+  }
   async function status() {
     const supported =
       'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
-    const installed =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true;
+    const installed = isInstalled();
     if (!supported)
       return { supported: false, installed, permission: 'unsupported', subscribed: false };
     let subscribed = false;
@@ -82,5 +146,5 @@ export function pwaFeature({ appApi, getToken, toast }) {
     return { supported: true, installed, permission: Notification.permission, subscribed };
   }
   registration().catch(() => {});
-  return { install, enable, disable, disconnect, status };
+  return { install, enable, disable, disconnect, status, sync, recordInstall, deviceStats };
 }

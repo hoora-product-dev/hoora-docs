@@ -4,7 +4,12 @@
   "outputDirectory": "dist",
   "installCommand": "npm install --ignore-scripts",
   "framework": null,
-  "crons": [{ "path": "/api/cleanup", "schedule": "15 2 * * *" }],
+  "crons": [
+    {
+      "path": "/api/cleanup",
+      "schedule": "15 2 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/((?!api/artifact).*)",
@@ -46,16 +51,25 @@
     }
   ],
   "rewrites": [
-    { "source": "/upcoming/:slug/tickets/:key", "destination": "/index.html" },
-    { "source": "/upcoming/:slug/settings", "destination": "/index.html" },
-    { "source": "/contribute/:id", "destination": "/index.html" },
+    {
+      "source": "/upcoming/:slug/tickets/:key",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/upcoming/:slug/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contribute/:id",
+      "destination": "/index.html"
+    },
     {
       "source": "/upcoming",
       "destination": "/index.html"
     },
     {
       "source": "/upcoming/:slug",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=upcoming&slug=:slug"
     },
     {
       "source": "/install",
@@ -67,11 +81,11 @@
     },
     {
       "source": "/release-notes/:version/:application",
-      "destination": "/api/release-preview?version=:version&application=:application"
+      "destination": "/api/preview?type=release&version=:version&application=:application"
     },
     {
       "source": "/docs/:slug",
-      "destination": "/index.html"
+      "destination": "/api/preview?type=doc&slug=:slug"
     },
     {
       "source": "/releases",
@@ -155,8 +169,8 @@
     }
   ],
   "functions": {
-    "api/release-preview.js": {
-      "includeFiles": "dist/index.html"
+    "api/preview.js": {
+      "includeFiles": "{dist/index.html,public/loader/*.ttf,public/hoora-mark.png}"
     }
   }
 }
