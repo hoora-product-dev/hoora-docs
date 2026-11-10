@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ url: '/api/artifact?ticket=' + encodeURIComponent(ticket) });
     }
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-    const params = new URL(req.url, 'https://hoora-docs.vercel.app').searchParams;
+    const params = new URL(req.url, 'https://release.hoora.in').searchParams;
     const ticket = verifyTicket(params.get('ticket'), secret);
     if (ticket.userId) {
       const members = await call(

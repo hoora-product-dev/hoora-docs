@@ -14,9 +14,9 @@
   </p>
 
   <p>
-    <a href="https://hoora-docs.vercel.app"><strong>Open Hoora Docs</strong></a>
+    <a href="https://release.hoora.in"><strong>Open Hoora Docs</strong></a>
     ·
-    <a href="https://hoora-docs.vercel.app/install">Install the app</a>
+    <a href="https://release.hoora.in/install">Install the app</a>
   </p>
 </div>
 

@@ -68,7 +68,7 @@ test('Announcement template escapes contributor content and includes the public 
   });
   assert.ok(!mail.html.includes('<script>'));
   assert.match(mail.html, /&lt;img/);
-  assert.match(mail.html, /https:\/\/hoora-docs.vercel.app\/docs\/demo-release/);
+  assert.match(mail.html, /https:\/\/release.hoora.in\/docs\/demo-release/);
   assert.match(mail.html, /Rahul Tripathi/);
   assert.match(mail.html, /View release notes/);
   assert.match(mail.html, /Install Hoora Docs/);
@@ -77,7 +77,7 @@ test('Announcement template escapes contributor content and includes the public 
   assert.match(mail.html, /Hoora Docs<\/a> &middot; Rahul Tripathi/);
   assert.ok(!mail.html.includes('Reply to this email'));
   assert.ok(!mail.body.includes('display:none'), 'The copy has no hidden preview text');
-  assert.ok(mail.html.includes('https://hoora-docs.vercel.app/install'));
+  assert.ok(mail.html.includes('https://release.hoora.in/install'));
   assert.match(mail.html, /Second change/);
   assert.ok(!mail.html.includes('HC-1'), 'Ticket keys stay out of the email');
   assert.ok(!/test preview|restricted to/i.test(mail.html));

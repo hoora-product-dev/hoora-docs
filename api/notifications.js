@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const host = String(req.headers?.host || '');
     const origin = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)
       ? 'http://' + host
-      : 'https://hoora-docs.vercel.app';
+      : 'https://release.hoora.in';
     if (b.action !== 'preview' && b.action !== 'draft') throw new Error('Invalid action.');
     // Short written highlights, cached per published version of the release.
     const highlights = await releaseHighlights(

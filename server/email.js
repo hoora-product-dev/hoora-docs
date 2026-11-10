@@ -82,7 +82,7 @@ function secondaryButton(url, label) {
  * animation where the mail app supports it (Apple Mail, iOS Mail).
  * highlights: optional [{ area, text }] written for this release.
  */
-export function announcement(page, origin = 'https://hoora-docs.vercel.app', highlights) {
+export function announcement(page, origin = 'https://release.hoora.in', highlights) {
   const url = origin + publishedPath(page);
   const install = origin + '/install';
   const platform = page.release_snapshot?.project || 'Hoora';

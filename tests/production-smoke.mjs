@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-const base = process.env.HOORA_TEST_BASE_URL || 'https://hoora-docs.vercel.app';
+const base = process.env.HOORA_TEST_BASE_URL || 'https://release.hoora.in';
 for (let i = 0; i < 10; i++) {
   const r = await fetch(base + '/router.js');
   if (r.ok) break;

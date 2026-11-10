@@ -4,7 +4,7 @@ You can paste Markdown or import a `.md` file into Hoora Docs.
 
 ## Formatting
 
-**Bold**, _italic_, [links](https://hoora-docs.vercel.app), and `inline code` are supported.
+**Bold**, _italic_, [links](https://release.hoora.in), and `inline code` are supported.
 
 | Content       | How it works                  |
 | ------------- | ----------------------------- |

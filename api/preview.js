@@ -454,7 +454,7 @@ export default async function handler(req, res) {
   if (imageKind) {
     const { fonts, mark } = await loadAssets();
     const image = new ImageResponse(
-      cardElement(card, mark, `hoora-docs.vercel.app${path === '/' ? '' : path}`),
+      cardElement(card, mark, `release.hoora.in${path === '/' ? '' : path}`),
       {
         width: 1200,
         height: 630,

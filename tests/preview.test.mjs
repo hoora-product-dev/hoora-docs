@@ -58,7 +58,7 @@ test('Preview images render at 1200 × 630 with the brand fonts', async () => {
     entries: [{ vertical: 'Auto Care', body: note }],
   });
   const image = new ImageResponse(
-    cardElement(card, `data:image/png;base64,${mark.toString('base64')}`, 'hoora-docs.vercel.app'),
+    cardElement(card, `data:image/png;base64,${mark.toString('base64')}`, 'release.hoora.in'),
     {
       width: 1200,
       height: 630,
