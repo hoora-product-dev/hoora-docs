@@ -2772,7 +2772,7 @@ function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } 
     ...new Map(
       [
         ...records.map((r) => r.project),
-        ...(['admin', 'publisher'].includes(state.member?.role) ? state.projects : []),
+        ...(['admin', 'publisher', 'manager'].includes(state.member?.role) ? state.projects : []),
       ].map((p) => [p.id, p]),
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
@@ -2813,7 +2813,7 @@ function releaseTimeline() {
   const all = releaseRecords(true);
   const applicationSource = [
     ...all.map((r) => r.project),
-    ...(['admin', 'publisher'].includes(state.member?.role) ? state.projects : []),
+    ...(['admin', 'publisher', 'manager'].includes(state.member?.role) ? state.projects : []),
   ];
   const applications = [...new Map(applicationSource.map((p) => [p.id, p])).values()],
     current = applications.find((p) => p.id === state.project);
@@ -2828,7 +2828,7 @@ function releaseTimeline() {
   }
   const platformName = (p) => displayPlatformName(p.name);
   const queue = releaseWorkQueue(current?.id);
-  const canStart = ['admin', 'publisher'].includes(state.member?.role);
+  const canStart = ['admin', 'publisher', 'manager'].includes(state.member?.role);
   const rail = releaseSidebar({ projectId: current?.id || '' });
   const work = queue.length
     ? `<section class="release-queue" aria-labelledby="release-queue-title"><div class="release-queue-heading"><h2 id="release-queue-title">In progress</h2></div>${queue

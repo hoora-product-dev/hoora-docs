@@ -15,7 +15,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
     )?.role || '';
   const canGrant = (team, role) =>
     state.member?.role === 'admin' ||
-    (manages(team) && role !== 'manager') ||
+    manages(team) ||
     (ownRole(team) === 'publisher' && ['viewer', 'contributor'].includes(role)) ||
     (ownRole(team) === 'contributor' && role === 'viewer');
   const canManagePeople = (team) => canGrant(team, 'viewer');
@@ -23,7 +23,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
     state.member?.role === 'admin'
       ? ['viewer', 'contributor', 'publisher', 'manager']
       : manages(team)
-        ? ['viewer', 'contributor', 'publisher']
+        ? ['viewer', 'contributor', 'publisher', 'manager']
         : ownRole(team) === 'publisher'
           ? ['viewer', 'contributor']
           : ownRole(team) === 'contributor'
