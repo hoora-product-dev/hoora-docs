@@ -200,6 +200,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/permissions",
+      "destination": "/index.html"
+    },
+    {
       "source": "/account",
       "destination": "/index.html"
     },
@@ -209,6 +213,10 @@
     },
     {
       "source": "/search",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/|_next/|assets/|loader/|fonts/|vendor/|editor/|email/|sw\\.js|favicon\\.ico|.*\\..*).*)",
       "destination": "/index.html"
     }
   ],

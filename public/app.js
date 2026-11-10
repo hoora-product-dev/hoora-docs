@@ -103,8 +103,11 @@ const state = {
   teams: [],
   teamMembers: [],
   teamPermissions: [],
+  userPermissions: [],
   pageTeamAccess: [],
   canUpcoming: false,
+  permissionTab: 'upcoming',
+  permissionSearch: '',
   dirty: false,
 };
 let renderId = 0;
@@ -285,11 +288,19 @@ const isTeamManager = () =>
   state.member?.role === 'admin' || memberTeamRoles().includes('manager');
 const canManageReleases = (role) => {
   if (['admin', 'publisher'].includes(role)) return true;
-  // A team manager can manage releases only when their team has an explicit
-  // 'release' publish (or manage/delete) capability grant — matching the DB policy.
   if (!state.member) return false;
+  const myEmail = state.member.email?.toLowerCase();
+  const directGrant = state.userPermissions?.some(
+    (p) =>
+      (p.user_id === state.member.id || p.email?.toLowerCase() === myEmail) &&
+      (p.scope_type === 'collection' ? p.collection_key === 'release' : true) &&
+      ['publish', 'manage', 'delete'].includes(p.capability) &&
+      (!p.expires_at || new Date(p.expires_at) > new Date()),
+  );
+  if (directGrant) return true;
+
   const myTeamIds = state.teamMembers
-    .filter((m) => m.email?.toLowerCase() === state.member?.email?.toLowerCase() && m.role === 'manager')
+    .filter((m) => m.email?.toLowerCase() === myEmail && m.role === 'manager')
     .map((m) => m.team_id);
   if (!myTeamIds.length) return false;
   return myTeamIds.some((tid) =>
@@ -557,19 +568,28 @@ async function load() {
   state.teams = [];
   state.teamMembers = [];
   state.teamPermissions = [];
+  state.userPermissions = [];
   state.pageTeamAccess = [];
   state.canUpcoming = false;
   if (state.session) {
     const members = await db('docs_members', `?id=eq.${state.session.user.id}&select=*`);
     state.member = members[0]?.active ? members[0] : null;
     if (state.member && state.member.password_setup_complete) {
-      [state.teams, state.teamMembers, state.teamPermissions, state.pageTeamAccess] =
-        await Promise.all([
-          db('docs_teams', '?select=*&order=name'),
-          db('docs_team_members', '?select=*&order=email'),
-          db('docs_team_permissions', '?select=*&order=created_at.desc'),
-          db('docs_page_team_access', '?select=page_id,team_id'),
-        ]);
+      [
+        state.teams,
+        state.teamMembers,
+        state.teamPermissions,
+        state.userPermissions,
+        state.pageTeamAccess,
+        state.members,
+      ] = await Promise.all([
+        db('docs_teams', '?select=*&order=name'),
+        db('docs_team_members', '?select=*&order=email'),
+        db('docs_team_permissions', '?select=*&order=created_at.desc'),
+        db('docs_user_permissions', '?select=*&order=created_at.desc').catch(() => []),
+        db('docs_page_team_access', '?select=page_id,team_id'),
+        db('docs_members', '?select=id,name,email,role,active&order=name').catch(() => []),
+      ]);
       [state.pages, state.folders] = await Promise.all([
         canEdit(state.member.role)
           ? db(
@@ -1173,32 +1193,479 @@ async function users() {
 }
 
 function permissionsPage() {
-  const capabilityName = {
-    read: 'View', contribute: 'Create drafts', edit: 'Edit', publish: 'Publish', manage: 'Manage access', delete: 'Delete',
+  const capabilityLabels = {
+    read: 'View / Preview',
+    contribute: 'Create drafts',
+    edit: 'Edit content',
+    publish: 'Publish',
+    manage: 'Manage access & releases',
+    delete: 'Delete',
   };
-  const resourceName = (p) =>
-    p.scope_type === 'collection'
-      ? ({ release: 'Published releases', upcoming: 'Upcoming releases', sop: 'SOPs', documentation: 'Documentation' }[p.collection_key] || p.collection_key)
-      : p.scope_type === 'project'
-        ? `Platform · ${displayPlatformName(state.projects.find((x) => x.id === p.project_id)?.name || 'Unknown')}`
-        : `Folder · ${state.folders.find((x) => x.id === p.folder_id)?.name || 'Unknown'}`;
-  const teamName = (id) => state.teams.find((team) => team.id === id)?.name || 'Unknown team';
-  const rules = state.teamPermissions
-    .map((p) => `<tr><td>${e(teamName(p.team_id))}</td><td>${e(capabilityName[p.capability] || p.capability)}</td><td>${e(resourceName(p))}</td><td>${p.expires_at ? e(date(p.expires_at)) : 'No expiry'}</td><td><button type="button" class="btn text danger" data-action="remove-team-permission" data-id="${p.id}">Remove</button></td></tr>`)
-    .join('') || '<tr><td colspan="5">No extra rules yet. The default policies below still apply.</td></tr>';
-  const defaults = [
-    ['Everyone signed in', 'View', 'Published releases', 'Always'],
-    ['All team publishers', 'Create, edit & publish', 'Assigned SOPs and documentation', 'Always'],
-    ['Product Team managers', 'Create, edit, publish & notify', 'All release platforms and sections', 'Always'],
-    ['No one by default', 'View', 'Upcoming releases', 'Grant explicitly'],
-  ].map(([audience, action, scope, expiry]) => `<tr><td>${audience}</td><td>${action}</td><td>${scope}</td><td>${expiry}</td></tr>`).join('');
-  const teamCards = state.teams.map((team) => {
-    const memberCount = state.teamMembers.filter((m) => m.team_id === team.id).length;
-    const grants = state.teamPermissions.filter((p) => p.team_id === team.id);
-    const hasManagers = state.teamMembers.some((m) => m.team_id === team.id && m.role === 'manager');
-    return `<article class="permission-team-card"><div><h3>${e(team.name)}</h3><p>${memberCount} members · ${hasManagers ? 'manager assigned' : 'no manager assigned'}</p></div><span>${grants.length} custom ${grants.length === 1 ? 'rule' : 'rules'}</span></article>`;
-  }).join('') || '<p class="muted">Create a team before assigning permissions.</p>';
-  return `<div class="layout">${settingsSidebar('permissions')}<main id="main" class="settings-content permission-center"><div class="view-heading"><div><h1>Permissions</h1><p>Set access once for one team, selected teams, or every team. Defaults are visible here; extra rules are only needed for exceptions.</p></div><button type="button" class="btn dark" data-action="add-team-permission">${icon('plus')}Grant permission</button></div><section class="permission-defaults"><div class="section-heading"><div><h2>Default access</h2><p>These policies are always active and cannot be accidentally removed.</p></div></div><div class="tablewrap"><table><thead><tr><th>Audience</th><th>Can do</th><th>Where</th><th>Duration</th></tr></thead><tbody>${defaults}</tbody></table></div></section><section class="permission-summary"><div class="section-heading"><div><h2>Team overview</h2><p>See which teams have managers and custom rules before making changes.</p></div></div><div class="permission-team-grid">${teamCards}</div></section><section class="permission-rules"><div class="section-heading"><div><h2>Custom permission rules</h2><p>Use these for exceptions, such as giving selected teams access to upcoming releases or one platform.</p></div><button type="button" class="btn outline" data-action="add-team-permission">${icon('plus')}Add rule</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can do</th><th>Scope</th><th>Expiry</th><th></th></tr></thead><tbody>${rules}</tbody></table></div></section><section class="permission-guide"><h2>How to configure access</h2><ol><li>Use <strong>all teams</strong> when every team needs the same access.</li><li><strong>Product Team managers</strong> already manage every release platform and release section.</li><li>Use <strong>upcoming releases</strong> only for teams allowed to see Jira planning.</li><li>Use a <strong>platform</strong> or <strong>folder</strong> when access should be narrower.</li></ol></section></main></div>`;
+  const activeTab = state.permissionTab || 'upcoming';
+  const query = (state.permissionSearch || '').toLowerCase().trim();
+
+  const getTeam = (id) => state.teams.find((t) => t.id === id);
+  const getTeamName = (id) => getTeam(id)?.name || 'Unknown team';
+  const getMember = (email, id) =>
+    state.members.find(
+      (m) => (id && m.id === id) || m.email?.toLowerCase() === email?.toLowerCase(),
+    );
+  const getMemberName = (email, id) => {
+    const mem = getMember(email, id);
+    return mem ? (mem.name ? `${mem.name} (${mem.email})` : mem.email) : email;
+  };
+  const getResourceLabel = (p) => {
+    if (p.scope_type === 'collection') {
+      return (
+        {
+          release: 'Published releases (All platforms)',
+          upcoming: 'Upcoming releases (Planning & Jira)',
+          sop: 'Standard Operating Procedures',
+          documentation: 'Internal Documentation',
+        }[p.collection_key] || p.collection_key
+      );
+    }
+    if (p.scope_type === 'project') {
+      const proj = state.projects.find((x) => x.id === p.project_id);
+      return `Platform · ${displayPlatformName(proj?.name || 'Unknown')}`;
+    }
+    if (p.scope_type === 'folder') {
+      const fold = state.folders.find((x) => x.id === p.folder_id);
+      return `Folder · ${fold?.name || 'Unknown'}`;
+    }
+    return 'Custom scope';
+  };
+
+  // Active grants calculations
+  const now = new Date();
+  const isGrantActive = (g) => !g.expires_at || new Date(g.expires_at) > now;
+  const activeUpcomingUserGrants = state.userPermissions.filter(
+    (p) => p.scope_type === 'collection' && p.collection_key === 'upcoming' && isGrantActive(p),
+  );
+  const activeUpcomingTeamGrants = state.teamPermissions.filter(
+    (p) => p.scope_type === 'collection' && p.collection_key === 'upcoming' && isGrantActive(p),
+  );
+  const upcomingCount = activeUpcomingUserGrants.length + activeUpcomingTeamGrants.length;
+  const platformGrantCount =
+    state.teamPermissions.filter((p) => p.scope_type === 'project').length +
+    state.userPermissions.filter((p) => p.scope_type === 'project').length;
+  const teamGrantCount = state.teamPermissions.length;
+  const userGrantCount = state.userPermissions.length;
+
+  // Stat Bar HTML
+  const statBar = `
+    <div class="permission-stat-bar">
+      <div class="permission-stat-card">
+        <strong>${upcomingCount}</strong>
+        <span>Upcoming release access (${activeUpcomingUserGrants.length} people, ${activeUpcomingTeamGrants.length} teams)</span>
+      </div>
+      <div class="permission-stat-card">
+        <strong>${platformGrantCount}</strong>
+        <span>Platform-scoped rules</span>
+      </div>
+      <div class="permission-stat-card">
+        <strong>${teamGrantCount}</strong>
+        <span>Custom team rules</span>
+      </div>
+      <div class="permission-stat-card">
+        <strong>${userGrantCount}</strong>
+        <span>Direct individual overrides</span>
+      </div>
+    </div>
+  `;
+
+  // Tabs HTML
+  const tabs = [
+    ['upcoming', 'Upcoming Releases', upcomingCount],
+    ['platforms', 'Release Platforms', platformGrantCount],
+    ['teams', 'Team Rules', teamGrantCount],
+    ['users', 'Individual Overrides', userGrantCount],
+    ['defaults', 'Role Defaults & Matrix', null],
+  ];
+  const tabNav = `
+    <nav class="permission-tabs" role="tablist" aria-label="Permission categories">
+      ${tabs
+        .map(
+          ([key, label, count]) => `
+          <button type="button" class="permission-tab-btn ${activeTab === key ? 'active' : ''}" data-permission-tab="${key}" role="tab" aria-selected="${activeTab === key}">
+            <span>${label}</span>
+            ${count !== null ? `<span class="badge-count">${count}</span>` : ''}
+          </button>
+        `,
+        )
+        .join('')}
+    </nav>
+  `;
+
+  // Panel Header
+  const panelHeader = (heading, description, primaryAction = null, extraActions = '') => `
+    <div class="permission-panel-header">
+      <div>
+        <h2 style="margin:0;font-size:17px;font-weight:600">${heading}</h2>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--muted)">${description}</p>
+      </div>
+      <div class="permission-panel-actions">
+        <input class="input permission-search-input" type="search" placeholder="Filter ${activeTab}…" value="${e(state.permissionSearch || '')}" data-permission-search aria-label="Filter rules">
+        ${extraActions}
+        ${primaryAction || ''}
+      </div>
+    </div>
+  `;
+
+  let tabContent = '';
+
+  // Tab 1: Upcoming Releases
+  if (activeTab === 'upcoming') {
+    const combinedUpcoming = [
+      ...state.userPermissions
+        .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
+        .map((p) => ({ ...p, isUser: true })),
+      ...state.teamPermissions
+        .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
+        .map((p) => ({ ...p, isUser: false })),
+    ];
+    const filtered = combinedUpcoming.filter((p) => {
+      if (!query) return true;
+      const targetStr = p.isUser ? getMemberName(p.email, p.user_id) : getTeamName(p.team_id);
+      return (
+        targetStr.toLowerCase().includes(query) ||
+        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
+      );
+    });
+
+    const rows = filtered
+      .map((p) => {
+        const isUser = p.isUser;
+        const targetBadge = isUser
+          ? `<span class="permission-pill person">${icon('user')} Person</span>`
+          : `<span class="permission-pill team">${icon('users')} Team</span>`;
+        const targetName = isUser
+          ? `<strong>${e(getMemberName(p.email, p.user_id))}</strong>`
+          : `<strong>${e(getTeamName(p.team_id))}</strong><small class="permission-badge-sub"> (${state.teamMembers.filter((m) => m.team_id === p.team_id).length} members)</small>`;
+        const capLabel = ['manage', 'publish', 'edit'].includes(p.capability)
+          ? `<span class="badge" style="background:var(--accent);color:#fff">Manage Releases</span>`
+          : `<span class="badge">Preview & View Notes</span>`;
+        const expired = p.expires_at && new Date(p.expires_at) <= now;
+        const expiryLabel = p.expires_at
+          ? `${e(date(p.expires_at))}${expired ? ' <small class="danger-text">(expired)</small>' : ''}`
+          : 'Ongoing (No expiry)';
+        const searchVal = `${isUser ? p.email : getTeamName(p.team_id)} ${p.capability}`;
+        return `
+          <tr data-search="${e(searchVal)}">
+            <td><div style="display:flex;align-items:center;gap:8px">${targetBadge}<div>${targetName}</div></div></td>
+            <td>${capLabel}</td>
+            <td>${p.granted_by ? e(getMemberName('', p.granted_by)) : 'Administrator'}</td>
+            <td>${expiryLabel}</td>
+            <td style="text-align:right">
+              <button type="button" class="btn text danger" data-action="${isUser ? 'remove-user-permission' : 'remove-team-permission'}" data-id="${p.id}">Revoke</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    tabContent = `
+      <section class="permission-panel">
+        ${panelHeader(
+          'Upcoming Releases Access',
+          'Manage who can preview Jira upcoming release notes or configure release planning. You can grant access to individual emails, comma-separated email batches, or entire teams.',
+          `<button type="button" class="btn dark" data-action="add-upcoming-access">${icon('plus')}Add upcoming access</button>`,
+        )}
+        <div class="tablewrap">
+          <table class="permission-table">
+            <thead>
+              <tr>
+                <th>Recipient / Audience</th>
+                <th>Access level</th>
+                <th>Granted by</th>
+                <th>Duration</th>
+                <th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5"><div class="permission-empty-notice">No upcoming release access granted yet. By default, upcoming planning is hidden from everyone except administrators. Click "Add upcoming access" to invite people or teams.</div></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  } else if (activeTab === 'platforms') {
+    // Tab 2: Release Platforms
+    const platformCards = state.projects
+      .map((proj) => {
+        const teamGrants = state.teamPermissions.filter((p) => p.scope_type === 'project' && p.project_id === proj.id);
+        const userGrants = state.userPermissions.filter((p) => p.scope_type === 'project' && p.project_id === proj.id);
+        const allGrants = [...teamGrants.map((g) => ({ ...g, isUser: false })), ...userGrants.map((g) => ({ ...g, isUser: true }))];
+        const searchStr = `${proj.name} ${allGrants.map((g) => (g.isUser ? g.email : getTeamName(g.team_id))).join(' ')}`;
+        return `
+          <div class="permission-platform-card" data-search="${e(searchStr)}">
+            <div class="permission-platform-card-header">
+              <div class="permission-platform-title">
+                ${icon(proj.icon || 'grid')}
+                <span>${e(displayPlatformName(proj.name))}</span>
+              </div>
+              <span class="badge">${allGrants.length} custom ${allGrants.length === 1 ? 'rule' : 'rules'}</span>
+            </div>
+            <div class="permission-platform-grants">
+              ${
+                allGrants.length
+                  ? allGrants
+                      .map(
+                        (g) => `
+                    <div class="permission-grant-item">
+                      <div class="permission-grant-info">
+                        <span class="permission-pill ${g.isUser ? 'person' : 'team'}">${g.isUser ? 'User' : 'Team'}</span>
+                        <strong>${e(g.isUser ? g.email : getTeamName(g.team_id))}</strong>
+                        <span>· ${e(capabilityLabels[g.capability] || g.capability)}</span>
+                      </div>
+                      <button type="button" class="btn text danger" data-action="${g.isUser ? 'remove-user-permission' : 'remove-team-permission'}" data-id="${g.id}" aria-label="Remove rule">${icon('close')}</button>
+                    </div>
+                  `,
+                      )
+                      .join('')
+                  : '<div class="permission-empty-notice">Standard policy: Product managers & admins can publish releases; signed-in users can view.</div>'
+              }
+            </div>
+            <button type="button" class="btn outline small" data-action="add-platform-rule" data-project-id="${proj.id}">
+              ${icon('plus')}Add platform rule
+            </button>
+          </div>
+        `;
+      })
+      .join('');
+
+    tabContent = `
+      <section class="permission-panel">
+        ${panelHeader(
+          'Release Platforms Access',
+          'Configure permissions for individual release platforms (Customer App, Partner App, Admin Panel, Web, etc.).',
+          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Grant permission</button>`,
+        )}
+        <div class="permission-platform-grid">
+          ${platformCards}
+        </div>
+      </section>
+    `;
+  } else if (activeTab === 'teams') {
+    // Tab 3: Team Rules
+    const teamCards = state.teams
+      .map((team) => {
+        const memberCount = state.teamMembers.filter((m) => m.team_id === team.id).length;
+        const grants = state.teamPermissions.filter((p) => p.team_id === team.id);
+        const hasManagers = state.teamMembers.some((m) => m.team_id === team.id && m.role === 'manager');
+        const searchStr = `${team.name} ${grants.map((g) => g.capability + ' ' + (g.collection_key || '')).join(' ')}`;
+        return `
+          <article class="permission-team-card" data-search="${e(searchStr)}">
+            <div>
+              <h3>${e(team.name)}</h3>
+              <p>${memberCount} members · ${hasManagers ? 'manager assigned' : 'no manager assigned'}</p>
+            </div>
+            <span>${grants.length} custom ${grants.length === 1 ? 'rule' : 'rules'}</span>
+          </article>
+        `;
+      })
+      .join('');
+
+    const filteredTeamRules = state.teamPermissions.filter((p) => {
+      if (!query) return true;
+      const tName = getTeamName(p.team_id);
+      const res = getResourceLabel(p);
+      return (
+        tName.toLowerCase().includes(query) ||
+        res.toLowerCase().includes(query) ||
+        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
+      );
+    });
+
+    const teamRuleRows = filteredTeamRules
+      .map(
+        (p) => `
+        <tr data-search="${e(getTeamName(p.team_id) + ' ' + getResourceLabel(p) + ' ' + p.capability)}">
+          <td><strong>${e(getTeamName(p.team_id))}</strong></td>
+          <td><span class="badge">${e(capabilityLabels[p.capability] || p.capability)}</span></td>
+          <td>${e(getResourceLabel(p))}</td>
+          <td>${p.expires_at ? e(date(p.expires_at)) : 'Ongoing (No expiry)'}</td>
+          <td style="text-align:right">
+            <button type="button" class="btn text danger" data-action="remove-team-permission" data-id="${p.id}">Remove</button>
+          </td>
+        </tr>
+      `,
+      )
+      .join('');
+
+    tabContent = `
+      <section class="permission-panel">
+        ${panelHeader(
+          'Team Overview & Rules',
+          'Manage permissions inherited by teams. Everyone in a team inherits the capabilities granted to their team.',
+          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Add team rule</button>`,
+        )}
+        <div class="permission-team-grid" style="margin-bottom:20px">
+          ${teamCards || '<p class="muted">No teams created yet.</p>'}
+        </div>
+        <div class="tablewrap">
+          <table class="permission-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Can do</th>
+                <th>Scope</th>
+                <th>Expiry</th>
+                <th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${teamRuleRows || '<tr><td colspan="5"><div class="permission-empty-notice">No custom team capability rules yet. Click "Add team rule" to create one.</div></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  } else if (activeTab === 'users') {
+    // Tab 4: Individual Overrides
+    const filteredUserRules = state.userPermissions.filter((p) => {
+      if (!query) return true;
+      const mName = getMemberName(p.email, p.user_id);
+      const res = getResourceLabel(p);
+      return (
+        mName.toLowerCase().includes(query) ||
+        res.toLowerCase().includes(query) ||
+        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
+      );
+    });
+
+    const userRuleRows = filteredUserRules
+      .map(
+        (p) => `
+        <tr data-search="${e(getMemberName(p.email, p.user_id) + ' ' + getResourceLabel(p) + ' ' + p.capability)}">
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="permission-pill person">${icon('user')} Person</span>
+              <div>
+                <strong>${e(getMemberName(p.email, p.user_id))}</strong>
+                ${p.user_id ? '<small class="permission-badge-sub"> (registered member)</small>' : '<small class="permission-badge-sub"> (direct email grant)</small>'}
+              </div>
+            </div>
+          </td>
+          <td><span class="badge">${e(capabilityLabels[p.capability] || p.capability)}</span></td>
+          <td>${e(getResourceLabel(p))}</td>
+          <td>${p.expires_at ? e(date(p.expires_at)) : 'Ongoing (No expiry)'}</td>
+          <td style="text-align:right">
+            <button type="button" class="btn text danger" data-action="remove-user-permission" data-id="${p.id}">Remove</button>
+          </td>
+        </tr>
+      `,
+      )
+      .join('');
+
+    tabContent = `
+      <section class="permission-panel">
+        ${panelHeader(
+          'Individual User Overrides',
+          'Pinpoint permissions granted directly to specific email addresses or user accounts, independent of team membership.',
+          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Add user override</button>`,
+        )}
+        <div class="tablewrap">
+          <table class="permission-table">
+            <thead>
+              <tr>
+                <th>Person / Email</th>
+                <th>Can do</th>
+                <th>Scope</th>
+                <th>Expiry</th>
+                <th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${userRuleRows || '<tr><td colspan="5"><div class="permission-empty-notice">No direct user overrides yet. Use "Add user override" to grant permissions directly to individuals or email batches.</div></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  } else {
+    // Tab 5: Role Defaults & Matrix
+    const defaults = [
+      ['Everyone signed in', 'View', 'Published releases across all platforms', 'Always (Built-in)'],
+      ['All team publishers', 'Create, edit & publish', 'Assigned SOPs and Documentation', 'Always (Built-in)'],
+      ['Product Team managers', 'Create, edit, publish & notify', 'All release platforms and sections', 'Always (Built-in)'],
+      ['Documentation authors', 'Edit & trash own documents', 'Their own created documents', 'Always (Built-in)'],
+      ['No one by default', 'View / Preview', 'Upcoming releases (Planning & Jira tickets)', 'Grant explicitly per team or email'],
+    ]
+      .map(
+        ([audience, action, scope, expiry]) =>
+          `<tr><td><strong>${audience}</strong></td><td><span class="badge">${action}</span></td><td>${scope}</td><td>${expiry}</td></tr>`,
+      )
+      .join('');
+
+    const roleExplainer = [
+      ['Administrator', 'Full system control', 'Manage all content, users, teams, permissions, settings, and Jira connections.'],
+      ['Manager', 'Team & release management', 'Manages team members; managers of Product Teams can manage and publish releases across platforms.'],
+      ['Publisher', 'Publishing power', 'Creates, edits, and publishes assigned documentation and SOPs without requiring admin approval.'],
+      ['Contributor', 'Content authoring', 'Drafts and edits team documentation and SOPs; submits drafts for publisher/admin approval.'],
+      ['Viewer', 'Read-only access', 'Reads content shared with their team. No access to upcoming releases unless explicitly granted.'],
+    ]
+      .map(
+        ([r, title, desc]) => `
+        <div class="permission-stat-card">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="permission-pill role-${r.toLowerCase()}">${r}</span>
+            <strong>${title}</strong>
+          </div>
+          <span>${desc}</span>
+        </div>
+      `,
+      )
+      .join('');
+
+    tabContent = `
+      <section class="permission-panel">
+        ${panelHeader('Default Access Policies & Role Matrix', 'These baseline security policies are always enforced in Postgres row-level security. Custom rules layer on top of them.')}
+        <div class="tablewrap" style="margin-bottom:24px">
+          <table class="permission-matrix-table">
+            <thead>
+              <tr>
+                <th>Audience</th>
+                <th>Can do</th>
+                <th>Where</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${defaults}
+            </tbody>
+          </table>
+        </div>
+        <h3 style="font-size:16px;margin:0 0 12px;font-weight:600">Organizational Roles</h3>
+        <div class="permission-stat-bar" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">
+          ${roleExplainer}
+        </div>
+      </section>
+    `;
+  }
+
+  return `
+    <div class="layout">
+      ${settingsSidebar('permissions')}
+      <main id="main" class="settings-content permission-center">
+        <div class="view-heading">
+          <div>
+            <h1>Permissions Command Center</h1>
+            <p>Granular access management for upcoming releases, release platforms, internal docs, teams, and batch email invites.</p>
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" class="btn outline" data-action="add-upcoming-access">${icon('clock')}Add upcoming access</button>
+            <button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Grant permission</button>
+          </div>
+        </div>
+        ${statBar}
+        ${tabNav}
+        <div style="margin-top:20px">
+          ${tabContent}
+        </div>
+      </main>
+    </div>
+  `;
 }
 /** People board: drag between columns, or use the role and "Add person" menus. */
 function bindPeopleBoard() {
@@ -1869,59 +2336,542 @@ function memberDialog(id) {
     );
   });
 }
-function teamPermissionDialog() {
+function upcomingAccessDialog() {
   if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
+
+  const grantedEmails = new Set(
+    state.userPermissions
+      .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
+      .map((p) => p.email.toLowerCase()),
+  );
+  const ungrantedMembers = state.members
+    .filter((m) => m.active && !grantedEmails.has(m.email?.toLowerCase()))
+    .slice(0, 12);
+
   dialog(
-    `<h2>Grant team capability</h2><p class="small">Choose one or many teams, then define exactly what they can do and where. Nothing is changed until you save.</p><fieldset class="permission-picker"><legend>Audience</legend><label class="check-row"><input type="checkbox" id="permission-all-teams"> <span><strong>All teams</strong><small>Apply this capability to every current team.</small></span></label><div class="check-grid">${state.teams.map((team) => `<label class="check-row"><input type="checkbox" name="team_id" value="${team.id}"> <span>${e(team.name)}</span></label>`).join('')}</div></fieldset><div class="field"><label for="permission-scope">Where does this apply?</label><select id="permission-scope" name="scope_type"><option value="collection">A whole collection</option><option value="folder">One documentation folder</option><option value="project">One release platform</option></select><small>Collection is the broadest scope. Use a folder or platform for a narrower grant.</small></div><div class="field"><label for="permission-collection">Collection</label><select id="permission-collection" name="collection_key"><option value="release">Published releases</option><option value="upcoming">Upcoming releases</option><option value="sop">SOPs</option><option value="documentation">Documentation</option></select></div><div class="field"><label for="permission-folder">Folder</label><select id="permission-folder" name="folder_id"><option value="">Choose a folder</option>${state.folders.map((folder) => `<option value="${folder.id}">${e(folder.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-project">Release platform</label><select id="permission-project" name="project_id"><option value="">Choose a platform</option>${state.projects.map((project) => `<option value="${project.id}">${e(displayPlatformName(project.name))}</option>`).join('')}</select></div><div class="field"><label for="permission-capability">What can they do?</label><select id="permission-capability" name="capability"><option value="read">View</option><option value="contribute">Create drafts</option><option value="edit">Edit content</option><option value="publish">Publish</option><option value="manage">Manage access</option><option value="delete">Delete</option></select></div><div class="field"><label for="permission-expiry">Expires (optional)</label><input id="permission-expiry" name="expires_at" type="date"><small>Leave blank for an ongoing permission.</small></div><p class="permission-preview" id="permission-preview" role="status">Choose an audience and capability.</p><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save capability</button></div></form>`,
+    `<h2>Grant upcoming releases access</h2>
+    <p class="small">Add people or teams who can preview upcoming releases or manage Jira release planning. You can enter one email, paste a bunch of emails, or select teams.</p>
+    
+    <div class="permission-target-toggle" role="tablist">
+      <button type="button" class="permission-target-tab active" data-upcoming-target="people">People / Emails</button>
+      <button type="button" class="permission-target-tab" data-upcoming-target="teams">Teams</button>
+    </div>
+    
+    <div id="upcoming-target-people" class="permission-dynamic-group">
+      <div class="field">
+        <label for="upcoming-emails">Email addresses (one or a bunch)</label>
+        <textarea id="upcoming-emails" name="emails" rows="3" class="input" placeholder="alice@hoora.in, bob@hoora.in (or paste a bunch of emails separated by commas, spaces, or lines)"></textarea>
+        <small class="help">Tip: You can paste a comma-separated list of multiple emails at once.</small>
+      </div>
+      ${
+        ungrantedMembers.length
+          ? `
+        <div class="field">
+          <label>Quick add registered members:</label>
+          <div class="permission-quick-pills">
+            ${ungrantedMembers.map((m) => `<button type="button" class="quick-pill" data-add-email="${e(m.email)}">+ ${e(m.name || m.email)}</button>`).join('')}
+          </div>
+        </div>
+      `
+          : ''
+      }
+    </div>
+
+    <div id="upcoming-target-teams" class="permission-dynamic-group" style="display:none">
+      <fieldset class="permission-picker">
+        <legend>Audience</legend>
+        <label class="check-row">
+          <input type="checkbox" id="upcoming-all-teams">
+          <span><strong>All teams</strong><small>Give upcoming access to all current and future members of every team.</small></span>
+        </label>
+        <div class="check-grid">
+          ${state.teams.map((t) => `<label class="check-row"><input type="checkbox" name="team_id" value="${t.id}"> <span>${e(t.name)}</span></label>`).join('')}
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="field">
+      <label for="upcoming-capability">Access level</label>
+      <select id="upcoming-capability" name="capability">
+        <option value="read" selected>Preview & View upcoming releases (Read-only tickets & notes)</option>
+        <option value="manage">Manage upcoming releases (Edit Jira filters, sync & settings)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="upcoming-expiry-preset">Access duration</label>
+      <select id="upcoming-expiry-preset" name="expiry_preset">
+        <option value="never" selected>Ongoing (Never expires)</option>
+        <option value="7d">7 days</option>
+        <option value="30d">30 days</option>
+        <option value="90d">90 days</option>
+        <option value="custom">Custom date…</option>
+      </select>
+    </div>
+
+    <div class="field" id="upcoming-custom-date-row" style="display:none">
+      <label for="upcoming-custom-date">Expiration date</label>
+      <input type="date" id="upcoming-custom-date" name="custom_expiry">
+    </div>
+
+    <p class="permission-preview" id="upcoming-preview" role="status">Choose recipients to grant access.</p>
+    <p class="error" role="alert"></p>
+
+    <div class="dialog-actions">
+      <button type="button" class="btn outline" data-close>Cancel</button>
+      <button class="btn dark" type="submit">Grant upcoming access</button>
+    </div>`,
     async (form) => {
-      const scopeType = form.get('scope_type');
-      const allTeams = modal.querySelector('#permission-all-teams')?.checked === true;
-      const teamIds = allTeams ? state.teams.map((team) => team.id) : form.getAll('team_id');
-      if (!teamIds.length) throw new Error('Choose at least one team, or select All teams.');
-      const body = teamIds.map((team_id) => ({
-        team_id,
-        scope_type: scopeType,
-        collection_key: scopeType === 'collection' ? form.get('collection_key') : null,
-        folder_id: scopeType === 'folder' ? form.get('folder_id') || null : null,
-        project_id: scopeType === 'project' ? form.get('project_id') || null : null,
-        capability: form.get('capability'),
-        granted_by: state.member.id,
-        expires_at: form.get('expires_at')
-          ? new Date(form.get('expires_at') + 'T23:59:59Z').toISOString()
-          : null,
-      }));
-      if (
-        (scopeType === 'folder' && !body.folder_id) ||
-        (scopeType === 'project' && !body.project_id)
-      )
-        throw new Error('Choose the selected scope.');
-      await db('docs_team_permissions', '', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=ignore-duplicates' },
-        body,
-      });
-      await load();
-      await render();
-      toast(`${teamIds.length} team ${teamIds.length === 1 ? 'capability' : 'capabilities'} saved.`);
+      const isTeams = modal.querySelector('[data-upcoming-target="teams"]')?.classList.contains('active');
+      const capability = form.get('capability') || 'read';
+      const expiryPreset = form.get('expiry_preset');
+      let expiresAt = null;
+      if (expiryPreset === '7d') expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+      else if (expiryPreset === '30d') expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+      else if (expiryPreset === '90d') expiresAt = new Date(Date.now() + 90 * 86400000).toISOString();
+      else if (expiryPreset === 'custom' && form.get('custom_expiry')) {
+        expiresAt = new Date(form.get('custom_expiry') + 'T23:59:59Z').toISOString();
+      }
+
+      if (isTeams) {
+        const allChecked = modal.querySelector('#upcoming-all-teams')?.checked;
+        const teamIds = allChecked ? state.teams.map((t) => t.id) : form.getAll('team_id');
+        if (!teamIds.length) throw new Error('Select at least one team, or check All teams.');
+        const body = teamIds.map((team_id) => ({
+          team_id,
+          scope_type: 'collection',
+          collection_key: 'upcoming',
+          capability,
+          granted_by: state.member.id,
+          expires_at: expiresAt,
+        }));
+        await db('docs_team_permissions', '', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=ignore-duplicates' },
+          body,
+        });
+        await load();
+        await render();
+        toast(`Granted upcoming access to ${teamIds.length} ${teamIds.length === 1 ? 'team' : 'teams'}.`);
+      } else {
+        const rawEmails = String(form.get('emails') || '').trim();
+        if (!rawEmails) throw new Error('Enter at least one email address.');
+        const emails = Array.from(
+          new Set(
+            rawEmails
+              .split(/[,\s;\n]+/)
+              .map((x) => x.trim().toLowerCase())
+              .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)),
+          ),
+        );
+        if (!emails.length) throw new Error('Please enter valid email addresses.');
+
+        const body = emails.map((email) => {
+          const match = state.members.find((m) => m.email?.toLowerCase() === email);
+          return {
+            email,
+            user_id: match?.id || null,
+            scope_type: 'collection',
+            collection_key: 'upcoming',
+            capability,
+            granted_by: state.member.id,
+            expires_at: expiresAt,
+          };
+        });
+
+        await db('docs_user_permissions', '', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=ignore-duplicates' },
+          body,
+        });
+        await load();
+        await render();
+        toast(`Granted upcoming access to ${emails.length} ${emails.length === 1 ? 'person' : 'people'}.`);
+      }
     },
   );
-  const all = modal.querySelector('#permission-all-teams');
-  all?.addEventListener('change', () => {
-    modal.querySelectorAll('input[name="team_id"]').forEach((input) => {
-      input.checked = all.checked;
-      input.disabled = all.checked;
+
+  const peopleTab = modal.querySelector('[data-upcoming-target="people"]');
+  const teamsTab = modal.querySelector('[data-upcoming-target="teams"]');
+  const peopleGroup = modal.querySelector('#upcoming-target-people');
+  const teamsGroup = modal.querySelector('#upcoming-target-teams');
+  const allTeamsCheckbox = modal.querySelector('#upcoming-all-teams');
+  const expiryPreset = modal.querySelector('#upcoming-expiry-preset');
+  const customDateRow = modal.querySelector('#upcoming-custom-date-row');
+  const preview = modal.querySelector('#upcoming-preview');
+
+  peopleTab?.addEventListener('click', () => {
+    peopleTab.classList.add('active');
+    teamsTab.classList.remove('active');
+    peopleGroup.style.display = '';
+    teamsGroup.style.display = 'none';
+    updateUpcomingPreview();
+  });
+
+  teamsTab?.addEventListener('click', () => {
+    teamsTab.classList.add('active');
+    peopleTab.classList.remove('active');
+    teamsGroup.style.display = '';
+    peopleGroup.style.display = 'none';
+    updateUpcomingPreview();
+  });
+
+  allTeamsCheckbox?.addEventListener('change', () => {
+    modal.querySelectorAll('input[name="team_id"]').forEach((i) => {
+      i.checked = allTeamsCheckbox.checked;
+      i.disabled = allTeamsCheckbox.checked;
+    });
+    updateUpcomingPreview();
+  });
+
+  expiryPreset?.addEventListener('change', () => {
+    if (customDateRow) customDateRow.style.display = expiryPreset.value === 'custom' ? '' : 'none';
+    updateUpcomingPreview();
+  });
+
+  modal.querySelectorAll('[data-add-email]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const input = modal.querySelector('#upcoming-emails');
+      if (!input) return;
+      const current = input.value.trim();
+      const email = btn.dataset.addEmail;
+      if (!current) {
+        input.value = email;
+      } else if (!current.toLowerCase().includes(email.toLowerCase())) {
+        input.value = current + ', ' + email;
+      }
+      btn.remove();
+      updateUpcomingPreview();
     });
   });
-  const updatePreview = () => {
-    const selected = modal.querySelectorAll('input[name="team_id"]:checked').length;
-    const audience = all?.checked ? 'all teams' : `${selected} selected ${selected === 1 ? 'team' : 'teams'}`;
-    const capability = modal.querySelector('#permission-capability')?.selectedOptions[0]?.textContent || 'capability';
-    const scope = modal.querySelector('#permission-scope')?.selectedOptions[0]?.textContent || 'scope';
-    const preview = modal.querySelector('#permission-preview');
-    if (preview) preview.textContent = `This grants “${capability}” to ${audience} for ${scope.toLowerCase()}.`;
-  };
-  modal.querySelectorAll('input[name="team_id"], select').forEach((input) => input.addEventListener('change', updatePreview));
+
+  function updateUpcomingPreview() {
+    if (!preview) return;
+    const isTeams = teamsTab?.classList.contains('active');
+    const cap =
+      modal.querySelector('#upcoming-capability')?.value === 'manage'
+        ? 'manage upcoming releases'
+        : 'preview upcoming notes';
+    if (isTeams) {
+      const all = allTeamsCheckbox?.checked;
+      const count = modal.querySelectorAll('input[name="team_id"]:checked').length;
+      const aud = all ? 'all teams' : `${count} selected ${count === 1 ? 'team' : 'teams'}`;
+      preview.textContent = `Grants permission to ${cap} to ${aud}.`;
+    } else {
+      const raw = modal.querySelector('#upcoming-emails')?.value.trim() || '';
+      const count = raw
+        .split(/[,\s;\n]+/)
+        .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).length;
+      preview.textContent = count
+        ? `Grants permission to ${cap} to ${count} ${count === 1 ? 'person' : 'people'}.`
+        : 'Enter email addresses above to preview.';
+    }
+  }
+
+  modal.querySelectorAll('input, select, textarea').forEach((el) => {
+    el.addEventListener('input', updateUpcomingPreview);
+    el.addEventListener('change', updateUpcomingPreview);
+  });
 }
+
+function grantPermissionDialog(initial = {}) {
+  if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
+
+  const defaultScope =
+    initial.scopeType ||
+    (initial.projectId ? 'project' : initial.folderId ? 'folder' : 'upcoming');
+  const defaultProjectId = initial.projectId || '';
+  const defaultFolderId = initial.folderId || '';
+
+  dialog(
+    `<h2>Grant scoped permission</h2>
+    <p class="small">Assign pinpoint access rules for teams or specific people across platforms, folders, or collections.</p>
+    
+    <div class="permission-target-toggle" role="tablist">
+      <button type="button" class="permission-target-tab ${initial.target === 'person' ? '' : 'active'}" data-perm-target="team">Team(s)</button>
+      <button type="button" class="permission-target-tab ${initial.target === 'person' ? 'active' : ''}" data-perm-target="person">Specific Person / Emails</button>
+    </div>
+
+    <div id="perm-target-team" class="permission-dynamic-group" ${initial.target === 'person' ? 'style="display:none"' : ''}>
+      <fieldset class="permission-picker">
+        <legend>Audience</legend>
+        <label class="check-row">
+          <input type="checkbox" id="perm-all-teams">
+          <span><strong>All teams</strong><small>Apply this capability to every current and future team.</small></span>
+        </label>
+        <div class="check-grid">
+          ${state.teams.map((t) => `<label class="check-row"><input type="checkbox" name="team_id" value="${t.id}"> <span>${e(t.name)}</span></label>`).join('')}
+        </div>
+      </fieldset>
+    </div>
+
+    <div id="perm-target-person" class="permission-dynamic-group" ${initial.target === 'person' ? '' : 'style="display:none"'}>
+      <div class="field">
+        <label for="perm-emails">Email addresses (one or multiple)</label>
+        <textarea id="perm-emails" name="emails" rows="2" class="input" placeholder="alice@hoora.in, bob@hoora.in"></textarea>
+      </div>
+      <div class="field">
+        <label>Quick select member:</label>
+        <div class="permission-quick-pills">
+          ${state.members.slice(0, 10).map((m) => `<button type="button" class="quick-pill" data-add-perm-email="${e(m.email)}">+ ${e(m.name || m.email)}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="perm-scope">Where does this apply?</label>
+      <select id="perm-scope" name="scope_selection">
+        <option value="upcoming" ${defaultScope === 'upcoming' ? 'selected' : ''}>Upcoming releases (Planning & Jira)</option>
+        <option value="project" ${defaultScope === 'project' ? 'selected' : ''}>Release platform (Customer App, Partner App, etc.)</option>
+        <option value="folder" ${defaultScope === 'folder' ? 'selected' : ''}>Documentation folder</option>
+        <option value="collection-release" ${defaultScope === 'collection' && initial.collectionKey === 'release' ? 'selected' : ''}>Published releases (All platforms)</option>
+        <option value="collection-documentation" ${defaultScope === 'collection' && initial.collectionKey === 'documentation' ? 'selected' : ''}>Documentation (General)</option>
+        <option value="collection-sop" ${defaultScope === 'collection' && initial.collectionKey === 'sop' ? 'selected' : ''}>Standard Operating Procedures (SOPs)</option>
+      </select>
+    </div>
+
+    <div class="field" id="perm-project-row" ${defaultScope === 'project' ? '' : 'style="display:none"'}>
+      <label for="perm-project">Platform</label>
+      <select id="perm-project" name="project_id">
+        <option value="">Select platform…</option>
+        ${state.projects.map((p) => `<option value="${p.id}" ${p.id === defaultProjectId ? 'selected' : ''}>${e(displayPlatformName(p.name))}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field" id="perm-folder-row" ${defaultScope === 'folder' ? '' : 'style="display:none"'}>
+      <label for="perm-folder">Documentation folder</label>
+      <select id="perm-folder" name="folder_id">
+        <option value="">Select folder…</option>
+        ${state.folders.map((f) => `<option value="${f.id}" ${f.id === defaultFolderId ? 'selected' : ''}>${e(f.name)}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="perm-capability">What can they do?</label>
+      <select id="perm-capability" name="capability">
+        <option value="read" selected>View / Preview</option>
+        <option value="contribute">Create drafts</option>
+        <option value="edit">Edit content</option>
+        <option value="publish">Publish</option>
+        <option value="manage">Manage access & releases</option>
+        <option value="delete">Delete</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="perm-expiry-preset">Expires</label>
+      <select id="perm-expiry-preset" name="expiry_preset">
+        <option value="never" selected>Ongoing (Never expires)</option>
+        <option value="7d">7 days</option>
+        <option value="30d">30 days</option>
+        <option value="90d">90 days</option>
+        <option value="custom">Custom date…</option>
+      </select>
+    </div>
+
+    <div class="field" id="perm-custom-date-row" style="display:none">
+      <label for="perm-custom-date">Expiration date</label>
+      <input type="date" id="perm-custom-date" name="custom_expiry">
+    </div>
+
+    <p class="permission-preview" id="perm-preview" role="status">Configure audience and scope.</p>
+    <p class="error" role="alert"></p>
+
+    <div class="dialog-actions">
+      <button type="button" class="btn outline" data-close>Cancel</button>
+      <button class="btn dark" type="submit">Save permission</button>
+    </div>`,
+    async (form) => {
+      const isPerson = modal.querySelector('[data-perm-target="person"]')?.classList.contains('active');
+      const scopeSelection = form.get('scope_selection');
+      const capability = form.get('capability');
+      const expiryPreset = form.get('expiry_preset');
+      let expiresAt = null;
+      if (expiryPreset === '7d') expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+      else if (expiryPreset === '30d') expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
+      else if (expiryPreset === '90d') expiresAt = new Date(Date.now() + 90 * 86400000).toISOString();
+      else if (expiryPreset === 'custom' && form.get('custom_expiry')) {
+        expiresAt = new Date(form.get('custom_expiry') + 'T23:59:59Z').toISOString();
+      }
+
+      let scopeType = 'collection';
+      let collectionKey = null;
+      let projectId = null;
+      let folderId = null;
+
+      if (scopeSelection === 'upcoming') {
+        collectionKey = 'upcoming';
+      } else if (scopeSelection === 'collection-release') {
+        collectionKey = 'release';
+      } else if (scopeSelection === 'collection-documentation') {
+        collectionKey = 'documentation';
+      } else if (scopeSelection === 'collection-sop') {
+        collectionKey = 'sop';
+      } else if (scopeSelection === 'project') {
+        scopeType = 'project';
+        projectId = form.get('project_id');
+        if (!projectId) throw new Error('Please choose a platform.');
+      } else if (scopeSelection === 'folder') {
+        scopeType = 'folder';
+        folderId = form.get('folder_id');
+        if (!folderId) throw new Error('Please choose a folder.');
+      }
+
+      if (isPerson) {
+        const rawEmails = String(form.get('emails') || '').trim();
+        if (!rawEmails) throw new Error('Enter at least one email address.');
+        const emails = Array.from(
+          new Set(
+            rawEmails
+              .split(/[,\s;\n]+/)
+              .map((x) => x.trim().toLowerCase())
+              .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)),
+          ),
+        );
+        if (!emails.length) throw new Error('Please enter valid email addresses.');
+
+        const body = emails.map((email) => {
+          const match = state.members.find((m) => m.email?.toLowerCase() === email);
+          return {
+            email,
+            user_id: match?.id || null,
+            scope_type: scopeType,
+            collection_key: collectionKey,
+            project_id: projectId,
+            folder_id: folderId,
+            capability,
+            granted_by: state.member.id,
+            expires_at: expiresAt,
+          };
+        });
+
+        await db('docs_user_permissions', '', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=ignore-duplicates' },
+          body,
+        });
+        await load();
+        await render();
+        toast(`Granted permission to ${emails.length} ${emails.length === 1 ? 'person' : 'people'}.`);
+      } else {
+        const allTeams = modal.querySelector('#perm-all-teams')?.checked === true;
+        const teamIds = allTeams ? state.teams.map((t) => t.id) : form.getAll('team_id');
+        if (!teamIds.length) throw new Error('Choose at least one team, or select All teams.');
+
+        const body = teamIds.map((team_id) => ({
+          team_id,
+          scope_type: scopeType,
+          collection_key: collectionKey,
+          project_id: projectId,
+          folder_id: folderId,
+          capability,
+          granted_by: state.member.id,
+          expires_at: expiresAt,
+        }));
+
+        await db('docs_team_permissions', '', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=ignore-duplicates' },
+          body,
+        });
+        await load();
+        await render();
+        toast(`Granted permission to ${teamIds.length} ${teamIds.length === 1 ? 'team' : 'teams'}.`);
+      }
+    },
+  );
+
+  const teamTab = modal.querySelector('[data-perm-target="team"]');
+  const personTab = modal.querySelector('[data-perm-target="person"]');
+  const teamGroup = modal.querySelector('#perm-target-team');
+  const personGroup = modal.querySelector('#perm-target-person');
+  const scopeSelect = modal.querySelector('#perm-scope');
+  const projectRow = modal.querySelector('#perm-project-row');
+  const folderRow = modal.querySelector('#perm-folder-row');
+  const allTeamsCheckbox = modal.querySelector('#perm-all-teams');
+  const expiryPreset = modal.querySelector('#perm-expiry-preset');
+  const customDateRow = modal.querySelector('#perm-custom-date-row');
+  const preview = modal.querySelector('#perm-preview');
+
+  teamTab?.addEventListener('click', () => {
+    teamTab.classList.add('active');
+    personTab.classList.remove('active');
+    teamGroup.style.display = '';
+    personGroup.style.display = 'none';
+    updatePermPreview();
+  });
+
+  personTab?.addEventListener('click', () => {
+    personTab.classList.add('active');
+    teamTab.classList.remove('active');
+    personGroup.style.display = '';
+    teamGroup.style.display = 'none';
+    updatePermPreview();
+  });
+
+  scopeSelect?.addEventListener('change', () => {
+    const val = scopeSelect.value;
+    if (projectRow) projectRow.style.display = val === 'project' ? '' : 'none';
+    if (folderRow) folderRow.style.display = val === 'folder' ? '' : 'none';
+    updatePermPreview();
+  });
+
+  allTeamsCheckbox?.addEventListener('change', () => {
+    modal.querySelectorAll('input[name="team_id"]').forEach((i) => {
+      i.checked = allTeamsCheckbox.checked;
+      i.disabled = allTeamsCheckbox.checked;
+    });
+    updatePermPreview();
+  });
+
+  expiryPreset?.addEventListener('change', () => {
+    if (customDateRow) customDateRow.style.display = expiryPreset.value === 'custom' ? '' : 'none';
+    updatePermPreview();
+  });
+
+  modal.querySelectorAll('[data-add-perm-email]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const input = modal.querySelector('#perm-emails');
+      if (!input) return;
+      const current = input.value.trim();
+      const email = btn.dataset.addPermEmail;
+      if (!current) {
+        input.value = email;
+      } else if (!current.toLowerCase().includes(email.toLowerCase())) {
+        input.value = current + ', ' + email;
+      }
+      btn.remove();
+      updatePermPreview();
+    });
+  });
+
+  function updatePermPreview() {
+    if (!preview) return;
+    const isPerson = personTab?.classList.contains('active');
+    const cap = modal.querySelector('#perm-capability')?.selectedOptions[0]?.textContent || 'capability';
+    const scope = modal.querySelector('#perm-scope')?.selectedOptions[0]?.textContent || 'scope';
+    let aud = '';
+    if (isPerson) {
+      const raw = modal.querySelector('#perm-emails')?.value.trim() || '';
+      const count = raw
+        .split(/[,\s;\n]+/)
+        .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).length;
+      aud = count ? `${count} ${count === 1 ? 'person' : 'people'}` : 'selected people';
+    } else {
+      const all = allTeamsCheckbox?.checked;
+      const count = modal.querySelectorAll('input[name="team_id"]:checked').length;
+      aud = all ? 'all teams' : `${count} selected ${count === 1 ? 'team' : 'teams'}`;
+    }
+    preview.textContent = `Grants “${cap}” to ${aud} for ${scope.toLowerCase()}.`;
+  }
+
+  modal.querySelectorAll('input, select, textarea').forEach((el) => {
+    el.addEventListener('input', updatePermPreview);
+    el.addEventListener('change', updatePermPreview);
+  });
+}
+
+const teamPermissionDialog = grantPermissionDialog;
 const draftSaves = new WeakMap();
 async function saveDraft() {
   const form = document.querySelector('#editor-form');
@@ -3525,8 +4475,16 @@ document.addEventListener('click', async (ev) => {
     memberDialog();
     return;
   }
-  if (action === 'add-team-permission') {
-    teamPermissionDialog();
+  if (action === 'add-team-permission' || action === 'add-permission') {
+    grantPermissionDialog();
+    return;
+  }
+  if (action === 'add-upcoming-access') {
+    upcomingAccessDialog();
+    return;
+  }
+  if (action === 'add-platform-rule') {
+    grantPermissionDialog({ scopeType: 'project', projectId: b.dataset.projectId });
     return;
   }
   if (action === 'remove-team-permission') {
@@ -3541,6 +4499,22 @@ document.addEventListener('click', async (ev) => {
         await load();
         await render();
         toast('Team capability removed.');
+      },
+    );
+    return;
+  }
+  if (action === 'remove-user-permission') {
+    if (state.member?.role !== 'admin') return;
+    confirmAction(
+      'Remove this permission?',
+      'The user will immediately lose this scoped permission.',
+      async () => {
+        await db('docs_user_permissions', '?id=eq.' + encodeURIComponent(b.dataset.id), {
+          method: 'DELETE',
+        });
+        await load();
+        await render();
+        toast('User permission removed.');
       },
     );
     return;
@@ -3828,6 +4802,32 @@ document.addEventListener('submit', async (event) => {
   restartSleepTimer();
   document.querySelector('.assistant-messages')?.scrollTo({ top: 99999, behavior: 'smooth' });
   document.querySelector('#assistant-question')?.focus();
+});
+
+document.addEventListener('click', (ev) => {
+  const tabBtn = ev.target.closest('[data-permission-tab]');
+  if (tabBtn) {
+    state.permissionTab = tabBtn.dataset.permissionTab;
+    render();
+    return;
+  }
+});
+
+document.addEventListener('input', (ev) => {
+  const searchInput = ev.target.closest('[data-permission-search]');
+  if (searchInput) {
+    state.permissionSearch = searchInput.value;
+    const filterVal = searchInput.value.toLowerCase().trim();
+    const rows = document.querySelectorAll(
+      '.permission-table tbody tr, .permission-platform-card, .permission-team-card',
+    );
+    rows.forEach((row) => {
+      const searchTarget = row.dataset.search;
+      if (searchTarget !== undefined) {
+        row.hidden = filterVal && !searchTarget.toLowerCase().includes(filterVal);
+      }
+    });
+  }
 });
 
 try {

@@ -408,3 +408,270 @@ select:focus-visible {
 .permission-guide h2 { margin: 0; font-size: 16px; }
 .permission-guide ol { margin: 0; padding-left: 20px; color: var(--ink); line-height: 1.65; }
 .permission-guide li::marker { color: var(--muted); }
+
+/* Revamped Permissions Command Center */
+.permission-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.permission-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--control-radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.permission-tab-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+.permission-tab-btn.active {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+}
+.permission-tab-btn .badge-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--raised);
+  font-size: 11px;
+}
+.permission-tab-btn.active .badge-count {
+  background: var(--accent);
+  color: #fff;
+}
+.permission-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.permission-panel-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.permission-search-input {
+  max-width: 280px;
+}
+.permission-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 550;
+}
+.permission-pill.person {
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+  color: #3b82f6;
+  border: 1px solid color-mix(in srgb, #3b82f6 30%, transparent);
+}
+.permission-pill.team {
+  background: color-mix(in srgb, #8b5cf6 12%, transparent);
+  color: #8b5cf6;
+  border: 1px solid color-mix(in srgb, #8b5cf6 30%, transparent);
+}
+.permission-pill.role-admin {
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+}
+.permission-pill.role-manager {
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  color: #f59e0b;
+}
+.permission-pill.role-publisher {
+  background: color-mix(in srgb, #10b981 12%, transparent);
+  color: #10b981;
+}
+.permission-pill.role-contributor {
+  background: color-mix(in srgb, #06b6d4 12%, transparent);
+  color: #06b6d4;
+}
+.permission-pill.role-viewer {
+  background: color-mix(in srgb, #6b7280 12%, transparent);
+  color: #9ca3af;
+}
+.permission-type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.permission-type-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+.permission-type-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.permission-type-btn strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+.permission-type-btn small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.permission-target-container {
+  margin-bottom: 16px;
+}
+.permission-quick-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.quick-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.quick-pill:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+.permission-stat-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.permission-stat-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.permission-stat-card strong {
+  font-size: 24px;
+  color: var(--ink);
+}
+.permission-stat-card span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.permission-platform-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+.permission-platform-card {
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.permission-platform-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.permission-platform-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+.permission-platform-grants {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.permission-grant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--raised);
+  font-size: 12px;
+}
+.permission-grant-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.permission-empty-notice {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.permission-matrix-table td, .permission-matrix-table th {
+  padding: 10px 14px;
+}
+.permission-badge-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+.permission-dynamic-group {
+  margin-top: 12px;
+}
+.permission-target-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.permission-target-tab {
+  flex: 1;
+  padding: 9px 12px;
+  text-align: center;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.permission-target-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
