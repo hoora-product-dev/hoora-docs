@@ -1252,42 +1252,33 @@ function permissionsPage() {
   const teamGrantCount = state.teamPermissions.length;
   const userGrantCount = state.userPermissions.length;
 
-  // Stat Bar HTML
-  const statBar = `
-    <div class="permission-stat-bar">
-      <div class="permission-stat-card">
-        <strong>${upcomingCount}</strong>
-        <span>Upcoming release access (${activeUpcomingUserGrants.length} people, ${activeUpcomingTeamGrants.length} teams)</span>
-      </div>
-      <div class="permission-stat-card">
-        <strong>${platformGrantCount}</strong>
-        <span>Platform-scoped rules</span>
-      </div>
-      <div class="permission-stat-card">
-        <strong>${teamGrantCount}</strong>
-        <span>Custom team rules</span>
-      </div>
-      <div class="permission-stat-card">
-        <strong>${userGrantCount}</strong>
-        <span>Direct individual overrides</span>
-      </div>
-    </div>
-  `;
+  // Contextual primary action button for the view header
+  const primaryActionBtn =
+    activeTab === 'upcoming'
+      ? `<button type="button" class="btn dark" data-action="add-upcoming-access">${icon('plus')}<span>Add upcoming access</span></button>`
+      : activeTab === 'platforms'
+        ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Grant permission</span></button>`
+        : activeTab === 'teams'
+          ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Add team rule</span></button>`
+          : activeTab === 'users'
+            ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Add user override</span></button>`
+            : `<a class="btn outline" href="#/users">${icon('users')}<span>People & teams</span></a>`;
 
-  // Tabs HTML
+  // Modern Underline Tab Navigation
   const tabs = [
-    ['upcoming', 'Upcoming Releases', upcomingCount],
-    ['platforms', 'Release Platforms', platformGrantCount],
-    ['teams', 'Team Rules', teamGrantCount],
-    ['users', 'Individual Overrides', userGrantCount],
-    ['defaults', 'Role Defaults & Matrix', null],
+    ['upcoming', 'clock', 'Upcoming Releases', upcomingCount],
+    ['platforms', 'grid', 'Release Platforms', platformGrantCount],
+    ['teams', 'users', 'Team Rules', teamGrantCount],
+    ['users', 'user', 'Individual Overrides', userGrantCount],
+    ['defaults', 'settings', 'Role Defaults & Matrix', null],
   ];
   const tabNav = `
     <nav class="permission-tabs" role="tablist" aria-label="Permission categories">
       ${tabs
         .map(
-          ([key, label, count]) => `
+          ([key, glyph, label, count]) => `
           <button type="button" class="permission-tab-btn ${activeTab === key ? 'active' : ''}" data-permission-tab="${key}" role="tab" aria-selected="${activeTab === key}">
+            ${icon(glyph)}
             <span>${label}</span>
             ${count !== null ? `<span class="badge-count">${count}</span>` : ''}
           </button>
@@ -1297,18 +1288,25 @@ function permissionsPage() {
     </nav>
   `;
 
-  // Panel Header
-  const panelHeader = (heading, description, primaryAction = null, extraActions = '') => `
-    <div class="permission-panel-header">
-      <div>
-        <h2 style="margin:0;font-size:17px;font-weight:600">${heading}</h2>
-        <p style="margin:4px 0 0;font-size:13px;color:var(--muted)">${description}</p>
+  // Panel Header (toolbar with title + subtitle on left, search filter on right)
+  const panelHeader = (heading, description, showSearch = true) => `
+    <div class="permission-panel-toolbar">
+      <div class="permission-panel-meta">
+        <h2>${heading}</h2>
+        <p>${description}</p>
       </div>
-      <div class="permission-panel-actions">
-        <input class="input permission-search-input" type="search" placeholder="Filter ${activeTab}…" value="${e(state.permissionSearch || '')}" data-permission-search aria-label="Filter rules">
-        ${extraActions}
-        ${primaryAction || ''}
-      </div>
+      ${
+        showSearch
+          ? `
+        <div class="permission-search-wrapper">
+          <label class="search compact">
+            ${icon('search')}
+            <input class="permission-search-input" type="search" placeholder="Filter ${activeTab}…" value="${e(state.permissionSearch || '')}" data-permission-search aria-label="Filter rules">
+          </label>
+        </div>
+      `
+          : ''
+      }
     </div>
   `;
 
@@ -1364,12 +1362,15 @@ function permissionsPage() {
       })
       .join('');
 
+    const emptyNotice = query
+      ? `<div class="permission-empty-notice">No upcoming release access rules matching "${e(query)}".</div>`
+      : `<div class="permission-empty-notice">No upcoming release access granted yet. By default, upcoming release planning is restricted to administrators. Use the "Add upcoming access" button above to grant preview access to team members or entire teams.</div>`;
+
     tabContent = `
       <section class="permission-panel">
         ${panelHeader(
           'Upcoming Releases Access',
-          'Manage who can preview Jira upcoming release notes or configure release planning. You can grant access to individual emails, comma-separated email batches, or entire teams.',
-          `<button type="button" class="btn dark" data-action="add-upcoming-access">${icon('plus')}Add upcoming access</button>`,
+          `Active grants: ${activeUpcomingUserGrants.length} individual, ${activeUpcomingTeamGrants.length} team. Manage who can preview Jira upcoming release notes and release planning.`,
         )}
         <div class="tablewrap">
           <table class="permission-table">
@@ -1383,7 +1384,7 @@ function permissionsPage() {
               </tr>
             </thead>
             <tbody>
-              ${rows || '<tr><td colspan="5"><div class="permission-empty-notice">No upcoming release access granted yet. By default, upcoming planning is hidden from everyone except administrators. Click "Add upcoming access" to invite people or teams.</div></td></tr>'}
+              ${rows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1423,7 +1424,7 @@ function permissionsPage() {
                   `,
                       )
                       .join('')
-                  : '<div class="permission-empty-notice">Standard policy: Product managers & admins can publish releases; signed-in users can view.</div>'
+                  : '<div class="permission-empty-notice" style="padding:10px 12px;margin:0;font-size:12.5px">Standard policy: Product managers & admins can publish releases; signed-in users can view.</div>'
               }
             </div>
             <button type="button" class="btn outline small" data-action="add-platform-rule" data-project-id="${proj.id}">
@@ -1439,7 +1440,6 @@ function permissionsPage() {
         ${panelHeader(
           'Release Platforms Access',
           'Configure permissions for individual release platforms (Customer App, Partner App, Admin Panel, Web, etc.).',
-          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Grant permission</button>`,
         )}
         <div class="permission-platform-grid">
           ${platformCards}
@@ -1493,12 +1493,15 @@ function permissionsPage() {
       )
       .join('');
 
+    const emptyNotice = query
+      ? `<div class="permission-empty-notice">No team rules matching "${e(query)}".</div>`
+      : `<div class="permission-empty-notice">No custom team capability rules yet. Click "Add team rule" above to create one.</div>`;
+
     tabContent = `
       <section class="permission-panel">
         ${panelHeader(
           'Team Overview & Rules',
           'Manage permissions inherited by teams. Everyone in a team inherits the capabilities granted to their team.',
-          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Add team rule</button>`,
         )}
         <div class="permission-team-grid" style="margin-bottom:20px">
           ${teamCards || '<p class="muted">No teams created yet.</p>'}
@@ -1515,7 +1518,7 @@ function permissionsPage() {
               </tr>
             </thead>
             <tbody>
-              ${teamRuleRows || '<tr><td colspan="5"><div class="permission-empty-notice">No custom team capability rules yet. Click "Add team rule" to create one.</div></td></tr>'}
+              ${teamRuleRows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1558,12 +1561,15 @@ function permissionsPage() {
       )
       .join('');
 
+    const emptyNotice = query
+      ? `<div class="permission-empty-notice">No individual overrides matching "${e(query)}".</div>`
+      : `<div class="permission-empty-notice">No direct user overrides yet. Use the "Add user override" button above to grant permissions directly to individuals or email batches.</div>`;
+
     tabContent = `
       <section class="permission-panel">
         ${panelHeader(
           'Individual User Overrides',
           'Pinpoint permissions granted directly to specific email addresses or user accounts, independent of team membership.',
-          `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Add user override</button>`,
         )}
         <div class="tablewrap">
           <table class="permission-table">
@@ -1577,7 +1583,7 @@ function permissionsPage() {
               </tr>
             </thead>
             <tbody>
-              ${userRuleRows || '<tr><td colspan="5"><div class="permission-empty-notice">No direct user overrides yet. Use "Add user override" to grant permissions directly to individuals or email batches.</div></td></tr>'}
+              ${userRuleRows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1612,7 +1618,7 @@ function permissionsPage() {
             <span class="permission-pill role-${r.toLowerCase()}">${r}</span>
             <strong>${title}</strong>
           </div>
-          <span>${desc}</span>
+          <span style="font-size:12px;color:var(--muted);line-height:1.4">${desc}</span>
         </div>
       `,
       )
@@ -1620,7 +1626,11 @@ function permissionsPage() {
 
     tabContent = `
       <section class="permission-panel">
-        ${panelHeader('Default Access Policies & Role Matrix', 'These baseline security policies are always enforced in Postgres row-level security. Custom rules layer on top of them.')}
+        ${panelHeader(
+          'Default Access Policies & Role Matrix',
+          'These baseline security policies are always enforced in Postgres row-level security. Custom rules layer on top of them.',
+          false,
+        )}
         <div class="tablewrap" style="margin-bottom:24px">
           <table class="permission-matrix-table">
             <thead>
@@ -1637,7 +1647,7 @@ function permissionsPage() {
           </table>
         </div>
         <h3 style="font-size:16px;margin:0 0 12px;font-weight:600">Organizational Roles</h3>
-        <div class="permission-stat-bar" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr))">
+        <div class="permission-stat-bar" style="grid-template-columns:repeat(auto-fit, minmax(260px, 1fr))">
           ${roleExplainer}
         </div>
       </section>
@@ -1651,12 +1661,14 @@ function permissionsPage() {
         <div class="view-heading">
           <div>
             <h1>Permissions Command Center</h1>
-            <p>Granular access management for upcoming releases, release platforms, internal docs, teams, and batch email invites.</p>
+            <p>Granular access control for upcoming releases, release platforms, internal documentation, and teams.</p>
+          </div>
+          <div class="toolbar-actions">
+            ${primaryActionBtn}
           </div>
         </div>
-        ${statBar}
         ${tabNav}
-        <div style="margin-top:20px">
+        <div style="margin-top:4px">
           ${tabContent}
         </div>
       </main>
