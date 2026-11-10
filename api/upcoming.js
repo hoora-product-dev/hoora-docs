@@ -11,9 +11,9 @@ import {
 export const maxDuration = 60;
 const uuid = (value) =>
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value || '');
-/** Every active member can read a shared upcoming release; administrators also see drafts. */
-export function canViewRelease(release, member) {
-  return member.role === 'admin' || release.enabled === true;
+/** Upcoming releases require an explicit team grant; administrators see all. */
+export function canViewRelease(release, member, allowed = false) {
+  return member.role === 'admin' || (allowed && release.enabled === true);
 }
 export function validateRelease(body) {
   const title = String(body.title || '').trim(),
@@ -33,14 +33,14 @@ export function validateRelease(body) {
   if (enabled && !release_date) throw failure('Set a target date before sharing this release.');
   return { title, version, filter_id, release_date, enabled };
 }
-const publicRecord = (r, admin) => ({
+const publicRecord = (r, admin, canManage = false) => ({
   id: r.id,
   slug: r.slug,
   title: r.title,
   version: r.version,
   releaseDate: r.release_date,
   updatedAt: r.updated_at,
-  ...(admin
+  ...(admin || canManage
     ? {
         filterUrl: `https://hooratechteam.atlassian.net/issues?filter=${r.filter_id}`,
         enabled: r.enabled,
@@ -65,23 +65,31 @@ export default async function handler(req, res) {
       action = body.action || 'list';
     if (!['list', 'tickets', 'ticket', 'save', 'delete', 'connection'].includes(action))
       throw failure('Invalid action.');
-    if (['save', 'delete', 'connection'].includes(action) && !admin)
-      throw failure('Administrator access required.', 403);
+    const canManage = admin || Boolean(await call('/rest/v1/rpc/docs_can_manage_upcoming', {
+      method: 'POST',
+      body: JSON.stringify({ member: user.id }),
+    }));
+    if (['save', 'delete', 'connection'].includes(action) && !canManage)
+      throw failure('Upcoming-release management access required.', 403);
     if (action === 'connection') return res.status(200).json({ configured: jiraConfigured() });
+    const upcomingAllowed = admin || Boolean(await call('/rest/v1/rpc/docs_can_upcoming', {
+      method: 'POST',
+      body: JSON.stringify({ member: user.id }),
+    }));
     if (action === 'list') {
       const rows = await call(
         '/rest/v1/docs_upcoming_releases?select=*&order=release_date.asc.nullslast,created_at.desc',
       );
       return res.status(200).json({
-        releases: rows.filter((r) => canViewRelease(r, member)).map((r) => publicRecord(r, admin)),
-        ...(admin ? { configured: jiraConfigured() } : {}),
+        releases: rows.filter((r) => canViewRelease(r, member, upcomingAllowed)).map((r) => publicRecord(r, admin, canManage)),
+        ...(canManage ? { configured: jiraConfigured(), canManage: true } : {}),
       });
     }
     let record;
     if (body.id) {
       if (!uuid(body.id)) throw failure('Release unavailable.', 404);
       record = (await call('/rest/v1/docs_upcoming_releases?id=eq.' + body.id + '&select=*'))[0];
-      if (!record || !canViewRelease(record, member))
+      if (!record || !canViewRelease(record, member, upcomingAllowed))
         throw failure('Release unavailable or access has not been granted.', 404);
     }
     if (action === 'save') {

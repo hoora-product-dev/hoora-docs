@@ -2,6 +2,7 @@ import { routeUrl } from './router.js';
 export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, render, rail }) {
   let releases = [],
     configured = false,
+    canManage = false,
     current = null,
     tickets = [],
     verticals = [],
@@ -40,7 +41,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
     return `<p class="upcoming-count" role="status">${found.length} ${found.length === 1 ? 'ticket' : 'tickets'}</p><div class="upcoming-tickets">${found.map((ticket) => `<a class="upcoming-ticket" href="${path(current)}/tickets/${encodeURIComponent(ticket.key)}${query()}"><span class="upcoming-ticket-key">${e(ticket.key)}</span><span class="upcoming-ticket-title">${e(ticket.title)}</span>${icon('chevron')}</a>`).join('') || empty('No tickets match these filters.')}</div>`;
   }
   function settingsPage(release = {}) {
-    if (!admin()) return frame(empty('Administrator access is required.'));
+    if (!canManage) return frame(empty('You do not have upcoming-release management access.'));
     const back = release.id ? path(release) : '#/upcoming';
     return frame(
       `<div class="view-heading"><div><a class="native-back" href="${back}">${icon('back')}Upcoming releases</a><h1>${release.id ? 'Manage release' : 'New upcoming release'}</h1></div></div><form id="upcoming-form" class="upcoming-settings-form" data-id="${e(release.id || '')}"><fieldset><div class="field"><label for="upcoming-title">Release name</label><input id="upcoming-title" name="title" maxlength="100" required value="${e(release.title || '')}"></div><div class="form-columns"><div class="field"><label for="upcoming-version">Version</label><input id="upcoming-version" name="version" maxlength="50" required placeholder="5.12.0" value="${e(release.version || '')}"></div><div class="field"><label for="upcoming-date">Target release date</label><input type="date" id="upcoming-date" name="releaseDate" value="${e(release.releaseDate || '')}"></div></div><div class="field"><label for="upcoming-filter">Jira filter link</label><input type="url" id="upcoming-filter" name="filterUrl" required placeholder="https://hooratechteam.atlassian.net/issues?filter=12576" value="${e(release.filterUrl || '')}"></div><label class="upcoming-share-check"><input type="checkbox" name="enabled" ${release.enabled ? 'checked' : ''} ${configured ? '' : 'disabled'}> Share with everyone at Hoora</label>${!configured ? '<p class="small">Configure the read-only Jira connection before sharing.</p>' : ''}</fieldset><p class="error" role="alert"></p><div class="upcoming-settings-actions">${release.id ? `<button class="btn text danger" type="button" data-upcoming="delete" data-id="${e(release.id)}">${icon('trash')}Delete release</button>` : ''}<a class="btn outline" href="${back}">Cancel</a><button type="submit" class="btn dark">Save release</button></div></form>`,
@@ -86,6 +87,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
     if (generation !== request) return '';
     releases = result.releases;
     configured = result.configured === true;
+    canManage = result.canManage === true || admin();
     tickets = [];
     filters = new URLSearchParams();
     for (const name of ['vertical', 'owner'])
@@ -94,7 +96,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
     current = slug ? releases.find((release) => release.slug === slug) : releases[0];
     if (!current)
       return frame(
-        `<div class="reader-heading"><h1>Upcoming releases</h1>${admin() ? '<a class="btn outline" href="#/upcoming?create=1">' + icon('plus') + 'Add upcoming release</a>' : ''}</div>${empty(slug ? 'This release is unavailable or access has not been granted.' : 'No upcoming releases are available to your account.')}`,
+        `<div class="reader-heading"><h1>Upcoming releases</h1>${canManage ? '<a class="btn outline" href="#/upcoming?create=1">' + icon('plus') + 'Add upcoming release</a>' : ''}</div>${empty(slug ? 'This release is unavailable or access has not been granted.' : 'No upcoming releases are available to your account.')}`,
       );
     if (screen.settings) return settingsPage(current);
     if (screen.ticket) return ticketPage(screen.ticket, generation);
@@ -112,7 +114,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
       content = `<div class="upcoming-load-error" role="alert"><p>${e(error.message)}</p><button class="btn outline" data-upcoming="refresh">Try again</button></div>`;
     }
     return frame(
-      `<header class="upcoming-release-header"><div><p class="upcoming-release-version">Upcoming · ${e(release.version)}</p><h1>${e(release.title)}</h1><p>Target release · ${e(date(release.releaseDate))}</p></div><div class="toolbar-actions"><button class="btn outline" data-upcoming="copy">${icon('link')}Copy link</button>${admin() ? `<a class="btn outline" href="${path(release)}/settings">${icon('settings')}Manage</a>` : ''}</div></header>${releases.length > 1 ? `<div class="field upcoming-release-select"><label for="upcoming-release-select">Release</label><select id="upcoming-release-select">${releases.map((r) => `<option value="${e(r.slug)}" ${r.id === release.id ? 'selected' : ''}>${e(r.title)} · ${e(r.version)}</option>`).join('')}</select></div>` : ''}${content}`,
+      `<header class="upcoming-release-header"><div><p class="upcoming-release-version">Upcoming · ${e(release.version)}</p><h1>${e(release.title)}</h1><p>Target release · ${e(date(release.releaseDate))}</p></div><div class="toolbar-actions"><button class="btn outline" data-upcoming="copy">${icon('link')}Copy link</button>${canManage ? `<a class="btn outline" href="${path(release)}/settings">${icon('settings')}Manage</a>` : ''}</div></header>${releases.length > 1 ? `<div class="field upcoming-release-select"><label for="upcoming-release-select">Release</label><select id="upcoming-release-select">${releases.map((r) => `<option value="${e(r.slug)}" ${r.id === release.id ? 'selected' : ''}>${e(r.title)} · ${e(r.version)}</option>`).join('')}</select></div>` : ''}${content}`,
     );
   }
   // Render Jira's document format with an explicit element allowlist; never insert Jira HTML.
@@ -201,7 +203,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
   document.addEventListener('submit', async (event) => {
     if (event.target.id !== 'upcoming-form') return;
     event.preventDefault();
-    if (!admin()) return;
+    if (!canManage) return;
     const form = event.target,
       button = event.submitter,
       values = Object.fromEntries(new FormData(form)),
@@ -253,7 +255,7 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
       return;
     }
     const release = releases.find((release) => release.id === id);
-    if (!admin() || !release) return;
+    if (!canManage || !release) return;
     if (action === 'delete') {
       dialog(
         `<h2>Delete upcoming release?</h2><p>${e(release.title)} will be removed from Hoora Docs. Jira tickets will be kept.</p><p id="upcoming-delete-error" class="error" role="alert"></p><div class="dialog-actions"><button class="btn outline" data-upcoming="cancel">Cancel</button><button class="btn danger" data-upcoming="confirm-delete" data-id="${e(id)}">Delete release</button></div>`,

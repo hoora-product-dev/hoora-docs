@@ -29,7 +29,7 @@ const response = () => ({
     this.data = data;
   },
 });
-function stub(member = {}, email = 'viewer@hoora.me', jiraIssues = []) {
+function stub(member = {}, email = 'viewer@hoora.me', jiraIssues = [], upcomingAccess = false) {
   const calls = [];
   process.env.SUPABASE_URL = 'https://test.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only';
@@ -43,6 +43,8 @@ function stub(member = {}, email = 'viewer@hoora.me', jiraIssues = []) {
     else if (url.includes('/docs_members?'))
       data = [{ id, role: 'viewer', active: true, password_setup_complete: true, ...member }];
     else if (url.includes('/docs_upcoming_releases?')) data = [release];
+    else if (url.includes('/rpc/docs_can_upcoming')) data = upcomingAccess;
+    else if (url.includes('/rpc/docs_can_manage_upcoming')) data = false;
     else if (url.includes('/rpc/docs_upcoming_rate_limit')) data = null;
     else if (url.includes('api.atlassian.com')) data = { issues: jiraIssues, isLast: true };
     else throw Error('Unexpected request ' + url);
@@ -74,8 +76,9 @@ test('Release configuration validates dates and requires one before sharing', ()
   assert.throws(() => validateRelease({ ...body, releaseDate: '2026-02-30' }));
   assert.throws(() => validateRelease({ ...body, releaseDate: '' }));
 });
-test('Shared releases are visible to every member; drafts only to administrators', () => {
-  assert.ok(canViewRelease(release, { role: 'viewer' }));
+test('Upcoming releases require an explicit grant; drafts remain administrator-only', () => {
+  assert.ok(canViewRelease(release, { role: 'viewer' }, true));
+  assert.ok(!canViewRelease(release, { role: 'viewer' }, false));
   assert.ok(!canViewRelease({ ...release, enabled: false }, { role: 'viewer' }));
   assert.ok(!canViewRelease({ ...release, enabled: false }, { role: 'manager' }));
   assert.ok(canViewRelease({ ...release, enabled: false }, { role: 'admin' }));
@@ -134,7 +137,7 @@ test('Non-admin members cannot modify release settings, delete releases, or insp
 test('Ticket details are queried inside the saved filter and reject tickets outside it', async () => {
   const original = globalThis.fetch;
   try {
-    const calls = stub();
+    const calls = stub({}, 'viewer@hoora.me', [], true);
     const res = response();
     await handler(
       {
@@ -166,7 +169,7 @@ test('Ticket list exposes only projected fields and never descriptions, tokens o
           [OWNER_FIELD]: { accountId: 'owner-1', displayName: 'Owner' },
         },
       },
-    ]);
+    ], true);
     const res = response();
     await handler(
       {
