@@ -16,7 +16,13 @@ export function workspaceFeatures({
 }) {
   const manages = (p) =>
     state.member?.role === 'admin' ||
-    (p?.kind === 'release' && state.member?.role === 'manager') ||
+    (p?.kind === 'release' &&
+      (state.member?.role === 'manager' ||
+        state.teamMembers.some(
+          (member) =>
+            member.email?.toLowerCase() === state.member?.email?.toLowerCase() &&
+            member.role === 'manager',
+        ))) ||
     (p.team_id && teams.manages(state.teams.find((t) => t.id === p.team_id) || {}));
   const noticeTitle = (p) =>
     p?.kind === 'release' && p.release_snapshot?.project
