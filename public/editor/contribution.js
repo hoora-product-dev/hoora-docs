@@ -84,8 +84,12 @@ export function createContributionEditor({
 
   function view(releaseId, sectionKey, setup = {}) {
     if (setup.create === true) {
-      if (!['admin', 'publisher'].includes(state.member?.role))
-        throw Error('Publisher access is required to start a new release.');
+      const mayPublish =
+        typeof canPublish === 'function'
+          ? canPublish(state.member?.role)
+          : ['admin', 'publisher', 'manager'].includes(state.member?.role);
+      if (!mayPublish)
+        throw Error('Release publishing access is required to start a new release.');
       return newRelease(setup.projectId || '');
     }
     const release = state.releases.find((item) => item.id === releaseId),
