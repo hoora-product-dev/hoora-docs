@@ -82,8 +82,23 @@ export function upcomingFeature({ state, appApi, e, icon, dialog, modal, toast, 
     }
   }
   async function view(slug, params = new URLSearchParams(), screen = {}) {
-    const generation = ++request,
+    const generation = ++request;
+    if (!admin() && !state.canUpcoming) {
+      return frame(
+        `<div class="access-gate upcoming-access-gate">${icon('lock')}<h1>Upcoming releases restricted</h1><p>Planning and upcoming releases are restricted to authorized teams. If your team needs access, ask your team manager or an administrator.</p><div class="access-gate-actions"><a class="btn outline" href="#/releases">Browse published releases</a></div></div>`,
+      );
+    }
+    let result;
+    try {
       result = await api({ action: 'list' });
+    } catch (error) {
+      if (/access|permission|forbidden|403/i.test(error.message)) {
+        return frame(
+          `<div class="access-gate upcoming-access-gate">${icon('lock')}<h1>Upcoming releases restricted</h1><p>${e(error.message)}</p><div class="access-gate-actions"><a class="btn outline" href="#/releases">Browse published releases</a></div></div>`,
+        );
+      }
+      throw error;
+    }
     if (generation !== request) return '';
     releases = result.releases;
     configured = result.configured === true;

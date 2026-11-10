@@ -44,9 +44,9 @@ export default async function handler(req, res) {
   try {
     const call = serverClient(),
       { member } = await requireMember(req, call);
-    if (member.role !== 'admin')
-      return res.status(403).json({ error: 'Administrator access required.' });
     if (req.method === 'GET') {
+      if (member.role !== 'admin')
+        return res.status(403).json({ error: 'Administrator access required.' });
       const rows = await call('/rest/v1/docs_storage_cleanup?select=page_id');
       return res.status(200).json({ pending: rows.length });
     }
@@ -54,6 +54,8 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
     if (!['delete', 'purge', 'delete-project', 'cleanup'].includes(body.action))
       return res.status(400).json({ error: 'Invalid content action.' });
+    if (['purge', 'delete-project', 'cleanup'].includes(body.action) && member.role !== 'admin')
+      return res.status(403).json({ error: 'Administrator access required.' });
     if (body.action !== 'cleanup') {
       if (!/^[a-f0-9-]{36}$/i.test(body.id || ''))
         return res.status(400).json({ error: 'Invalid document.' });

@@ -879,6 +879,9 @@ function row(p, internal = false) {
 function empty(title, text, action = '') {
   return `<div class="empty">${icon('book')}<h3>${e(title)}</h3><p>${e(text)}</p>${action}</div>`;
 }
+function adminAccessGate(resource = 'This area') {
+  return `<main id="main" class="settings-content"><div class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>${e(resource)} is only available to Hoora Docs administrators.</p><div class="access-gate-actions"><a class="btn outline" href="#/account">Your account</a><a class="btn text" href="#/home">Home</a></div></div></main>`;
+}
 function workspace() {
   const pages = filterPages(state.pages, state)
     .filter((p) => !p.deleted_at && p.kind !== 'release')
@@ -1635,13 +1638,20 @@ async function render() {
         view = features.contributions();
         break;
       case 'archive':
-        view = features.archive();
+        view =
+          state.member.role === 'admin' ? features.archive() : adminAccessGate('The recycle bin');
         break;
       case 'feedback':
-        view = `<main id="main" class="settings-content feedback-page"><div class="view-heading"><div><h1>Feedback</h1><p>Bugs, feature ideas and thanks sent from Hoora Docs.</p></div></div>${await maker.inbox()}</main>`;
+        view =
+          state.member.role === 'admin'
+            ? `<main id="main" class="settings-content feedback-page"><div class="view-heading"><div><h1>Feedback</h1><p>Bugs, feature ideas and thanks sent from Hoora Docs.</p></div></div>${await maker.inbox()}</main>`
+            : adminAccessGate('Feedback review');
         break;
       case 'activity':
-        view = await features.activity();
+        view =
+          state.member.role === 'admin'
+            ? await features.activity()
+            : adminAccessGate('Workspace activity');
         break;
       case 'teams':
         view = await teams.view(id);
@@ -1663,27 +1673,25 @@ async function render() {
             : editor(route === 'edit' ? id : null);
         break;
       case 'users':
-        if (state.member.role !== 'admin')
-          return `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>This area is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
-        view = await users();
+        view =
+          state.member.role === 'admin' ? await users() : adminAccessGate('User management');
         break;
       case 'permissions':
-        if (state.member.role !== 'admin')
-          return `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>Permission management is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
-        view = permissionsPage();
+        view =
+          state.member.role === 'admin' ? permissionsPage() : adminAccessGate('Permission management');
         break;
       case 'preview':
         view = draftPreview(id);
         break;
       case 'announce':
-        // Hidden page: administrators only, and it does not admit to existing for anyone else.
-        if (state.member.role !== 'admin') throw new Error('This page doesn’t exist.');
-        view = await announce.view(params);
+        view =
+          state.member.role === 'admin'
+            ? await announce.view(params)
+            : adminAccessGate('Announcements');
         break;
       case 'folders':
-        if (state.member.role !== 'admin')
-          view = `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>Structure management is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
-        else view = folders();
+        view =
+          state.member.role === 'admin' ? folders() : adminAccessGate('Structure management');
         break;
       case 'account':
         view = account();

@@ -6,12 +6,14 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
       state.teamMembers.some(
         (member) =>
           member.team_id === team.id &&
-          member.email === state.member?.email?.toLowerCase() &&
+          member.email?.toLowerCase() === state.member?.email?.toLowerCase() &&
           member.role === 'manager',
       ));
   const ownRole = (team) =>
     state.teamMembers.find(
-      (member) => member.team_id === team.id && member.email === state.member?.email?.toLowerCase(),
+      (member) =>
+        member.team_id === team.id &&
+        member.email?.toLowerCase() === state.member?.email?.toLowerCase(),
     )?.role || '';
   const canGrant = (team, role) =>
     state.member?.role === 'admin' ||
@@ -42,7 +44,7 @@ export function teamsFeature({ state, db, e, dialog, toast, load, render, icon, 
         state.teamMembers.some(
           (member) =>
             member.team_id === team.id &&
-            member.email === state.member?.email?.toLowerCase() &&
+            member.email?.toLowerCase() === state.member?.email?.toLowerCase() &&
             member.role === 'publisher',
         ),
     );
