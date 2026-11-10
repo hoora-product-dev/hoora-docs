@@ -276,16 +276,19 @@ function renderAssistant() {
   syncAssistantViewport();
   window.requestAnimationFrame(paintMood);
 }
+const memberTeamRoles = () =>
+  state.teamMembers
+    .filter((m) => m.email?.toLowerCase() === state.member?.email?.toLowerCase())
+    .map((m) => m.role);
+const isTeamManager = () =>
+  state.member?.role === 'admin' || memberTeamRoles().includes('manager');
+const canManageReleases = (role) =>
+  ['admin', 'publisher', 'manager'].includes(role) || isTeamManager();
 const canEdit = (role) =>
   canEditRole(role) ||
   role === 'manager' ||
-  (role === 'viewer' &&
-    state.teamMembers.some(
-      (m) =>
-        m.email === state.member?.email?.toLowerCase() &&
-        ['manager', 'publisher', 'contributor'].includes(m.role),
-    ));
-const canPublish = (role) => canPublishRole(role) || role === 'manager' || canEdit(role);
+  (role === 'viewer' && memberTeamRoles().some((teamRole) => ['manager', 'publisher', 'contributor'].includes(teamRole)));
+const canPublish = (role) => canPublishRole(role) || role === 'manager' || isTeamManager() || canEdit(role);
 const canEditEntry = (entry) =>
   state.member?.role === 'admin' || entry?.author_id === state.member?.id;
 const teams = teamsFeature({
@@ -1124,7 +1127,36 @@ async function users() {
   };
   const pool = `<aside class="people-pool board-column" data-drop-team="" aria-label="Unassigned"><header><strong>Unassigned</strong><span>${unassigned.length}</span></header><input class="people-search" type="search" placeholder="Find a person…" autocomplete="off" aria-label="Find a person" data-people-search><div class="board-cards">${unassigned.map((m) => card(m)).join('') || '<p class="board-empty">Everyone has a team</p>'}</div><form class="board-assign" data-board-assign><strong>Add to a team</strong><input name="email" list="people-emails" placeholder="Name or email" aria-label="Person" required><datalist id="people-emails">${state.members.map((m) => `<option value="${e(m.email)}">${e(m.name || '')}</option>`).join('')}</datalist><select name="team" aria-label="Team" required><option value="">Team…</option>${state.teams.map((t) => `<option value="${e(t.id)}">${e(t.name)}</option>`).join('')}</select><button class="btn outline" type="submit">Add</button></form></aside>`;
   const canvas = `<div class="people-board team-board"><div class="team-board-toolbar" role="toolbar" aria-label="Board view"><button type="button" class="iconbtn" data-canvas-zoom="-0.1" aria-label="Zoom out">−</button><output data-canvas-level>100%</output><button type="button" class="iconbtn" data-canvas-zoom="0.1" aria-label="Zoom in">+</button><button type="button" class="btn text" data-canvas-fit>Fit</button><button type="button" class="btn text" data-canvas-full aria-pressed="false">Full screen</button></div>${pool}<div class="team-canvas" data-canvas tabindex="0" aria-label="Teams board. Drag empty space to move around."><div class="canvas-world">${state.teams.map(table).join('')}</div></div></div>`;
-  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & access</h1><p>Everyone joins as a viewer in Unassigned. Drag people onto a team and set their role there.</p></div><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div>${canvas}<section class="settings-section"><div class="section-heading"><div><h2>Team permissions</h2><p>Release platforms and collections a team can publish to. Team documents are always editable by their own publishers.</p></div><button class="btn outline" data-action="add-team-permission">${icon('plus')}Add permission</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can</th><th>In</th></tr></thead><tbody>${capabilityRows || '<tr><td colspan="3">No team permissions yet.</td></tr>'}</tbody></table></div></section><details class="role-explainer"><summary>What each role can do</summary><dl class="role-list"><div><dt>Viewer</dt><dd>Reads release notes, upcoming releases and every document shared with them.</dd></div><div><dt>Editor</dt><dd>Writes and edits drafts for their team.</dd></div><div><dt>Publisher</dt><dd>Writes and publishes their team’s documents, and release notes on platforms the team has publish permission for.</dd></div><div><dt>Manager</dt><dd>Everything a publisher can do, plus managing the team’s people and sharing its documents.</dd></div><div><dt>Administrator</dt><dd>Organization role with full control. Set it from a person’s name.</dd></div></dl></details></main></div>`;
+  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & teams</h1><p>Everyone starts as a viewer. Place people in teams and set their team role here.</p></div><div class="toolbar-actions"><a class="btn outline" href="#/permissions">Manage permissions</a><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div></div>${canvas}<details class="role-explainer"><summary>What each team role can do</summary><dl class="role-list"><div><dt>Viewer</dt><dd>Reads content that is shared with their team.</dd></div><div><dt>Editor</dt><dd>Writes and edits team drafts.</dd></div><div><dt>Publisher</dt><dd>Creates, edits, and publishes assigned documentation and SOPs.</dd></div><div><dt>Manager</dt><dd>Manages their team and can manage releases when assigned to a product team.</dd></div><div><dt>Administrator</dt><dd>Full organization control.</dd></div></dl></details></main></div>`;
+}
+
+function permissionsPage() {
+  const capabilityName = {
+    read: 'View', contribute: 'Create drafts', edit: 'Edit', publish: 'Publish', manage: 'Manage access', delete: 'Delete',
+  };
+  const resourceName = (p) =>
+    p.scope_type === 'collection'
+      ? ({ release: 'Published releases', upcoming: 'Upcoming releases', sop: 'SOPs', documentation: 'Documentation' }[p.collection_key] || p.collection_key)
+      : p.scope_type === 'project'
+        ? `Platform · ${displayPlatformName(state.projects.find((x) => x.id === p.project_id)?.name || 'Unknown')}`
+        : `Folder · ${state.folders.find((x) => x.id === p.folder_id)?.name || 'Unknown'}`;
+  const teamName = (id) => state.teams.find((team) => team.id === id)?.name || 'Unknown team';
+  const rules = state.teamPermissions
+    .map((p) => `<tr><td>${e(teamName(p.team_id))}</td><td>${e(capabilityName[p.capability] || p.capability)}</td><td>${e(resourceName(p))}</td><td>${p.expires_at ? e(date(p.expires_at)) : 'No expiry'}</td><td><button type="button" class="btn text danger" data-action="remove-team-permission" data-id="${p.id}">Remove</button></td></tr>`)
+    .join('') || '<tr><td colspan="5">No extra rules yet. The default policies below still apply.</td></tr>';
+  const defaults = [
+    ['Everyone signed in', 'View', 'Published releases', 'Always'],
+    ['All team publishers', 'Create, edit & publish', 'Assigned SOPs and documentation', 'Always'],
+    ['Product team managers', 'Create, edit, publish & notify', 'Release notes', 'Always'],
+    ['No one by default', 'View', 'Upcoming releases', 'Grant explicitly'],
+  ].map(([audience, action, scope, expiry]) => `<tr><td>${audience}</td><td>${action}</td><td>${scope}</td><td>${expiry}</td></tr>`).join('');
+  const teamCards = state.teams.map((team) => {
+    const memberCount = state.teamMembers.filter((m) => m.team_id === team.id).length;
+    const grants = state.teamPermissions.filter((p) => p.team_id === team.id);
+    const hasManagers = state.teamMembers.some((m) => m.team_id === team.id && m.role === 'manager');
+    return `<article class="permission-team-card"><div><h3>${e(team.name)}</h3><p>${memberCount} members · ${hasManagers ? 'manager assigned' : 'no manager assigned'}</p></div><span>${grants.length} custom ${grants.length === 1 ? 'rule' : 'rules'}</span></article>`;
+  }).join('') || '<p class="muted">Create a team before assigning permissions.</p>';
+  return `<div class="layout">${settingsSidebar('permissions')}<main id="main" class="settings-content permission-center"><div class="view-heading"><div><h1>Permissions</h1><p>Set access once for one team, selected teams, or every team. Defaults are visible here; extra rules are only needed for exceptions.</p></div><button type="button" class="btn dark" data-action="add-team-permission">${icon('plus')}Grant permission</button></div><section class="permission-defaults"><div class="section-heading"><div><h2>Default access</h2><p>These policies are always active and cannot be accidentally removed.</p></div></div><div class="tablewrap"><table><thead><tr><th>Audience</th><th>Can do</th><th>Where</th><th>Duration</th></tr></thead><tbody>${defaults}</tbody></table></div></section><section class="permission-summary"><div class="section-heading"><div><h2>Team overview</h2><p>See which teams have managers and custom rules before making changes.</p></div></div><div class="permission-team-grid">${teamCards}</div></section><section class="permission-rules"><div class="section-heading"><div><h2>Custom permission rules</h2><p>Use these for exceptions, such as giving selected teams access to upcoming releases or one platform.</p></div><button type="button" class="btn outline" data-action="add-team-permission">${icon('plus')}Add rule</button></div><div class="tablewrap"><table><thead><tr><th>Team</th><th>Can do</th><th>Scope</th><th>Expiry</th><th></th></tr></thead><tbody>${rules}</tbody></table></div></section><section class="permission-guide"><h2>How to configure access</h2><ol><li>Use <strong>all teams</strong> when every team needs the same access.</li><li>Use <strong>published releases</strong> for live release notes.</li><li>Use <strong>upcoming releases</strong> only for teams allowed to see Jira planning.</li><li>Use a <strong>platform</strong> or <strong>folder</strong> when access should be narrower.</li></ol></section></main></div>`;
 }
 /** People board: drag between columns, or use the role and "Add person" menus. */
 function bindPeopleBoard() {
@@ -1594,6 +1626,10 @@ async function render() {
       case 'users':
         if (state.member.role !== 'admin') throw new Error('Administrator access required.');
         view = await users();
+        break;
+      case 'permissions':
+        if (state.member.role !== 'admin') throw new Error('Administrator access required.');
+        view = permissionsPage();
         break;
       case 'preview':
         view = draftPreview(id);
@@ -2797,7 +2833,7 @@ function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } 
     ...new Map(
       [
         ...records.map((r) => r.project),
-        ...(['admin', 'publisher', 'manager'].includes(state.member?.role) ? state.projects : []),
+        ...(canManageReleases(state.member?.role) ? state.projects : []),
       ].map((p) => [p.id, p]),
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
@@ -2807,7 +2843,7 @@ function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } 
       return `<a class="sidelink ${active ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}" ${active ? 'aria-current="page"' : ''}>${icon(p.icon)}<span>${e(displayPlatformName(p.name))}</span></a>`;
     })
     .join('');
-  return `<aside class="sidebar release-sidebar" aria-label="Release notes"><a class="sidelink ${!projectId && !upcomingActive ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${platformLinks}${state.member ? `<div class="rail-label">Planning${state.member.role === 'admin' ? `<a class="iconbtn" href="#/upcoming?create=1" aria-label="Add upcoming release" title="Add upcoming release">${icon('plus')}</a>` : ''}</div><a class="sidelink ${upcomingActive ? 'active' : ''}" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
+  return `<aside class="sidebar release-sidebar" aria-label="Release notes"><a class="sidelink ${!projectId && !upcomingActive ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${platformLinks}${state.member ? `<div class="rail-label">Planning${canManageReleases(state.member?.role) ? `<a class="iconbtn" href="#/upcoming?create=1" aria-label="Add upcoming release" title="Add upcoming release">${icon('plus')}</a>` : ''}</div><a class="sidelink ${upcomingActive ? 'active' : ''}" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
 }
 
 /** Releases an editor can still act on: never published, or with sections not yet published. */
@@ -2838,7 +2874,7 @@ function releaseTimeline() {
   const all = releaseRecords(true);
   const applicationSource = [
     ...all.map((r) => r.project),
-    ...(['admin', 'publisher', 'manager'].includes(state.member?.role) ? state.projects : []),
+    ...(canManageReleases(state.member?.role) ? state.projects : []),
   ];
   const applications = [...new Map(applicationSource.map((p) => [p.id, p])).values()],
     current = applications.find((p) => p.id === state.project);
@@ -2853,7 +2889,7 @@ function releaseTimeline() {
   }
   const platformName = (p) => displayPlatformName(p.name);
   const queue = releaseWorkQueue(current?.id);
-  const canStart = ['admin', 'publisher', 'manager'].includes(state.member?.role);
+  const canStart = canManageReleases(state.member?.role);
   const rail = releaseSidebar({ projectId: current?.id || '' });
   const work = queue.length
     ? `<section class="release-queue" aria-labelledby="release-queue-title"><div class="release-queue-heading"><h2 id="release-queue-title">In progress</h2></div>${queue

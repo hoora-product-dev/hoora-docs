@@ -50,6 +50,9 @@ export function createContributionEditor({
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((section) => state.verticals.find((vertical) => vertical.id === section.vertical_id))
       .filter(Boolean);
+    // A platform without configured sections still needs a usable release editor.
+    // Fall back to every active vertical instead of presenting an empty selector.
+    if (!choices.length) choices = [...state.verticals];
     for (const id of include)
       if (id && !choices.some((choice) => choice.id === id))
         choices = [...choices, ...state.verticals.filter((vertical) => vertical.id === id)];

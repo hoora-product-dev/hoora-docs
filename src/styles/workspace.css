@@ -397,3 +397,13 @@ select:focus-visible {
 .check-row span { display: grid; gap: 2px; }
 .check-row small { color: var(--muted); line-height: 1.4; }
 .permission-preview { margin: 14px 0 0; padding: 11px 12px; border-radius: var(--control-radius); background: var(--subtle); color: var(--muted); font-size: 13px; }
+.permission-center { display: grid; gap: 30px; }
+.permission-defaults, .permission-summary, .permission-rules, .permission-guide { display: grid; gap: 14px; }
+.permission-team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.permission-team-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: var(--control-radius); background: var(--surface); }
+.permission-team-card h3 { margin: 0 0 4px; font-size: 15px; }
+.permission-team-card p, .permission-team-card > span { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.permission-team-card > span { white-space: nowrap; }
+.permission-guide { padding: 18px; border: 1px solid var(--line); border-radius: var(--control-radius); background: var(--subtle); }
+.permission-guide h2 { margin: 0; font-size: 16px; }
+.permission-guide ol { margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.65; }

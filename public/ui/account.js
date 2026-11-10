@@ -10,6 +10,7 @@ export const settingsLinks = (member, pendingRequests = 0) => {
   if (member.role === 'admin')
     links.push(
       ['users', 'users', 'People & access'],
+      ['permissions', 'sliders', 'Permissions'],
       ['folders', 'folder', 'Structure'],
       ['activity', 'list', 'Activity'],
       ['feedback', 'chat', 'Feedback'],
