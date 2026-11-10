@@ -1088,7 +1088,7 @@ async function users() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(permission);
   }
-  const capabilityRows = [...groups.values()]
+  let capabilityRows = [...groups.values()]
     .map((list) => {
       const team = state.teams.find((item) => item.id === list[0].team_id);
       return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(capabilityName[list[0].capability] || list[0].capability)}</td><td><span class="scope-list">${list
@@ -1099,6 +1099,8 @@ async function users() {
         .join('')}</span></td></tr>`;
     })
     .join('');
+  if (!capabilityRows)
+    capabilityRows = `<tr><td colspan="3"><div class="permission-empty"><strong>No custom capabilities yet.</strong><span>Defaults: signed-in viewers can read published releases; upcoming releases are hidden until a team is granted access; publishers can edit assigned documentation and SOPs.</span><button type="button" class="btn outline" data-action="add-team-permission">Grant the first capability</button></div></td></tr>`;
   const byEmail = new Map(state.members.map((m) => [m.email.toLowerCase(), m]));
   const initials = (m) =>
     e(
@@ -1743,11 +1745,14 @@ function memberDialog(id) {
 function teamPermissionDialog() {
   if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
   dialog(
-    `<h2>Add team capability</h2><p class="small">Assign a capability to a team at collection, folder, or release-platform level.</p><form><div class="field"><label for="permission-team">Team</label><select id="permission-team" name="team_id" required>${state.teams.map((team) => `<option value="${team.id}">${e(team.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-scope">Scope</label><select id="permission-scope" name="scope_type"><option value="collection">Collection</option><option value="folder">Folder</option><option value="project">Release platform</option></select></div><div class="field"><label for="permission-collection">Collection</label><select id="permission-collection" name="collection_key"><option value="release">Published releases</option><option value="upcoming">Upcoming releases</option><option value="sop">SOPs</option><option value="documentation">Documentation</option></select></div><div class="field"><label for="permission-folder">Folder</label><select id="permission-folder" name="folder_id"><option value="">Choose a folder</option>${state.folders.map((folder) => `<option value="${folder.id}">${e(folder.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-project">Release platform</label><select id="permission-project" name="project_id"><option value="">Choose a platform</option>${state.projects.map((project) => `<option value="${project.id}">${e(displayPlatformName(project.name))}</option>`).join('')}</select></div><div class="field"><label for="permission-capability">Capability</label><select id="permission-capability" name="capability"><option value="read">Read</option><option value="contribute">Contribute</option><option value="edit">Edit</option><option value="publish">Publish</option><option value="manage">Manage</option><option value="delete">Delete</option></select></div><div class="field"><label for="permission-expiry">Expiry (optional)</label><input id="permission-expiry" name="expires_at" type="date"></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save capability</button></div></form>`,
+    `<h2>Grant team capability</h2><p class="small">Choose one or many teams, then define exactly what they can do and where. Nothing is changed until you save.</p><fieldset class="permission-picker"><legend>Audience</legend><label class="check-row"><input type="checkbox" id="permission-all-teams"> <span><strong>All teams</strong><small>Apply this capability to every current team.</small></span></label><div class="check-grid">${state.teams.map((team) => `<label class="check-row"><input type="checkbox" name="team_id" value="${team.id}"> <span>${e(team.name)}</span></label>`).join('')}</div></fieldset><div class="field"><label for="permission-scope">Where does this apply?</label><select id="permission-scope" name="scope_type"><option value="collection">A whole collection</option><option value="folder">One documentation folder</option><option value="project">One release platform</option></select><small>Collection is the broadest scope. Use a folder or platform for a narrower grant.</small></div><div class="field"><label for="permission-collection">Collection</label><select id="permission-collection" name="collection_key"><option value="release">Published releases</option><option value="upcoming">Upcoming releases</option><option value="sop">SOPs</option><option value="documentation">Documentation</option></select></div><div class="field"><label for="permission-folder">Folder</label><select id="permission-folder" name="folder_id"><option value="">Choose a folder</option>${state.folders.map((folder) => `<option value="${folder.id}">${e(folder.name)}</option>`).join('')}</select></div><div class="field"><label for="permission-project">Release platform</label><select id="permission-project" name="project_id"><option value="">Choose a platform</option>${state.projects.map((project) => `<option value="${project.id}">${e(displayPlatformName(project.name))}</option>`).join('')}</select></div><div class="field"><label for="permission-capability">What can they do?</label><select id="permission-capability" name="capability"><option value="read">View</option><option value="contribute">Create drafts</option><option value="edit">Edit content</option><option value="publish">Publish</option><option value="manage">Manage access</option><option value="delete">Delete</option></select></div><div class="field"><label for="permission-expiry">Expires (optional)</label><input id="permission-expiry" name="expires_at" type="date"><small>Leave blank for an ongoing permission.</small></div><p class="permission-preview" id="permission-preview" role="status">Choose an audience and capability.</p><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Save capability</button></div></form>`,
     async (form) => {
       const scopeType = form.get('scope_type');
-      const body = {
-        team_id: form.get('team_id'),
+      const allTeams = modal.querySelector('#permission-all-teams')?.checked === true;
+      const teamIds = allTeams ? state.teams.map((team) => team.id) : form.getAll('team_id');
+      if (!teamIds.length) throw new Error('Choose at least one team, or select All teams.');
+      const body = teamIds.map((team_id) => ({
+        team_id,
         scope_type: scopeType,
         collection_key: scopeType === 'collection' ? form.get('collection_key') : null,
         folder_id: scopeType === 'folder' ? form.get('folder_id') || null : null,
@@ -1757,18 +1762,38 @@ function teamPermissionDialog() {
         expires_at: form.get('expires_at')
           ? new Date(form.get('expires_at') + 'T23:59:59Z').toISOString()
           : null,
-      };
+      }));
       if (
         (scopeType === 'folder' && !body.folder_id) ||
         (scopeType === 'project' && !body.project_id)
       )
         throw new Error('Choose the selected scope.');
-      await db('docs_team_permissions', '', { method: 'POST', body });
+      await db('docs_team_permissions', '', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=ignore-duplicates' },
+        body,
+      });
       await load();
       await render();
-      toast('Team capability saved.');
+      toast(`${teamIds.length} team ${teamIds.length === 1 ? 'capability' : 'capabilities'} saved.`);
     },
   );
+  const all = modal.querySelector('#permission-all-teams');
+  all?.addEventListener('change', () => {
+    modal.querySelectorAll('input[name="team_id"]').forEach((input) => {
+      input.checked = all.checked;
+      input.disabled = all.checked;
+    });
+  });
+  const updatePreview = () => {
+    const selected = modal.querySelectorAll('input[name="team_id"]:checked').length;
+    const audience = all?.checked ? 'all teams' : `${selected} selected ${selected === 1 ? 'team' : 'teams'}`;
+    const capability = modal.querySelector('#permission-capability')?.selectedOptions[0]?.textContent || 'capability';
+    const scope = modal.querySelector('#permission-scope')?.selectedOptions[0]?.textContent || 'scope';
+    const preview = modal.querySelector('#permission-preview');
+    if (preview) preview.textContent = `This grants “${capability}” to ${audience} for ${scope.toLowerCase()}.`;
+  };
+  modal.querySelectorAll('input[name="team_id"], select').forEach((input) => input.addEventListener('change', updatePreview));
 }
 const draftSaves = new WeakMap();
 async function saveDraft() {

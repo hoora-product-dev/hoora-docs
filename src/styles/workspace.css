@@ -376,3 +376,24 @@ select:focus-visible {
   font-size: 11px;
   color: var(--muted);
 }
+
+.permission-empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: var(--control-radius);
+  color: var(--muted);
+}
+.permission-empty strong { color: var(--ink); font-size: 14px; }
+.permission-empty span { line-height: 1.5; max-width: 70ch; }
+.permission-empty .btn { justify-self: start; margin-top: 4px; }
+.permission-picker { border: 0; padding: 0; margin: 0 0 18px; }
+.permission-picker legend { font-weight: 650; margin-bottom: 10px; }
+.check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 10px; }
+.check-row { display: flex; align-items: flex-start; gap: 9px; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--control-radius); background: var(--surface); cursor: pointer; }
+.check-row:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.check-row input { margin-top: 3px; accent-color: var(--accent); }
+.check-row span { display: grid; gap: 2px; }
+.check-row small { color: var(--muted); line-height: 1.4; }
+.permission-preview { margin: 14px 0 0; padding: 11px 12px; border-radius: var(--control-radius); background: var(--subtle); color: var(--muted); font-size: 13px; }
