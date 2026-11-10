@@ -1,8 +1,40 @@
 /** Home: one search, the latest releases and recently updated documents. */
 export function homePage({ state, e, icon, platformName, versionKey, date, link }) {
-  const pages = state.member ? state.published : [];
-  const releases = pages.filter((page) => page.kind === 'release').slice(0, 5),
-    documents = pages
+  // Filter published documents to those the signed-in user can actually access.
+  // A document is accessible when:
+  //   - visibility is 'private' (everyone at Hoora), OR
+  //   - visibility is 'team' and the user belongs to that team, OR
+  //   - visibility is 'restricted' and the user has explicit page-team-access
+  const accessiblePublished = state.member
+    ? state.published.filter((p) => {
+        const v = p.visibility || 'private';
+        if (v === 'private') return true;
+        if (v === 'team') {
+          return (
+            state.teamMembers.some(
+              (m) =>
+                m.team_id === p.team_id &&
+                m.email?.toLowerCase() === state.member?.email?.toLowerCase(),
+            ) || state.member.role === 'admin'
+          );
+        }
+        // 'restricted' — user must have an explicit page-team-access entry
+        return (
+          state.member.role === 'admin' ||
+          state.pageTeamAccess.some(
+            (grant) =>
+              grant.page_id === p.id &&
+              state.teamMembers.some(
+                (m) =>
+                  m.team_id === grant.team_id &&
+                  m.email?.toLowerCase() === state.member?.email?.toLowerCase(),
+              ),
+          )
+        );
+      })
+    : [];
+  const releases = accessiblePublished.filter((page) => page.kind === 'release').slice(0, 5),
+    documents = accessiblePublished
       .filter((page) => page.kind !== 'release')
       .sort(
         (a, b) =>

@@ -104,6 +104,7 @@ const state = {
   teamMembers: [],
   teamPermissions: [],
   pageTeamAccess: [],
+  canUpcoming: false,
   dirty: false,
 };
 let renderId = 0;
@@ -282,13 +283,31 @@ const memberTeamRoles = () =>
     .map((m) => m.role);
 const isTeamManager = () =>
   state.member?.role === 'admin' || memberTeamRoles().includes('manager');
-const canManageReleases = (role) =>
-  ['admin', 'publisher', 'manager'].includes(role) || isTeamManager();
+const canManageReleases = (role) => {
+  if (['admin', 'publisher'].includes(role)) return true;
+  // A team manager can manage releases only when their team has an explicit
+  // 'release' publish (or manage/delete) capability grant — matching the DB policy.
+  if (!state.member) return false;
+  const myTeamIds = state.teamMembers
+    .filter((m) => m.email?.toLowerCase() === state.member?.email?.toLowerCase() && m.role === 'manager')
+    .map((m) => m.team_id);
+  if (!myTeamIds.length) return false;
+  return myTeamIds.some((tid) =>
+    state.teamPermissions.some(
+      (p) =>
+        p.team_id === tid &&
+        p.scope_type === 'collection' &&
+        p.collection_key === 'release' &&
+        ['publish', 'manage', 'delete'].includes(p.capability) &&
+        (!p.expires_at || new Date(p.expires_at) > new Date()),
+    ),
+  );
+};
 const canEdit = (role) =>
   canEditRole(role) ||
   role === 'manager' ||
   (role === 'viewer' && memberTeamRoles().some((teamRole) => ['manager', 'publisher', 'contributor'].includes(teamRole)));
-const canPublish = (role) => canPublishRole(role) || role === 'manager' || isTeamManager() || canEdit(role);
+const canPublish = (role) => canPublishRole(role) || role === 'manager' || isTeamManager();
 const canEditEntry = (entry) =>
   state.member?.role === 'admin' || entry?.author_id === state.member?.id;
 const teams = teamsFeature({
@@ -539,6 +558,7 @@ async function load() {
   state.teamMembers = [];
   state.teamPermissions = [];
   state.pageTeamAccess = [];
+  state.canUpcoming = false;
   if (state.session) {
     const members = await db('docs_members', `?id=eq.${state.session.user.id}&select=*`);
     state.member = members[0]?.active ? members[0] : null;
@@ -594,6 +614,21 @@ async function load() {
         state.unreadNoticeCount = 0;
       }
       state.projectSections = await db('docs_project_sections', '?select=*&order=sort_order.asc');
+      // Check whether this member has access to the upcoming-releases section.
+      // Admins always do; everyone else needs an explicit team permission grant.
+      if (state.member.role === 'admin') {
+        state.canUpcoming = true;
+      } else {
+        try {
+          const result = await db('rpc/docs_can_upcoming', '', {
+            method: 'POST',
+            body: { member: state.session.user.id },
+          });
+          state.canUpcoming = result === true;
+        } catch {
+          state.canUpcoming = false;
+        }
+      }
     }
   }
   workspaceLoadedAt = Date.now();
@@ -711,6 +746,7 @@ const settingsRoutes = [
   'teams',
   'requests',
   'users',
+  'permissions',
   'folders',
   'activity',
   'feedback',
@@ -813,6 +849,7 @@ function sidebar(workspace = false) {
     .join('');
   const folders = folderLinks();
   const teamLinks = state.teams
+    .filter((t) => docs.some((p) => p.team_id === t.id))
     .map(
       (t) =>
         `<a class="sidelink ${state.team === t.id ? 'active' : ''}" href="${base}?team=${e(t.slug)}">${icon('users')}<span>${e(t.name)}</span></a>`,
@@ -989,7 +1026,9 @@ function article(slug, full = false) {
       sessionStorage.setItem('hoora-return-to', routeHash());
       return `<main id="main" class="access-gate">${icon('lock')}<h1>Sign in to continue</h1><p>Hoora Docs is an employee workspace. Sign in with your Hoora Microsoft account to view this content.</p><a class="btn dark" href="#/login">Continue with Microsoft</a></main>`;
     }
-    return `<main id="main" class="article">${empty('Document unavailable', 'This page may have been removed or unpublished.', '<a class="btn outline" href="#/workspace">Open library</a>')}</main>`;
+    // Signed-in user: the doc either doesn't exist or they don't have access.
+    // Show a helpful access-denied message rather than a generic "unavailable" one.
+    return `<main id="main" class="access-gate">${icon('lock')}<h1>Access restricted</h1><p>This page isn't available to your account. It may be shared only with specific teams or people, or it may have been removed.</p><div class="access-gate-actions"><a class="btn outline" href="#/browse">Browse documents</a><button class="btn text" data-action="request-access">Request access</button></div></main>`;
   }
   document.title = p.title + ' — Hoora Docs';
   if (full && p.format === 'html') return nativeArtifact(p, false);
@@ -1624,11 +1663,13 @@ async function render() {
             : editor(route === 'edit' ? id : null);
         break;
       case 'users':
-        if (state.member.role !== 'admin') throw new Error('Administrator access required.');
+        if (state.member.role !== 'admin')
+          return `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>This area is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
         view = await users();
         break;
       case 'permissions':
-        if (state.member.role !== 'admin') throw new Error('Administrator access required.');
+        if (state.member.role !== 'admin')
+          return `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>Permission management is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
         view = permissionsPage();
         break;
       case 'preview':
@@ -1640,8 +1681,9 @@ async function render() {
         view = await announce.view(params);
         break;
       case 'folders':
-        if (state.member.role !== 'admin') throw new Error('Administrator access required.');
-        view = folders();
+        if (state.member.role !== 'admin')
+          view = `<main id="main" class="access-gate">${icon('lock')}<h1>Administrator access required</h1><p>Structure management is only available to Hoora Docs administrators.</p><a class="btn outline" href="#/account">Your account</a></main>`;
+        else view = folders();
         break;
       case 'account':
         view = account();
@@ -1734,6 +1776,47 @@ async function confirmAction(title, description, action) {
   dialog(
     `<h2>${e(title)}</h2><p class="small">${e(description)}</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn danger" type="submit">Confirm</button></div></form>`,
     action,
+  );
+}
+/**
+ * Request dialog: lets a viewer request publisher access, or lets a contributor
+ * request publication approval for a specific document.
+ */
+function requestDialog(kind, pageId) {
+  const isPublish = kind === 'publish';
+  const page = isPublish ? state.pages.find((p) => p.id === pageId) : null;
+  dialog(
+    `<h2>${isPublish ? 'Request publication approval' : 'Request publisher access'}</h2>
+     <p class="small">${isPublish ? `Ask an administrator or publisher to review and publish <strong>${e(page?.title || 'this document')}</strong>.` : 'Ask an administrator to upgrade your account to publisher so you can create and edit documents.'}</p>
+     <form>
+       <div class="field">
+         <label for="request-reason">Your message <span class="req" aria-hidden="true">*</span></label>
+         <textarea id="request-reason" name="reason" rows="3" maxlength="2000" required placeholder="Explain why you need this access…"></textarea>
+       </div>
+       <p class="error" role="alert"></p>
+       <div class="dialog-actions">
+         <button type="button" class="btn outline" data-close>Cancel</button>
+         <button class="btn dark">Send request</button>
+       </div>
+     </form>`,
+    async (form) => {
+      const reason = form.get('reason').trim();
+      if (!reason) throw new Error('Add a short reason for your request.');
+      await db('docs_requests', '', {
+        method: 'POST',
+        body: {
+          kind,
+          reason,
+          ...(isPublish && pageId ? { page_id: pageId } : {}),
+          requester_name: state.member?.name || state.member?.email || '',
+        },
+      });
+      toast(
+        isPublish
+          ? 'Publication request sent. An administrator or publisher will review it.'
+          : 'Access request sent. An administrator will review it.',
+      );
+    },
   );
 }
 function memberDialog(id) {
@@ -2780,7 +2863,7 @@ function typeFields(p) {
   return `<div id="custom-fields">${(type?.fields || []).map((label) => `<div class="field"><label>${e(label)}<input name="field:${e(label)}" maxlength="2000" value="${e(p.custom_fields?.[label] || '')}"></label></div>`).join('')}</div>`;
 }
 function visibilityField(p) {
-  return `<p class="properties-help">${icon('lock')}${p.team_id ? 'Team documents start visible to their team only.' : 'Visible to everyone at Hoora.'} Use Share on the published page to change who can see it.</p>`;
+  return `<p class="properties-help">${icon('lock')}${p.team_id ? 'Team documents are visible to their team once published.' : 'Once published, this will be visible to everyone at Hoora.'} Use Share on the published page to change who can see it.</p>`;
 }
 function customFieldList(p) {
   const pairs = Object.entries(p.custom_fields || {}).filter(([, value]) => value);
@@ -2843,7 +2926,7 @@ function releaseSidebar({ projectId = '', pageId = '', upcomingActive = false } 
       return `<a class="sidelink ${active ? 'active' : ''}" href="#/releases?project=${encodeURIComponent(p.slug || slugify(p.name))}" ${active ? 'aria-current="page"' : ''}>${icon(p.icon)}<span>${e(displayPlatformName(p.name))}</span></a>`;
     })
     .join('');
-  return `<aside class="sidebar release-sidebar" aria-label="Release notes"><a class="sidelink ${!projectId && !upcomingActive ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${platformLinks}${state.member ? `<div class="rail-label">Planning${canManageReleases(state.member?.role) ? `<a class="iconbtn" href="#/upcoming?create=1" aria-label="Add upcoming release" title="Add upcoming release">${icon('plus')}</a>` : ''}</div><a class="sidelink ${upcomingActive ? 'active' : ''}" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
+  return `<aside class="sidebar release-sidebar" aria-label="Release notes"><a class="sidelink ${!projectId && !upcomingActive ? 'active' : ''}" href="#/releases">${icon('grid')}<span>All platforms</span></a>${platformLinks}${state.member && (state.canUpcoming || canManageReleases(state.member?.role)) ? `<div class="rail-label">Planning${canManageReleases(state.member?.role) ? `<a class="iconbtn" href="#/upcoming?create=1" aria-label="Add upcoming release" title="Add upcoming release">${icon('plus')}</a>` : ''}</div><a class="sidelink ${upcomingActive ? 'active' : ''}" href="#/upcoming">${icon('clock')}<span>Upcoming releases</span></a>` : ''}</aside>`;
 }
 
 /** Releases an editor can still act on: never published, or with sections not yet published. */
@@ -3561,10 +3644,6 @@ window.addEventListener('beforeunload', (ev) => {
   }
 });
 window.addEventListener('keydown', (ev) => {
-  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'k') {
-    ev.preventDefault();
-    globalSearch();
-  }
   if ((ev.ctrlKey || ev.metaKey) && ev.key === 's' && document.querySelector('#editor-form')) {
     ev.preventDefault();
     busy(null, async () => {
