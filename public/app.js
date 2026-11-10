@@ -1343,7 +1343,7 @@ function permissionsPage() {
           ? `<strong>${e(getMemberName(p.email, p.user_id))}</strong>`
           : `<strong>${e(getTeamName(p.team_id))}</strong><small class="permission-badge-sub"> (${state.teamMembers.filter((m) => m.team_id === p.team_id).length} members)</small>`;
         const capLabel = ['manage', 'publish', 'edit'].includes(p.capability)
-          ? `<span class="badge" style="background:var(--accent);color:#fff">Manage Releases</span>`
+          ? `<span class="badge" style="background:var(--contrast);color:var(--on-contrast);font-weight:600">Manage Releases</span>`
           : `<span class="badge">Preview & View Notes</span>`;
         const expired = p.expires_at && new Date(p.expires_at) <= now;
         const expiryLabel = p.expires_at
@@ -1652,10 +1652,6 @@ function permissionsPage() {
           <div>
             <h1>Permissions Command Center</h1>
             <p>Granular access management for upcoming releases, release platforms, internal docs, teams, and batch email invites.</p>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="btn outline" data-action="add-upcoming-access">${icon('clock')}Add upcoming access</button>
-            <button type="button" class="btn dark" data-action="add-permission">${icon('plus')}Grant permission</button>
           </div>
         </div>
         ${statBar}
