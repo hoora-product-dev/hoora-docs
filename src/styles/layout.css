@@ -476,9 +476,10 @@ body .home {
 /* Notifications: title, Unread / All tabs, list, one device setting. */
 .notice-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   margin-bottom: 12px;
 }
 .notice-heading h1 {
