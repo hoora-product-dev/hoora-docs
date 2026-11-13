@@ -103,6 +103,7 @@
 }
 .access-section-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -110,6 +111,7 @@
 }
 .access-section-head h2 {
   margin: 0;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
@@ -122,6 +124,10 @@
 .access-table {
   width: 100%;
   border-collapse: collapse;
+}
+/* Access tables fit the screen; the shared 540px table minimum is for wide data tables. */
+.access-tablewrap .access-table {
+  min-width: 0;
 }
 .access-table td {
   padding: 10px 14px;
@@ -290,4 +296,55 @@
   .share-person {
     grid-template-columns: minmax(0, 1fr) 104px 30px;
   }
+}
+/* Teams: role groups, the Unassigned list and its selection. */
+.access-group td {
+  padding: 8px 14px 4px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.access-table tr:first-child.access-group td {
+  border-top: 0;
+}
+.access-group + tr td {
+  border-top: 0;
+}
+.access-cell-check {
+  width: 36px;
+  padding-right: 0 !important;
+}
+.access-cell-check input,
+.access-select-all input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ink);
+}
+.access-cell-wide {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.access-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.access-section-head .toolbar-actions {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.access-note {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.access-note a {
+  color: var(--ink);
 }

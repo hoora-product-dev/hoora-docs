@@ -100,6 +100,7 @@ try {
   // 1. Every settings and reading page at phone and desktop widths, in both themes.
   const routes = [
     'access',
+    'access?tab=teams&team=unassigned',
     'access?tab=people',
     'access?tab=content',
     'access?tab=content&node=collection%3Arelease',
@@ -128,6 +129,9 @@ try {
           stray: /\bundefined\b|\[object Object\]/.test(
             document.querySelector('main')?.innerText || '',
           ),
+          clipped: [...document.querySelectorAll('.access-tablewrap')].some(
+            (wrap) => wrap.scrollWidth > wrap.clientWidth + 1,
+          ),
           offenders: [...document.querySelectorAll('body *')]
             .filter((el) => {
               const r = el.getBoundingClientRect();
@@ -149,7 +153,9 @@ try {
       }
       await ctx.close();
     }
-  const bad = results.filter((r) => r.overflow > 1 || !r.heading || r.error || r.stray);
+  const bad = results.filter(
+    (r) => r.overflow > 1 || !r.heading || r.error || r.stray || r.clipped,
+  );
   assert.deepEqual(bad, [], 'pages render with a heading, no errors and no sideways scroll');
 
   const { ctx, page } = await open('light', 1440);
@@ -244,7 +250,52 @@ try {
     assert.equal(grants.length, 0, 'cancelled Share saves nothing');
   }
 
-  // 6. Account devices and the People detail.
+  if (doc) {
+    // 6. Unassigned: someone with access but no team is listed; select them and add them to a team.
+    await call('/rest/v1/docs_access_grants', {
+      method: 'POST',
+      body: JSON.stringify({ email: testEmail, target_type: 'page', page_id: doc.id, level: 1 }),
+    });
+    await page.goto(at('access?tab=teams&team=unassigned'));
+    await ready(page);
+    const box = `[data-assign-email="${testEmail}"]`;
+    await page.waitForSelector(box, { timeout: 20000 });
+    assert.equal(
+      await page.$eval('[data-assign-selected]', (b) => b.disabled),
+      true,
+      'bulk add waits for a selection',
+    );
+    await page.check(box);
+    await page.waitForFunction(
+      () => !document.querySelector('[data-assign-selected]').disabled,
+      {},
+      { timeout: 5000 },
+    );
+    await page.click('[data-assign-selected]');
+    await page.selectOption('#person-team', emptyTeam.id);
+    await page.selectOption('#person-team-role', 'publisher');
+    await page.click('#modal button[type="submit"]');
+    await page.waitForSelector(box, { state: 'detached', timeout: 20000 });
+    const added = await call(
+      `/rest/v1/docs_team_members?email=eq.${testEmail}&select=team_id,role`,
+    );
+    assert.deepEqual(
+      added,
+      [{ team_id: emptyTeam.id, role: 'publisher' }],
+      'selected people join the team',
+    );
+    await page.goto(at('access?tab=teams&team=all'));
+    await ready(page);
+    const overview = await page.textContent('.access-detail');
+    const section = overview.slice(overview.indexOf(emptyTeam.name));
+    assert.ok(
+      /Publishers · 1/.test(section) && section.includes(testEmail),
+      'All teams shows them under their team and role',
+    );
+    await cleanup();
+  }
+
+  // 7. Account devices and the People detail.
   await page.goto(at('account'));
   await ready(page);
   await settle(page);

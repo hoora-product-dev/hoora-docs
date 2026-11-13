@@ -114,7 +114,10 @@ test('Access pages, Share and Devices render for administrators and members', as
       teamMembers: [
         { team_id: 't1', email: 'a@hoora.me', role: role === 'admin' ? 'manager' : 'viewer' },
       ],
-      members: [{ id: 'm1', email: 'a@hoora.me', name: 'A', role, active: true }],
+      members: [
+        { id: 'm1', email: 'a@hoora.me', name: 'A', role, active: true },
+        { id: 'm2', email: 'b@hoora.me', name: 'B', role: 'viewer', active: true },
+      ],
       grants: [
         { id: 'g1', team_id: 't1', target_type: 'collection', collection_key: 'release', level: 3 },
         { id: 'g2', email: 'new@hoora.me', target_type: 'page', page_id: 'p1', level: 2 },
@@ -172,9 +175,17 @@ test('Access pages, Share and Devices render for administrators and members', as
     assert.match(html, /class="access-split"/, `${tab} renders`);
     assert.ok(!/undefined|\[object Object\]/.test(html), `${tab} has no stray values`);
   }
-  const teams = await admin.feature.view(new URLSearchParams('tab=teams'));
-  assert.match(teams, /data-team-role="t1"/, 'managers change member roles');
-  assert.match(teams, /Release notes/, 'team access lists its grants');
+  const all = await admin.feature.view(new URLSearchParams('tab=teams'));
+  assert.match(all, /All teams/, 'administrators start on the whole organization');
+  assert.match(all, /Managers · 1/, 'members are grouped by role');
+  assert.match(all, /data-team-role="t1"/, 'managers change member roles');
+  assert.match(all, /Unassigned · 2/, 'people in no team are listed');
+  assert.match(all, /data-assign-email="b@hoora.me"/);
+  assert.match(all, /data-assign-email="new@hoora.me"/, 'invited people without a team count too');
+  const unassigned = await admin.feature.view(new URLSearchParams('tab=teams&team=unassigned'));
+  assert.match(unassigned, /data-assign-selected disabled/, 'bulk add waits for a selection');
+  const teamPage = await admin.feature.view(new URLSearchParams('tab=teams&team=product-team'));
+  assert.match(teamPage, /Release notes/, 'team access lists its grants');
   const people = await admin.feature.view(new URLSearchParams('tab=people'));
   assert.match(people, /new@hoora\.me/, 'people invited by email are listed');
   assert.match(people, /Effective access/);

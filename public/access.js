@@ -327,39 +327,128 @@ export function accessFeature({
   }
 
   // ——— Teams tab ———
-  function teamsTab(params) {
-    const listed = (isAdmin() ? state.teams : state.teams.filter((t) => myTeamRole(t.id))).slice();
-    const team = teamOf(params.get('team') || '') || listed[0];
-    const list = listed
+  const ROLE_ORDER = ['manager', 'publisher', 'contributor', 'viewer'];
+  const ROLE_GROUPS = {
+    manager: 'Managers',
+    publisher: 'Publishers',
+    contributor: 'Editors',
+    viewer: 'Viewers',
+  };
+  const rosterOf = (team) =>
+    state.teamMembers
+      .filter((m) => m.team_id === team.id)
+      .sort(
+        (a, b) =>
+          ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
+          personName(a.email).localeCompare(personName(b.email)),
+      );
+  function memberRow(m, team, manage) {
+    const person = memberByEmail(m.email);
+    const name = person?.name || m.email;
+    return `<tr><td><strong>${e(name)}</strong><small>${e(person ? m.email : `${m.email} · Not signed in yet`)}</small></td><td class="access-cell-level">${manage ? roleSelect(`data-team-role="${team.id}" data-email="${e(m.email)}"`, m.role, `Role of ${name}`) : `<span>${teamRoleName(m.role)}</span>`}</td><td class="access-cell-action">${manage ? removeButton(`data-access-action="remove-member" data-team="${team.id}" data-email="${e(m.email)}"`, `Remove ${name} from ${team.name}`) : ''}</td></tr>`;
+  }
+  /** Members grouped by role: Managers, Publishers, Editors, Viewers. */
+  function hierarchy(team, manage) {
+    const roster = rosterOf(team);
+    return ROLE_ORDER.flatMap((role) => {
+      const people = roster.filter((m) => m.role === role);
+      if (!people.length) return [];
+      return [
+        `<tr class="access-group"><td colspan="3">${ROLE_GROUPS[role]} · ${people.length}</td></tr>`,
+        ...people.map((m) => memberRow(m, team, manage)),
+      ];
+    });
+  }
+  /** Signed-up or invited people who are in no team. */
+  function unassignedPeople() {
+    const inTeam = new Set(state.teamMembers.map((m) => m.email));
+    return directory().filter((p) => !inTeam.has(p.email));
+  }
+  function unassignedSection(people, title = 'Unassigned') {
+    const rows = people.map((p) => {
+      const name = p.name || p.email;
+      const note = [
+        p.email !== name ? p.email : '',
+        p.role === 'admin' ? 'Administrator' : '',
+        p.pending ? 'Not signed in yet' : '',
+        p.active === false ? 'Disabled' : '',
+      ].filter(Boolean);
+      return `<tr><td class="access-cell-check"><input type="checkbox" data-assign-email="${e(p.email)}" aria-label="Select ${e(name)}"></td><td><strong>${e(name)}</strong>${note.length ? `<small>${e(note.join(' · '))}</small>` : ''}</td><td class="access-cell-wide"><button type="button" class="btn text small" data-access-action="assign" data-email="${e(p.email)}">Add to team</button></td></tr>`;
+    });
+    const tools = people.length
+      ? `<div class="toolbar-actions"><label class="access-select-all"><input type="checkbox" data-assign-all> Select all</label><button type="button" class="btn outline small" data-access-action="assign" data-assign-selected disabled>${icon('plus')}Add selected to team</button></div>`
+      : '';
+    return section(`${title} · ${people.length}`, table(rows, 'Everyone is in a team.'), tools);
+  }
+  function overview(listed) {
+    const withPeople = listed.filter((t) => rosterOf(t).length);
+    const empty = listed.filter((t) => !rosterOf(t).length);
+    const inTeams = new Set(
+      state.teamMembers.filter((m) => listed.some((t) => t.id === m.team_id)).map((m) => m.email),
+    ).size;
+    const unassigned = isAdmin() ? unassignedPeople() : [];
+    const blocks = withPeople
       .map((t) => {
-        const count = state.teamMembers.filter((m) => m.team_id === t.id).length;
-        return `<a class="access-item ${team?.id === t.id ? 'active' : ''}" href="#/access?tab=teams&team=${e(t.slug)}" ${team?.id === t.id ? 'aria-current="page"' : ''}><span>${e(t.name)}</span><small>${count}</small></a>`;
+        const manage = managesTeam(t);
+        const actions = `<div class="toolbar-actions"><a class="btn text small" href="#/access?tab=teams&team=${e(t.slug)}">Open</a>${manage ? `<button type="button" class="btn outline small" data-access-action="add-people" data-team="${t.id}">${icon('plus')}Add people</button>` : ''}</div>`;
+        return section(
+          `${t.name} · ${rosterOf(t).length}`,
+          table(hierarchy(t, manage), ''),
+          actions,
+        );
       })
       .join('');
+    const emptyLine = empty.length
+      ? `<p class="access-note">No members yet: ${empty.map((t) => `<a href="#/access?tab=teams&team=${e(t.slug)}">${e(t.name)}</a>`).join(', ')}</p>`
+      : '';
+    return `<div class="access-detail-head"><div><h2 class="access-title">All teams</h2><p>${inTeams} ${inTeams === 1 ? 'person' : 'people'} in ${withPeople.length} ${withPeople.length === 1 ? 'team' : 'teams'}${isAdmin() ? ` · ${unassigned.length} unassigned` : ''}</p></div></div>${isAdmin() && unassigned.length ? unassignedSection(unassigned) : ''}${blocks}${emptyLine}`;
+  }
+  function teamsTab(params) {
+    const listed = (isAdmin() ? state.teams : state.teams.filter((t) => myTeamRole(t.id))).slice();
+    const chosen = params.get('team') || (isAdmin() || listed.length > 1 ? 'all' : '');
+    const team = chosen === 'all' || chosen === 'unassigned' ? null : teamOf(chosen) || listed[0];
+    const view = team ? team.id : chosen;
+    const item = (key, href, label, count) =>
+      `<a class="access-item ${view === key ? 'active' : ''}" href="${href}" ${view === key ? 'aria-current="page"' : ''}><span>${e(label)}</span><small>${count}</small></a>`;
+    const unassigned = isAdmin() ? unassignedPeople() : [];
+    const list =
+      (listed.length > 1 || isAdmin()
+        ? item(
+            'all',
+            '#/access?tab=teams&team=all',
+            'All teams',
+            new Set(state.teamMembers.map((m) => m.email)).size,
+          )
+        : '') +
+      listed
+        .map((t) => item(t.id, `#/access?tab=teams&team=${e(t.slug)}`, t.name, rosterOf(t).length))
+        .join('') +
+      (isAdmin()
+        ? `<div class="rail-label">People</div>${item('unassigned', '#/access?tab=teams&team=unassigned', 'Unassigned', unassigned.length)}`
+        : '');
+    if (view === 'all') return { list, detail: overview(listed) };
+    if (view === 'unassigned')
+      return {
+        list,
+        detail: `<div class="access-detail-head"><div><h2 class="access-title">Unassigned</h2><p>People in no team. They read only what is shared with everyone at Hoora.</p></div></div>${unassignedSection(unassigned, 'People')}`,
+      };
     if (!team)
       return {
         list,
         detail: `<p class="access-empty">${isAdmin() || state.member.role === 'manager' ? 'No teams yet.' : 'You are not in a team yet. A team manager can add your Hoora email.'}</p>`,
       };
     const manage = managesTeam(team);
-    const roster = state.teamMembers
-      .filter((m) => m.team_id === team.id)
-      .sort((a, b) => personName(a.email).localeCompare(personName(b.email)));
-    const memberRows = roster.map((m) => {
-      const person = memberByEmail(m.email);
-      const name = person?.name || m.email;
-      return `<tr><td><strong>${e(name)}</strong><small>${e(person ? m.email : `${m.email} · Not signed in yet`)}</small></td><td class="access-cell-level">${manage ? roleSelect(`data-team-role="${team.id}" data-email="${e(m.email)}"`, m.role, `Role of ${name}`) : `<span>${teamRoleName(m.role)}</span>`}</td><td class="access-cell-action">${manage ? removeButton(`data-access-action="remove-member" data-team="${team.id}" data-email="${e(m.email)}"`, `Remove ${name} from ${team.name}`) : ''}</td></tr>`;
-    });
+    const roster = rosterOf(team);
     const grants = state.grants
       .filter((g) => g.team_id === team.id)
       .map((g) => grantRow(g, { show: 'target' }));
     const owned = allPages().filter((page) => page.team_id === team.id).length;
     const actions = manage
-      ? `<div class="toolbar-actions"><button type="button" class="btn text" data-access-action="rename-team" data-team="${team.id}">Rename</button>${isAdmin() || myTeamRole(team.id) === 'manager' ? `<button type="button" class="btn text danger" data-access-action="delete-team" data-team="${team.id}">Delete</button>` : ''}</div>`
+      ? `<div class="toolbar-actions"><button type="button" class="btn text" data-access-action="rename-team" data-team="${team.id}">Rename</button><button type="button" class="btn text danger" data-access-action="delete-team" data-team="${team.id}">Delete</button></div>`
       : '';
     const detail = `<div class="access-detail-head"><div><h2 class="access-title">${e(team.name)}</h2><p>${roster.length} ${roster.length === 1 ? 'person' : 'people'}${owned ? ` · <a href="#/workspace?team=${e(team.slug)}">${owned} ${owned === 1 ? 'document' : 'documents'}</a>` : ''}${!manage && myTeamRole(team.id) ? ` · You are ${teamRoleName(myTeamRole(team.id))}` : ''}</p></div>${actions}</div>${section(
       'Members',
-      table(memberRows, 'No one in this team yet.'),
+      table(hierarchy(team, manage), 'No one in this team yet.'),
       manage
         ? `<button type="button" class="btn outline small" data-access-action="add-people" data-team="${team.id}">${icon('plus')}Add people</button>`
         : '',
@@ -399,13 +488,15 @@ export function accessFeature({
     const list = everyone
       .map((p) => {
         const href = `#/access?tab=people&person=${encodeURIComponent(p.id || p.email)}`;
+        const teamsOf = state.teamMembers.filter((m) => m.email === p.email);
         const note = p.pending
           ? 'Invited'
           : !p.active
             ? 'Disabled'
-            : p.role === 'admin'
-              ? 'Admin'
-              : '';
+            : teamsOf.length
+              ? teamOf(teamsOf[0].team_id)?.name +
+                (teamsOf.length > 1 ? ' +' + (teamsOf.length - 1) : '')
+              : 'No team';
         return `<a class="access-item ${person === p ? 'active' : ''}" href="${href}" data-search-text="${e((p.name + ' ' + p.email).toLowerCase())}" ${person === p ? 'aria-current="page"' : ''}><span>${e(p.name || p.email)}</span>${note ? `<small>${note}</small>` : ''}</a>`;
       })
       .join('');
@@ -829,21 +920,33 @@ export function accessFeature({
           );
         },
       );
-    if (type === 'person-add-team')
+    if (type === 'person-add-team' || type === 'assign') {
+      const emails = button.dataset.email
+        ? [button.dataset.email]
+        : [...document.querySelectorAll('[data-assign-email]:checked')].map(
+            (box) => box.dataset.assignEmail,
+          );
+      if (!emails.length) throw new Error('Select people first.');
+      const who = emails.length === 1 ? personName(emails[0]) : `${emails.length} people`;
       return dialog(
-        `<h2>Add to team</h2><p class="small">${e(personName(button.dataset.email))}</p><form><div class="access-form-row"><div class="field"><label for="person-team">Team</label><select id="person-team" name="team" required><option value="">Choose…</option>${state.teams.map((t) => `<option value="${t.id}">${e(t.name)}</option>`).join('')}</select></div><div class="field"><label for="person-team-role">Role</label>${roleSelect('id="person-team-role" name="role"', 'viewer', 'Team role')}</div></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn dark">Add</button></div></form>`,
+        `<h2>Add to team</h2><p class="small">${e(who)}</p><form><div class="access-form-row"><div class="field"><label for="person-team">Team</label><select id="person-team" name="team" required><option value="">Choose…</option>${state.teams.map((t) => `<option value="${t.id}">${e(t.name)}</option>`).join('')}</select></div><div class="field"><label for="person-team-role">Role</label>${roleSelect('id="person-team-role" name="role"', 'viewer', 'Team role')}</div></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn dark">Add</button></div></form>`,
         async (form) => {
-          await teamMembers([
-            {
+          await teamMembers(
+            emails.map((email) => ({
               team_id: form.get('team'),
-              email: button.dataset.email,
+              email,
               role: form.get('role'),
               added_by: state.member.id,
-            },
-          ]);
-          await refresh('Added to the team.');
+            })),
+          );
+          await refresh(
+            emails.length === 1
+              ? 'Added to the team.'
+              : `${emails.length} people added to the team.`,
+          );
         },
       );
+    }
     if (type === 'remove-member')
       return confirmAction(
         'Remove from team?',
@@ -907,6 +1010,20 @@ export function accessFeature({
     }
   }
   async function change(field) {
+    if ('assignAll' in field.dataset || 'assignEmail' in field.dataset) {
+      const scope = field.closest('.access-detail') || document;
+      const boxes = [...scope.querySelectorAll('[data-assign-email]')];
+      if ('assignAll' in field.dataset) boxes.forEach((box) => (box.checked = field.checked));
+      const picked = boxes.filter((box) => box.checked).length;
+      const all = scope.querySelector('[data-assign-all]');
+      if (all) all.checked = picked > 0 && picked === boxes.length;
+      const action = scope.querySelector('[data-assign-selected]');
+      if (action) {
+        action.disabled = !picked;
+        action.lastChild.textContent = picked ? `Add ${picked} to team` : 'Add selected to team';
+      }
+      return;
+    }
     if (field.dataset.grantLevel) {
       const grant = state.grants.find((g) => g.id === field.dataset.grantLevel);
       if (!grant) return;

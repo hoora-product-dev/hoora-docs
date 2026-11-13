@@ -3120,7 +3120,9 @@ document.addEventListener('click', (ev) => {
   if (button) busy(button, () => access.action(button));
 });
 document.addEventListener('change', (ev) => {
-  const field = ev.target.closest('[data-grant-level],[data-team-role],[data-general-access]');
+  const field = ev.target.closest(
+    '[data-grant-level],[data-team-role],[data-general-access],[data-assign-all],[data-assign-email]',
+  );
   if (field && !field.closest('dialog')) busy(null, () => access.change(field));
 });
 document.addEventListener('submit', (ev) => {
