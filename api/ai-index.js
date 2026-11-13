@@ -1,5 +1,6 @@
 import { serverClient, requireMember } from '../server/supabase.js';
 import { indexDocument, staleDocuments } from '../server/ai-index.js';
+import { isScheduledRun } from '../server/cron.js';
 
 export const maxDuration = 60;
 const uuid = /^[a-f0-9-]{36}$/i;
@@ -11,11 +12,7 @@ export default async function handler(req, res) {
   try {
     const call = serverClient();
     if (req.method === 'GET') {
-      const cronSecret = process.env.CRON_SECRET;
-      const scheduled =
-        req.headers['x-vercel-cron'] === '1' || req.headers['x-vercel-cron'] === 'true';
-      if (cronSecret ? req.headers.authorization !== `Bearer ${cronSecret}` : !scheduled)
-        return res.status(401).json({ error: 'Scheduled indexing only.' });
+      if (!isScheduledRun(req)) return res.status(401).json({ error: 'Scheduled indexing only.' });
       const started = Date.now();
       let indexed = 0;
       // The free AI Gateway tier allows 5 embedding requests a minute: pace them and
