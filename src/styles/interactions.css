@@ -1,7 +1,6 @@
 a,
 button,
 .document-row,
-.team-card,
 .related-grid a,
 .notice-item,
 .home-list > a {
@@ -29,7 +28,6 @@ a:hover {
 }
 
 .document-row:hover,
-.team-card:hover,
 .related-grid a:hover,
 .notice-item:hover,
 .document-nav-page:hover {
@@ -51,7 +49,6 @@ a:hover {
   a,
   button,
   .document-row,
-  .team-card,
   .related-grid a,
   .notice-item,
   .home-list > a {

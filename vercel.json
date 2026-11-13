@@ -180,10 +180,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/archive",
-      "destination": "/index.html"
-    },
-    {
       "source": "/activity",
       "destination": "/index.html"
     },
@@ -196,19 +192,11 @@
       "destination": "/index.html"
     },
     {
-      "source": "/users",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/permissions",
+      "source": "/access",
       "destination": "/index.html"
     },
     {
       "source": "/account",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/requests",
       "destination": "/index.html"
     },
     {

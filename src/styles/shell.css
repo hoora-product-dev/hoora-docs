@@ -306,40 +306,6 @@
 }
 
 /* Grouped team permissions */
-.scope-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-}
-.scope-list > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-.scope-remove {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--subtle);
-  cursor: pointer;
-}
-.scope-remove:hover {
-  background: var(--hover-surface);
-  color: var(--danger);
-}
-.scope-remove .icon svg {
-  width: 12px;
-  height: 12px;
-}
-details.role-explainer > summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-}
 
 /* Library rows: title (with exception badges), summary, updated date. */
 .document-table .document-row,
@@ -465,80 +431,6 @@ details.role-explainer > summary {
 }
 
 /* People board: Unassigned plus one column per team. */
-.people-board {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 1fr);
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  margin-bottom: 32px;
-}
-.board-column {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 180px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--panel-radius);
-  background: var(--surface);
-}
-.board-column.drop-target {
-  border-color: var(--focus-ring);
-  background: var(--hover-surface);
-}
-.board-column > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 4px 6px;
-  font-size: 12px;
-}
-.board-column > header span {
-  color: var(--muted);
-  font-size: 11px;
-}
-.board-cards {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-}
-.board-empty {
-  margin: 8px 4px;
-  color: var(--subtle);
-  font-size: 11px;
-}
-.person-card {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: var(--raised);
-  cursor: grab;
-}
-.person-card.dragging {
-  opacity: 0.5;
-}
-.person-avatar {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--active-surface);
-  font-size: 10px;
-  font-weight: 600;
-}
-.person-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .person-name {
   padding: 0;
   border: 0;
@@ -555,24 +447,11 @@ details.role-explainer > summary {
 .person-name:hover {
   text-decoration: underline;
 }
-.person-text small {
-  color: var(--muted);
-  font-size: 10.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .person-role {
   height: 28px;
   min-height: 28px;
   padding: 0 22px 0 8px;
   font-size: 11px;
-}
-.board-add {
-  height: 32px;
-  min-height: 32px;
-  font-size: 11px;
-  color: var(--muted);
 }
 
 /* Share dialog */
@@ -642,33 +521,8 @@ details.role-explainer > summary {
 }
 
 /* Board cards: name on top, role and remove below; the board scrolls on its own. */
-.settings-content,
-.people-content {
+.settings-content {
   min-width: 0;
-}
-.people-board {
-  max-width: 100%;
-}
-.person-card {
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  grid-template-areas: 'avatar text text' 'role role remove';
-  row-gap: 6px;
-}
-.person-card > .person-avatar {
-  grid-area: avatar;
-}
-.person-card > .person-text {
-  grid-area: text;
-}
-.person-card > .person-role {
-  grid-area: role;
-  width: 100%;
-}
-.person-card > .scope-remove {
-  grid-area: remove;
-}
-.person-card:not(:has(.person-role)) {
-  grid-template-areas: 'avatar text text';
 }
 
 /* Hoora Assist: messages stack from the bottom, like a chat. */
@@ -690,194 +544,10 @@ details.role-explainer > summary {
   }
 }
 /* Keep hidden form labels inside the board's own scroll area. */
-.people-board,
-.board-column {
-  position: relative;
-}
 
 /* Team canvas: Unassigned on the left, every team visible as a card grid. */
-.people-canvas {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  grid-auto-flow: row;
-  grid-auto-columns: auto;
-  align-items: start;
-  gap: 16px;
-  overflow: visible;
-  padding: 0;
-}
-.people-pool {
-  position: sticky;
-  top: calc(var(--header) + 16px);
-}
-.people-pool .board-column {
-  max-height: calc(100dvh - var(--header) - 40px);
-  overflow-y: auto;
-}
-.people-search {
-  height: 34px;
-  min-height: 34px;
-  font-size: 12px;
-}
-.people-teams {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 12px;
-  align-content: start;
-}
-.people-teams .board-column {
-  min-height: 160px;
-}
-.person-card[hidden] {
-  display: none;
-}
-@media (max-width: 900px) {
-  .people-canvas {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .people-pool {
-    position: static;
-  }
-  .people-pool .board-column {
-    max-height: none;
-  }
-}
 
 /* Team board: a whiteboard canvas with Unassigned docked on the left. */
-.team-board {
-  position: relative;
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  height: max(560px, calc(100dvh - var(--header) - 190px));
-  margin-bottom: 32px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--panel-radius);
-  background: var(--surface);
-}
-.team-board.is-full {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  height: 100dvh;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-}
-body.board-full {
-  overflow: hidden;
-}
-.team-board .people-pool {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  max-height: none;
-  padding: 12px;
-  border: 0;
-  border-right: 1px solid var(--line);
-  border-radius: 0;
-}
-.team-board .people-pool .board-cards {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-.board-assign {
-  display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-}
-.board-assign input,
-.board-assign select {
-  height: 34px;
-  min-height: 34px;
-  font-size: 12px;
-}
-.team-canvas {
-  min-width: 0;
-  overflow: auto;
-  background-color: var(--canvas);
-  background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px);
-  background-size: 22px 22px;
-  cursor: grab;
-}
-.team-canvas.is-panning {
-  cursor: grabbing;
-  user-select: none;
-}
-.canvas-world {
-  display: grid;
-  grid-template-columns: repeat(4, 340px);
-  gap: 40px;
-  align-items: start;
-  width: max-content;
-  padding: 48px 48px 96px;
-}
-.team-table {
-  min-height: 140px;
-  cursor: default;
-  box-shadow: 0 6px 24px #0002;
-}
-.team-table .board-cards {
-  gap: 4px;
-}
-.team-board .person-card,
-.team-table .person-card {
-  grid-template-columns: 26px minmax(0, 1fr) auto auto;
-  grid-template-areas: none;
-  padding: 6px 8px;
-}
-.team-board .person-card > * {
-  grid-area: auto;
-}
-.team-board .person-avatar {
-  width: 26px;
-  height: 26px;
-}
-.team-board .person-role {
-  width: auto;
-}
-.team-board-toolbar {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: var(--surface);
-  box-shadow: 0 6px 20px #0003;
-}
-.team-board-toolbar output {
-  min-width: 46px;
-  color: var(--muted);
-  font-size: 12px;
-  text-align: center;
-}
-.team-board-toolbar .iconbtn {
-  font-size: 16px;
-}
-@media (max-width: 900px) {
-  .team-board {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 260px) minmax(0, 1fr);
-    height: 80dvh;
-  }
-  .team-board .people-pool {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .board-assign {
-    display: none;
-  }
-}
 
 /* Activity: installed apps and notification devices in use */
 .device-stats {
@@ -952,25 +622,6 @@ body.board-full {
 }
 
 /* Disclosure chevron for the role guide, and quiet scrollbars on wide tables. */
-.role-explainer > summary {
-  list-style: none;
-}
-.role-explainer > summary::-webkit-details-marker {
-  display: none;
-}
-.role-explainer > summary::after {
-  content: '';
-  width: 7px;
-  height: 7px;
-  margin-left: 2px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 160ms ease;
-}
-.role-explainer[open] > summary::after {
-  transform: rotate(45deg);
-}
 .tablewrap {
   scrollbar-width: thin;
 }

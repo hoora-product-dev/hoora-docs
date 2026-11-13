@@ -7,8 +7,7 @@ export function documentActions({
   published,
   publishedLink,
   isNew,
-  id,
-  role,
+  canDelete = false,
   canPublish,
   html = false,
 }) {
@@ -18,11 +17,8 @@ export function documentActions({
   const menu =
     (html ? item('web', 'Open full preview', 'data-action="open-draft-preview"') : '') +
     (published ? `<a href="${publishedLink}">${icon('link')}<span>View published</span></a>` : '') +
-    (!isNew && !canPublish
-      ? item('clock', 'Request approval', `data-action="request-publish" data-id="${id}"`)
-      : '') +
     (published && canPublish ? item('archive', 'Unpublish', 'data-action="unpublish"') : '') +
-    (!isNew && role === 'admin'
+    (!isNew && canDelete
       ? item('trash', 'Delete document', 'class="danger" data-action="delete-document"')
       : '');
   return `<button type="submit" form="editor-form" class="btn outline">Save draft</button>${canPublish ? '<button type="button" class="btn primary" data-action="publish">Publish</button>' : ''}${editorMenu(icon, menu)}`;

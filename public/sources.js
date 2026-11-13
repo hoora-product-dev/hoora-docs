@@ -42,26 +42,16 @@ export function sourcesFeature({
   slugify,
   load,
   render,
+  teamField,
 }) {
   function open() {
-    const choices = state.teams.filter(
-      (t) =>
-        state.member.role === 'admin' ||
-        t.manager_id === state.member.id ||
-        state.teamMembers.some(
-          (m) =>
-            m.team_id === t.id &&
-            m.email === state.member.email.toLowerCase() &&
-            m.role === 'publisher',
-        ),
-    );
     dialog(
       `<h2>Add an asset</h2><p class="small">Share an existing resource with your team.</p><form><div class="field"><label for="asset-source">What are you adding?</label><select id="asset-source" name="mode"><option value="link">Add link</option><option value="pdf">Upload PDF</option></select></div><div class="field" id="asset-url-field"><label for="asset-url">URL</label><input id="asset-url" type="url" name="source_url" placeholder="https://…" required><small id="asset-provider">Google, Microsoft, dashboards and other HTTPS resources.</small></div><div class="field" id="asset-pdf-field" hidden><label for="asset-pdf">PDF file</label><input id="asset-pdf" type="file" accept="application/pdf,.pdf"><small>10 MB per upload. Larger PDFs get a compression attempt.</small></div><div class="field"><label for="asset-title">Title</label><input id="asset-title" name="title" required maxlength="250"></div><div class="field"><label for="asset-description">Description</label><textarea id="asset-description" name="summary" maxlength="500" placeholder="What does this resource contain, and when should someone use it?"></textarea></div><div class="form-columns"><div class="field"><label for="asset-kind">Collection</label><select id="asset-kind" name="kind">${state.types
         .filter((t) => t.key !== 'release')
         .map((t) => `<option value="${e(t.key)}">${e(t.name)}</option>`)
         .join(
           '',
-        )}</select></div><div class="field"><label for="asset-team">Team</label><select id="asset-team" name="team_id" ${!['admin', 'publisher'].includes(state.member.role) ? 'required' : ''}>${['admin', 'publisher'].includes(state.member.role) ? '<option value="">Company workspace</option>' : '<option value="">Choose team</option>'}${choices.map((t) => `<option value="${t.id}">${e(t.name)}</option>`).join('')}</select></div></div><p class="small">Owner: ${e(state.member.name)} · assigned from your account.</p><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Publish asset</button></div></form>`,
+        )}</select></div>${teamField({})}</div><p class="small">Owner: ${e(state.member.name)} · assigned from your account.</p><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Publish asset</button></div></form>`,
       async (f) => {
         const id = crypto.randomUUID(),
           title = f.get('title').trim(),

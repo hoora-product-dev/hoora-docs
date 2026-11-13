@@ -618,44 +618,28 @@ table {
   color: var(--muted);
   margin-top: 4px;
 }
-.role-explainer {
-  color: var(--muted);
-  font-size: 12px;
-}
-.role-explainer strong {
-  color: var(--ink);
-  font-weight: 550;
-}
 .account-content {
   max-width: 850px;
   padding: 35px;
 }
-.setting-card,
-.request-card {
+.setting-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 9px;
   padding: 25px;
   margin: 20px 0;
 }
-.setting-card h2,
-.request-card h2 {
+.setting-card h2 {
   font-size: 19px;
   margin-bottom: 15px;
 }
-.setting-card p,
-.request-card p {
+.setting-card p {
   font-size: 12px;
   color: var(--muted);
   margin-bottom: 18px;
 }
 .setting-card form {
   max-width: 430px;
-}
-.request-document {
-  display: block;
-  text-decoration: underline;
-  margin-bottom: 16px;
 }
 .section-top {
   display: flex;

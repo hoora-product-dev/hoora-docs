@@ -31,8 +31,8 @@ Hoora Docs is the internal knowledge hub for Hoora teams. Each platform publishe
 | Release notes      | Per platform and version, with one complete Markdown note per vertical (Auto Care, Car Services & Repair, Products, Value Added Services), each owned and published by its team |
 | Upcoming releases  | Live Jira saved-filter view with Vertical and Product Owner filters                                                                                                             |
 | Library            | SOPs and documentation by collection and team, with Markdown, PDFs, HTML artifacts and drawings                                                                                 |
-| Sharing            | Organization, team only, specific teams or specific people, enforced by database policies                                                                                       |
-| People & access    | Whiteboard canvas to place people into teams, with Viewer, Editor, Publisher and Manager roles                                                                                  |
+| Sharing            | Everyone at Hoora, team only or only people added, plus View, Edit, Publish or Manage for any team or person                                                                    |
+| Access             | One Access page: teams, people and content, with grants on collections, platforms, folders or single documents                                                                  |
 | Search & assistant | Permission-aware search and Hoora Assist with cited answers                                                                                                                     |
 | App                | Installable web app with notifications, a phone tab bar and a responsive layout                                                                                                 |
 
@@ -109,7 +109,7 @@ hoora-docs/
 
 ## Deployment
 
-Vercel builds `main` with `npm run build` and serves `dist/`. A daily job (`/api/cleanup`) empties the 30-day recycle bin and trims old activity, which keeps the project within the Supabase free plan.
+Vercel builds `main` with `npm run build` and serves `dist/`. A daily job (`/api/cleanup`) signs out devices unused for 30 days, keeps 7 days of activity and removes files of deleted documents, which keeps the project within the Supabase free plan. Deleting a document is permanent.
 
 ---
 

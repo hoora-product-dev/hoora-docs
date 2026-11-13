@@ -83,7 +83,7 @@ async function describe(call, target) {
     const [page] = await call(
       `/rest/v1/docs_published?kind=eq.release&version=eq.${encodeURIComponent(version)}&release_snapshot->>project=eq.${encodeURIComponent(project.name)}&select=id,published_at,updated_at,release_snapshot&limit=1`,
     );
-    const live = page && !(await deleted(call, page.id));
+    const live = Boolean(page);
     return {
       ...releaseCard({
         platform: project.name,
@@ -100,7 +100,7 @@ async function describe(call, target) {
     const [page] = await call(
       `/rest/v1/docs_published?slug=eq.${slug}&select=id,title,summary,kind,visibility,team_id,published_at,updated_at,version,release_snapshot&limit=1`,
     );
-    if (!page || (await deleted(call, page.id))) return homeCard;
+    if (!page) return homeCard;
     if (page.kind === 'release' && page.release_snapshot?.project)
       return {
         ...releaseCard({
@@ -201,18 +201,14 @@ const pages = {
 
 async function pageCard(call, { page, project }) {
   if (page === 'releases') {
-    const [projects, releases, removed] = await Promise.all([
+    const [projects, releases] = await Promise.all([
       call('/rest/v1/docs_projects?select=name,slug&order=name'),
       call(
         '/rest/v1/docs_published?kind=eq.release&select=id,version,published_at,updated_at,project:release_snapshot->>project&order=published_at.desc&limit=200',
       ),
-      call('/rest/v1/docs_pages?kind=eq.release&deleted_at=not.is.null&select=id'),
     ]);
-    const gone = new Set(removed.map((row) => row.id));
     const platform = slugShape.test(project) ? projects.find((p) => p.slug === project) : null;
-    const shown = releases.filter(
-      (release) => !gone.has(release.id) && (!platform || release.project === platform.name),
-    );
+    const shown = releases.filter((release) => !platform || release.project === platform.name);
     const latest = shown[0];
     const image = { kind: 'page', page, project: platform?.slug, v: stamp(latest?.updated_at) };
     if (platform)
@@ -250,11 +246,6 @@ async function pageCard(call, { page, project }) {
     description: `${card.title}. ${card.meta}.`,
     image: { kind: 'page', page },
   };
-}
-
-async function deleted(call, id) {
-  const [page] = await call(`/rest/v1/docs_pages?id=eq.${id}&select=deleted_at&limit=1`);
-  return Boolean(page?.deleted_at);
 }
 
 function imageUrl(origin, image) {

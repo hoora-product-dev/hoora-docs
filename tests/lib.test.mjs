@@ -5,8 +5,6 @@ import {
   markdownWithOutline,
   slugify,
   filterPages,
-  canEdit,
-  canPublish,
   versionKey,
   compareVersions,
 } from '../public/lib.js';
@@ -35,14 +33,6 @@ test('Document outline links to unique, sanitized Markdown headings', () => {
   );
   assert.ok(result.html.includes('id="section-overview-2"'));
   assert.ok(!result.html.includes('<script>'));
-});
-test('Roles keep edit and publish permissions distinct', () => {
-  assert.equal(canEdit('editor'), false);
-  assert.equal(canEdit('publisher'), true);
-  assert.equal(canPublish('editor'), false);
-  assert.equal(canEdit('viewer'), false);
-  assert.equal(canPublish('publisher'), true);
-  assert.equal(canPublish(null), false);
 });
 test('Search combines vertical, type, body and tag filters', () => {
   const pages = [

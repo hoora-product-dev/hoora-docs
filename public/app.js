@@ -13,7 +13,7 @@ import { workspaceFeatures } from './workspace-features.js';
 import { routeHash, routeUrl, canonicalizeRoute, publishedRoute } from './router.js';
 import { prepareUpload } from './vendor/uploads.js';
 import { config } from './config.js';
-import { teamsFeature } from './teams.js';
+import { accessFeature, accessLevels } from './access.js';
 import { upcomingFeature } from './upcoming.js';
 import { createFeedback } from './ui/feedback.js';
 import { createContributionEditor, sectionStatus } from './editor/contribution.js';
@@ -28,8 +28,6 @@ import {
   slugify,
   markdown,
   markdownWithOutline,
-  canEdit as canEditRole,
-  canPublish as canPublishRole,
   versionKey,
   compareVersions,
   filterPages,
@@ -97,17 +95,12 @@ const state = {
   projectSections: null,
   releases: [],
   entries: [],
-  requests: [],
   unreadNoticeCount: 0,
-  pendingRequestCount: 0,
   teams: [],
   teamMembers: [],
-  teamPermissions: [],
-  userPermissions: [],
-  pageTeamAccess: [],
+  grants: [],
+  access: {},
   canUpcoming: false,
-  permissionTab: 'upcoming',
-  permissionSearch: '',
   dirty: false,
 };
 let renderId = 0;
@@ -280,57 +273,30 @@ function renderAssistant() {
   syncAssistantViewport();
   window.requestAnimationFrame(paintMood);
 }
-const memberTeamRoles = () =>
-  state.teamMembers
-    .filter((m) => m.email?.toLowerCase() === state.member?.email?.toLowerCase())
-    .map((m) => m.role);
-const isTeamManager = () =>
-  state.member?.role === 'admin' || memberTeamRoles().includes('manager');
-const canManageReleases = (role) => {
-  if (['admin', 'publisher'].includes(role)) return true;
-  if (!state.member) return false;
-  const myEmail = state.member.email?.toLowerCase();
-  const directGrant = state.userPermissions?.some(
-    (p) =>
-      (p.user_id === state.member.id || p.email?.toLowerCase() === myEmail) &&
-      (p.scope_type === 'collection' ? p.collection_key === 'release' : true) &&
-      ['publish', 'manage', 'delete'].includes(p.capability) &&
-      (!p.expires_at || new Date(p.expires_at) > new Date()),
-  );
-  if (directGrant) return true;
-
-  const myTeamIds = state.teamMembers
-    .filter((m) => m.email?.toLowerCase() === myEmail && m.role === 'manager')
-    .map((m) => m.team_id);
-  if (!myTeamIds.length) return false;
-  return myTeamIds.some((tid) =>
-    state.teamPermissions.some(
-      (p) =>
-        p.team_id === tid &&
-        p.scope_type === 'collection' &&
-        p.collection_key === 'release' &&
-        ['publish', 'manage', 'delete'].includes(p.capability) &&
-        (!p.expires_at || new Date(p.expires_at) > new Date()),
-    ),
-  );
-};
-const canEdit = (role) =>
-  canEditRole(role) ||
-  role === 'manager' ||
-  (role === 'viewer' && memberTeamRoles().some((teamRole) => ['manager', 'publisher', 'contributor'].includes(teamRole)));
-const canPublish = (role) => canPublishRole(role) || role === 'manager' || isTeamManager();
+/** Levels come from the database access report; see public/access.js. */
+const levels = accessLevels(state);
+const canEdit = () => levels.canAuthor();
+const canPublish = () => levels.canPublishNew();
+const canManageReleases = () => levels.canStartRelease();
 const canEditEntry = (entry) =>
   state.member?.role === 'admin' || entry?.author_id === state.member?.id;
-const teams = teamsFeature({
+const access = accessFeature({
   state,
   db: (...args) => db(...args),
+  admin: (...args) => admin(...args),
   e,
-  dialog: (...args) => dialog(...args),
-  toast,
-  load,
-  render,
   icon,
-  row,
+  dialog: (...args) => dialog(...args),
+  confirmAction: (...args) => confirmAction(...args),
+  modal,
+  toast,
+  load: () => load(),
+  render: () => render(),
+  settingsSidebar: (route) => settingsSidebar(route),
+  date: (value) => date(value),
+  platformName: (name) => displayPlatformName(name),
+  routeUrl,
+  publishedRoute,
 });
 const searchService = createSearchService((...args) => db(...args));
 const pwa = pwaFeature({ appApi, getToken, toast });
@@ -353,6 +319,7 @@ const sources = sourcesFeature({
   slugify,
   load,
   render,
+  teamField: (page) => access.teamField(page),
 });
 const features = workspaceFeatures({
   icon,
@@ -365,7 +332,7 @@ const features = workspaceFeatures({
   load,
   render,
   row,
-  teams,
+  access,
   appApi,
   pwa,
 });
@@ -399,7 +366,7 @@ const contributionEditor = createContributionEditor({
   hydrateImages,
   canEdit,
   canEditEntry,
-  canPublish,
+  canPublish: () => levels.canStartRelease(state.project),
   onPublished: (id) => appApi('/api/ai-index', { documentId: id }).catch(() => {}),
 });
 bindEditorAssets({
@@ -562,39 +529,29 @@ async function load() {
   state.projectSections = [];
   state.entries = [];
   state.releases = [];
-  state.requests = [];
   state.unreadNoticeCount = 0;
-  state.pendingRequestCount = 0;
   state.teams = [];
   state.teamMembers = [];
-  state.teamPermissions = [];
-  state.userPermissions = [];
-  state.pageTeamAccess = [];
+  state.grants = [];
+  state.access = {};
   state.canUpcoming = false;
   if (state.session) {
     const members = await db('docs_members', `?id=eq.${state.session.user.id}&select=*`);
     state.member = members[0]?.active ? members[0] : null;
     if (state.member && state.member.password_setup_complete) {
-      [
-        state.teams,
-        state.teamMembers,
-        state.teamPermissions,
-        state.userPermissions,
-        state.pageTeamAccess,
-        state.members,
-      ] = await Promise.all([
-        db('docs_teams', '?select=*&order=name'),
-        db('docs_team_members', '?select=*&order=email'),
-        db('docs_team_permissions', '?select=*&order=created_at.desc'),
-        db('docs_user_permissions', '?select=*&order=created_at.desc').catch(() => []),
-        db('docs_page_team_access', '?select=page_id,team_id'),
-        db('docs_members', '?select=id,name,email,role,active&order=name').catch(() => []),
-      ]);
+      [state.teams, state.teamMembers, state.grants, state.access, state.members] =
+        await Promise.all([
+          db('docs_teams', '?select=*&order=name'),
+          db('docs_team_members', '?select=*&order=email'),
+          db('docs_access_grants', '?select=*&order=created_at.desc'),
+          db('rpc/docs_access_report', '', { method: 'POST', body: {} }),
+          db('docs_members', '?select=id,name,email,role,active&order=name').catch(() => []),
+        ]);
       [state.pages, state.folders] = await Promise.all([
         canEdit(state.member.role)
           ? db(
               'docs_pages',
-              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,deleted_at,purge_after,source_url,source_type,file_metadata&order=updated_at.desc',
+              '?select=id,title,slug,kind,vertical_id,folder_id,summary,version,tags,created_by,updated_by,revision,created_at,updated_at,format,artifact_path,visibility,custom_fields,team_id,source_url,source_type,file_metadata&order=updated_at.desc',
             )
           : Promise.resolve(state.published.map((p) => ({ ...p, updated_at: p.published_at }))),
         db('docs_folders', '?select=*&order=name'),
@@ -606,21 +563,14 @@ async function load() {
             .filter((p) => !writableIds.has(p.id))
             .map((p) => ({ ...p, _readOnly: true, updated_at: p.published_at })),
         );
-      [state.projects, state.releases, state.entries, state.requests] = await Promise.all([
+      [state.projects, state.releases, state.entries] = await Promise.all([
         db('docs_projects', '?select=*&order=name'),
         db('docs_releases', '?select=*'),
         db(
           'docs_entries',
           '?select=id,release_id,vertical_id,submitted,author_id,author_name,updated_by,updated_name,revision,created_at,updated_at&order=created_at',
         ),
-        db('docs_requests', '?select=*&order=created_at.desc'),
       ]);
-      state.pendingRequestCount = state.requests.filter(
-        (r) =>
-          r.status === 'pending' &&
-          (state.member.role === 'admin' ||
-            (state.member.role === 'publisher' && r.kind === 'publish')),
-      ).length;
       try {
         const [notices, reads] = await Promise.all([
           db('docs_notices', '?select=id,page_id'),
@@ -634,21 +584,7 @@ async function load() {
         state.unreadNoticeCount = 0;
       }
       state.projectSections = await db('docs_project_sections', '?select=*&order=sort_order.asc');
-      // Check whether this member has access to the upcoming-releases section.
-      // Admins always do; everyone else needs an explicit team permission grant.
-      if (state.member.role === 'admin') {
-        state.canUpcoming = true;
-      } else {
-        try {
-          const result = await db('rpc/docs_can_upcoming', '', {
-            method: 'POST',
-            body: { member: state.session.user.id },
-          });
-          state.canUpcoming = result === true;
-        } catch {
-          state.canUpcoming = false;
-        }
-      }
+      state.canUpcoming = levels.collection('upcoming') >= 1;
     }
   }
   workspaceLoadedAt = Date.now();
@@ -761,17 +697,7 @@ function enhanceRail() {
 }
 
 /** Settings pages share one sidebar: personal items first, administration after. */
-const settingsRoutes = [
-  'account',
-  'teams',
-  'requests',
-  'users',
-  'permissions',
-  'folders',
-  'activity',
-  'feedback',
-  'archive',
-];
+const settingsRoutes = ['account', 'access', 'folders', 'activity', 'feedback'];
 const announce = announceFeature({
   e,
   icon,
@@ -809,11 +735,13 @@ async function uploadFeedbackScreenshot(file) {
   return path;
 }
 function settingsSidebar(route) {
-  const links = settingsLinks(state.member, state.pendingRequestCount);
-  const personal = links.filter(([key]) => ['account', 'teams', 'requests'].includes(key));
-  const admin = links.filter(([key]) => !['account', 'teams', 'requests'].includes(key));
-  const link = ([key, glyph, label, count]) =>
-    `<a class="sidelink ${route === key ? 'active' : ''}" href="#/${key}" ${route === key ? 'aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span>${count ? `<small class="nav-count">${Math.min(99, count)}</small>` : ''}</a>`;
+  const links = settingsLinks(state.member);
+  const personal = links.filter(
+    ([key]) => key === 'account' || (key === 'access' && state.member?.role !== 'admin'),
+  );
+  const admin = links.filter((item) => !personal.includes(item));
+  const link = ([key, glyph, label]) =>
+    `<a class="sidelink ${route === key ? 'active' : ''}" href="#/${key}" ${route === key ? 'aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span></a>`;
   return `<aside class="sidebar settings-sidebar" aria-label="Settings"><div class="rail-label">Settings</div>${personal.map(link).join('')}${admin.length ? `<div class="rail-label">Administration</div>${admin.map(link).join('')}` : ''}</aside>`;
 }
 
@@ -919,7 +847,7 @@ function workspace() {
       : state.team
         ? state.teams.find((t) => t.id === state.team)?.name
         : names[state.kind]) || 'All documents';
-  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading library-heading"><div><h1>${e(title)}</h1></div>${canEdit(state.member.role) ? `<div class="toolbar-actions"><a class="btn dark" href="#/new" aria-label="New document">${icon('plus')}<span>New<span class="wide-only"> document</span></span></a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
+  return `<div class="layout">${sidebar(true)}<main id="main" class="library-content"><div class="view-heading library-heading"><div><h1>${e(title)}</h1></div>${levels.canCreate() ? `<div class="toolbar-actions"><a class="btn dark" href="#/new" aria-label="New document">${icon('plus')}<span>New<span class="wide-only"> document</span></span></a>${editorMenu(icon, `<button type="button" data-action="quick-asset">${icon('link')}<span>Add link or PDF</span></button><button type="button" data-action="import-document">${icon('upload')}<span>Import a file</span></button>`)}</div>` : ''}</div><div class="library-tools"><label class="search compact">${icon('search')}<input id="workspace-search" type="search" placeholder="Search this collection…" aria-label="Search workspace" value="${e(state.query)}"></label><select id="status-filter" aria-label="Filter by publication status"><option value="">All statuses</option><option value="draft" ${state.status === 'draft' ? 'selected' : ''}>Drafts</option><option value="published" ${state.status === 'published' ? 'selected' : ''}>Published</option></select></div><div class="document-table"><div id="document-list">${pages.map((p) => row(p, true)).join('') || empty('No documents here yet', 'Create a document or choose another collection.')}</div></div></main></div>`;
 }
 
 function login() {
@@ -1051,7 +979,7 @@ function article(slug, full = false) {
     }
     // Signed-in user: the doc either doesn't exist or they don't have access.
     // Show a helpful access-denied message rather than a generic "unavailable" one.
-    return `<main id="main" class="access-gate">${icon('lock')}<h1>Access restricted</h1><p>This page isn't available to your account. It may be shared only with specific teams or people, or it may have been removed.</p><div class="access-gate-actions"><a class="btn outline" href="#/browse">Browse documents</a><button class="btn text" data-action="request-access">Request access</button></div></main>`;
+    return `<main id="main" class="access-gate">${icon('lock')}<h1>Access restricted</h1><p>This page isn't available to your account. It may be shared only with specific teams or people, or it may have been removed.</p><div class="access-gate-actions"><a class="btn outline" href="#/browse">Browse documents</a></div></main>`;
   }
   document.title = p.title + ' — Hoora Docs';
   if (full && p.format === 'html') return nativeArtifact(p, false);
@@ -1097,16 +1025,10 @@ function editor(id) {
       'Return to your workspace.',
       '<a href="#/workspace">Workspace</a>',
     );
-  if (p.deleted_at)
-    return empty(
-      'This document is archived',
-      'Restore it from the archive before editing.',
-      '<a href="#/archive">Open archive</a>',
-    );
   if (!canEdit(state.member.role) || p._readOnly)
     return `<div class="layout">${sidebar(true)}<main id="main" class="article"><h1>${e(p.title)}</h1><div class="notice">You have read-only access.</div>${p.format === 'html' ? artifactFrame(p, true) : ''}<div class="prose">${markdown(p.body)}</div></main></div>`;
   const html = p.format === 'html';
-  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, role: state.member.role, canPublish: isNew ? canPublish(state.member.role) : p._canPublish === true, html: p.format === 'html' })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
+  return `<div class="layout editor-layout">${sidebar(true)}<main id="main" class="editor"><div class="editor-top"><nav class="breadcrumbs"><a href="#/workspace">Documents</a>${icon('chevron')}<span>${isNew ? 'New document' : e(p.title)}</span></nav><div class="editor-top-actions">${documentActions({ icon, published, publishedLink: published ? publishedRoute(published, state.projects) : '', isNew, id: p.id, canDelete: !isNew && levels.page(p.id) >= 4, canPublish: isNew ? canPublish() : p._canPublish === true, html: p.format === 'html' })}</div></div><form id="editor-form" data-id="${p.id}" data-new="${isNew}" data-revision="${p.revision || 0}"><div class="editor-grid"><div class="editor-main"><div class="editor-heading"><div class="field title-field"><label class="sr-only" for="title">Document title</label><input id="title" name="title" required maxlength="250" value="${e(p.title)}" placeholder="Untitled document"></div><div class="field summary-field"><label class="sr-only" for="summary">Short description</label><textarea id="summary" name="summary" maxlength="500" rows="2" placeholder="Add a short description…">${e(p.summary)}</textarea></div></div><input type="hidden" id="format" name="format" value="${p.format || 'markdown'}"><input type="hidden" id="artifact_path" name="artifact_path" value="${e(p.artifact_path || '')}"><section id="markdown-editor" ${html ? 'hidden' : ''}><div class="editor-mode-tabs"><div><button type="button" class="active" data-editor-view="write">Write</button><button type="button" data-editor-view="split">Split view</button><button type="button" data-editor-view="preview">Preview</button><button type="button" data-editor-view="source">Markdown source</button></div><button type="button" class="btn text" data-action="import-markdown">${icon('upload')}Import .md</button></div><div class="writing-layout" data-view="write"><div class="source-editor">${richToolbar()}<div class="rich-canvas" data-rich-canvas></div><label class="sr-only" for="body">Markdown source</label><textarea id="body" name="body" class="rich-source" spellcheck="false" placeholder="Paste Markdown here…">${e(p.body)}</textarea></div><div id="live-preview" class="prose live-preview">${p.body ? markdown(p.body) : '<p class="preview-placeholder">Your formatted document will appear here.</p>'}</div></div><div class="editor-footnote"><span>Markdown</span><span id="word-count">${p.body.trim() ? p.body.trim().split(/\s+/).length : 0} words</span></div></section><section id="html-editor" ${!html ? 'hidden' : ''}><div class="artifact-dropzone" id="html-dropzone"><div class="upload-symbol">${icon('code')}</div><h3>HTML artifact</h3><p>Drop an HTML file, or paste its source below.</p><button type="button" class="btn dark" data-action="upload-html">${icon('upload')}${p.artifact_path ? 'Replace HTML file' : 'Choose HTML file'}</button><small>Single .html or .htm file · Up to 10 MB</small></div>${
     p.artifact_path
       ? `<div class="current-artifact">${icon('code')}<span>${e(
           p.artifact_path
@@ -1115,7 +1037,7 @@ function editor(id) {
             .replace(/^[a-f0-9-]{37}/, ''),
         )}</span><span class="badge">Uploaded</span></div>${artifactFrame(p, true)}`
       : ''
-  }<div class="html-paste"><div class="html-paste-heading"><div><strong>HTML source</strong></div><button type="button" class="btn outline" data-action="paste-html">Use pasted HTML</button></div><label class="sr-only" for="html-source">HTML source</label><textarea id="html-source" spellcheck="false" placeholder="<!doctype html>\n<html>\n  <head><title>My artifact</title></head>\n  <body>...</body>\n</html>"></textarea></div></section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document settings</h2><div class="document-type-picker"><span>Format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? 'active' : ''}">${icon('documentation')}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? 'active' : ''}">${icon('code')}HTML artifact</button></div></div>${teams.field(p)}<div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
+  }<div class="html-paste"><div class="html-paste-heading"><div><strong>HTML source</strong></div><button type="button" class="btn outline" data-action="paste-html">Use pasted HTML</button></div><label class="sr-only" for="html-source">HTML source</label><textarea id="html-source" spellcheck="false" placeholder="<!doctype html>\n<html>\n  <head><title>My artifact</title></head>\n  <body>...</body>\n</html>"></textarea></div></section><input type="file" id="file-upload" hidden accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.csv,.docx,.xlsx"><input type="file" id="markdown-upload" hidden accept=".md,.markdown,.txt"><input type="file" id="html-upload" hidden accept=".html,.htm,text/html"></div><aside class="document-properties"><h2>Document settings</h2><div class="document-type-picker"><span>Format</span><div><button type="button" data-doc-format="markdown" aria-pressed="${!html}" class="${!html ? 'active' : ''}">${icon('documentation')}Markdown</button><button type="button" data-doc-format="html" aria-pressed="${html}" class="${html ? 'active' : ''}">${icon('code')}HTML artifact</button></div></div>${access.teamField(p)}<div class="field"><label for="kind">Collection</label><select id="kind" name="kind">${Object.entries(
     names,
   )
     .filter(([key]) => key !== 'release')
@@ -1125,740 +1047,6 @@ function editor(id) {
     )}</select></div><div class="field"><label for="vertical_id">Vertical</label><select id="vertical_id" name="vertical_id">${options(state.verticals, p.vertical_id, 'General')}</select></div><div class="field"><label for="folder_id">Folder</label><select id="folder_id" name="folder_id">${options(state.folders, p.folder_id, 'No folder')}</select></div><div class="field"><label for="version">Version / reference</label><input id="version" name="version" value="${e(p.version)}" maxlength="100" placeholder="e.g. v2.4.0"></div><div class="field"><label for="slug">Page URL</label><input id="slug" name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p.slug)}" placeholder="document-title"></div><div class="field"><label for="tags">Tags</label><input id="tags" name="tags" value="${e(p.tags.join(', '))}" placeholder="product, onboarding"><small>Comma-separated.</small></div>${typeFields(p)}${visibilityField(p)}<div class="properties-help">${icon('lock')}Private draft until published.</div></aside></div><p id="form-error" class="error" role="alert"></p><div class="editor-actions"><span class="statusbar" id="save-status">${isNew ? 'Draft not saved' : 'Saved ' + date(p.updated_at)}</span></div></form></main></div>`;
 }
 
-const teamRoles = [
-  ['viewer', 'Viewer'],
-  ['contributor', 'Editor'],
-  ['publisher', 'Publisher'],
-  ['manager', 'Manager'],
-];
-async function users() {
-  state.members = await admin();
-  const capabilityName = {
-    read: 'Read',
-    contribute: 'Contribute',
-    edit: 'Edit',
-    publish: 'Publish',
-    manage: 'Manage',
-    delete: 'Delete',
-  };
-  const scopeName = (permission) =>
-    permission.scope_type === 'collection'
-      ? names[permission.collection_key] || permission.collection_key
-      : permission.scope_type === 'folder'
-        ? state.folders.find((item) => item.id === permission.folder_id)?.name
-        : state.projects.find((item) => item.id === permission.project_id)?.name;
-  const groups = new Map();
-  for (const permission of state.teamPermissions) {
-    const key = permission.team_id + ':' + permission.capability;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(permission);
-  }
-  let capabilityRows = [...groups.values()]
-    .map((list) => {
-      const team = state.teams.find((item) => item.id === list[0].team_id);
-      return `<tr><td>${e(team?.name || 'Unknown team')}</td><td>${e(capabilityName[list[0].capability] || list[0].capability)}</td><td><span class="scope-list">${list
-        .map(
-          (permission) =>
-            `<span>${e(scopeName(permission) || permission.scope_type)}${permission.expires_at ? ` <small>until ${e(date(permission.expires_at))}</small>` : ''}<button type="button" class="scope-remove" data-action="remove-team-permission" data-id="${permission.id}" aria-label="Remove ${e(scopeName(permission) || '')}">${icon('close')}</button></span>`,
-        )
-        .join('')}</span></td></tr>`;
-    })
-    .join('');
-  if (!capabilityRows)
-    capabilityRows = `<tr><td colspan="3"><div class="permission-empty"><strong>No custom capabilities yet.</strong><span>Defaults: signed-in viewers can read published releases; upcoming releases are hidden until a team is granted access; publishers can edit assigned documentation and SOPs.</span><button type="button" class="btn outline" data-action="add-team-permission">Grant the first capability</button></div></td></tr>`;
-  const byEmail = new Map(state.members.map((m) => [m.email.toLowerCase(), m]));
-  const initials = (m) =>
-    e(
-      String(m.name || m.email)
-        .split(/\s+/)
-        .map((part) => part[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase(),
-    );
-  // Rows are compact so a team of hundreds stays readable on the board.
-  const card = (m, team, role) =>
-    `<div class="person-card" draggable="true" data-email="${e(m.email)}" data-team="${team ? e(team.id) : ''}"><span class="person-avatar" aria-hidden="true">${initials(m)}</span><span class="person-text"><button type="button" class="person-name" data-member="${m.id}">${e(m.name || m.email)}</button><small>${e(m.email)}${m.role === 'admin' ? ' · Administrator' : ''}${m.active ? '' : ' · Disabled'}</small></span>${team ? `<select class="person-role" data-team-role="${e(team.id)}" data-email="${e(m.email)}" aria-label="Role of ${e(m.name || m.email)} in ${e(team.name)}">${teamRoles.map(([value, label]) => `<option value="${value}" ${role === value ? 'selected' : ''}>${label}</option>`).join('')}</select><button type="button" class="scope-remove" data-board-remove="${e(team.id)}" data-email="${e(m.email)}" aria-label="Remove ${e(m.name || m.email)} from ${e(team.name)}">${icon('close')}</button>` : ''}</div>`;
-  const assigned = new Set(state.teamMembers.map((tm) => tm.email.toLowerCase()));
-  const unassigned = state.members.filter((m) => !assigned.has(m.email.toLowerCase()));
-  const table = (team) => {
-    const rows = state.teamMembers.filter(
-      (tm) => tm.team_id === team.id && byEmail.has(tm.email.toLowerCase()),
-    );
-    return `<section class="board-column team-table" data-drop-team="${e(team.id)}" aria-label="${e(team.name)}"><header><strong>${e(team.name)}</strong><span>${rows.length} ${rows.length === 1 ? 'person' : 'people'}</span></header><div class="board-cards">${rows.map((tm) => card(byEmail.get(tm.email.toLowerCase()), team, tm.role)).join('') || '<p class="board-empty">Drop people here</p>'}</div></section>`;
-  };
-  const pool = `<aside class="people-pool board-column" data-drop-team="" aria-label="Unassigned"><header><strong>Unassigned</strong><span>${unassigned.length}</span></header><input class="people-search" type="search" placeholder="Find a person…" autocomplete="off" aria-label="Find a person" data-people-search><div class="board-cards">${unassigned.map((m) => card(m)).join('') || '<p class="board-empty">Everyone has a team</p>'}</div><form class="board-assign" data-board-assign><strong>Add to a team</strong><input name="email" list="people-emails" placeholder="Name or email" aria-label="Person" required><datalist id="people-emails">${state.members.map((m) => `<option value="${e(m.email)}">${e(m.name || '')}</option>`).join('')}</datalist><select name="team" aria-label="Team" required><option value="">Team…</option>${state.teams.map((t) => `<option value="${e(t.id)}">${e(t.name)}</option>`).join('')}</select><button class="btn outline" type="submit">Add</button></form></aside>`;
-  const canvas = `<div class="people-board team-board"><div class="team-board-toolbar" role="toolbar" aria-label="Board view"><button type="button" class="iconbtn" data-canvas-zoom="-0.1" aria-label="Zoom out">−</button><output data-canvas-level>100%</output><button type="button" class="iconbtn" data-canvas-zoom="0.1" aria-label="Zoom in">+</button><button type="button" class="btn text" data-canvas-fit>Fit</button><button type="button" class="btn text" data-canvas-full aria-pressed="false">Full screen</button></div>${pool}<div class="team-canvas" data-canvas tabindex="0" aria-label="Teams board. Drag empty space to move around."><div class="canvas-world">${state.teams.map(table).join('')}</div></div></div>`;
-  return `<div class="layout">${settingsSidebar('users')}<main id="main" class="settings-content people-content"><div class="view-heading"><div><h1>People & teams</h1><p>Everyone starts as a viewer. Place people in teams and set their team role here.</p></div><div class="toolbar-actions"><a class="btn outline" href="#/permissions">Manage permissions</a><button class="btn dark" data-action="add-member">${icon('plus')}Add member</button></div></div>${canvas}<details class="role-explainer"><summary>What each team role can do</summary><dl class="role-list"><div><dt>Viewer</dt><dd>Reads content that is shared with their team.</dd></div><div><dt>Editor</dt><dd>Writes and edits team drafts.</dd></div><div><dt>Publisher</dt><dd>Creates, edits, and publishes assigned documentation and SOPs.</dd></div><div><dt>Manager</dt><dd>Manages their team and can manage releases when assigned to a product team.</dd></div><div><dt>Administrator</dt><dd>Full organization control.</dd></div></dl></details></main></div>`;
-}
-
-function permissionsPage() {
-  const capabilityLabels = {
-    read: 'View / Preview',
-    contribute: 'Create drafts',
-    edit: 'Edit content',
-    publish: 'Publish',
-    manage: 'Manage access & releases',
-    delete: 'Delete',
-  };
-  const activeTab = state.permissionTab || 'upcoming';
-  const query = (state.permissionSearch || '').toLowerCase().trim();
-
-  const getTeam = (id) => state.teams.find((t) => t.id === id);
-  const getTeamName = (id) => getTeam(id)?.name || 'Unknown team';
-  const getMember = (email, id) =>
-    state.members.find(
-      (m) => (id && m.id === id) || m.email?.toLowerCase() === email?.toLowerCase(),
-    );
-  const getMemberName = (email, id) => {
-    const mem = getMember(email, id);
-    return mem ? (mem.name ? `${mem.name} (${mem.email})` : mem.email) : email;
-  };
-  const getResourceLabel = (p) => {
-    if (p.scope_type === 'collection') {
-      return (
-        {
-          release: 'Published releases (All platforms)',
-          upcoming: 'Upcoming releases (Planning & Jira)',
-          sop: 'Standard Operating Procedures',
-          documentation: 'Internal Documentation',
-        }[p.collection_key] || p.collection_key
-      );
-    }
-    if (p.scope_type === 'project') {
-      const proj = state.projects.find((x) => x.id === p.project_id);
-      return `Platform · ${displayPlatformName(proj?.name || 'Unknown')}`;
-    }
-    if (p.scope_type === 'folder') {
-      const fold = state.folders.find((x) => x.id === p.folder_id);
-      return `Folder · ${fold?.name || 'Unknown'}`;
-    }
-    return 'Custom scope';
-  };
-
-  // Active grants calculations
-  const now = new Date();
-  const isGrantActive = (g) => !g.expires_at || new Date(g.expires_at) > now;
-  const activeUpcomingUserGrants = state.userPermissions.filter(
-    (p) => p.scope_type === 'collection' && p.collection_key === 'upcoming' && isGrantActive(p),
-  );
-  const activeUpcomingTeamGrants = state.teamPermissions.filter(
-    (p) => p.scope_type === 'collection' && p.collection_key === 'upcoming' && isGrantActive(p),
-  );
-  const upcomingCount = activeUpcomingUserGrants.length + activeUpcomingTeamGrants.length;
-  const platformGrantCount =
-    state.teamPermissions.filter((p) => p.scope_type === 'project').length +
-    state.userPermissions.filter((p) => p.scope_type === 'project').length;
-  const teamGrantCount = state.teamPermissions.length;
-  const userGrantCount = state.userPermissions.length;
-
-  // Contextual primary action button for the view header
-  const primaryActionBtn =
-    activeTab === 'upcoming'
-      ? `<button type="button" class="btn dark" data-action="add-upcoming-access">${icon('plus')}<span>Add upcoming access</span></button>`
-      : activeTab === 'platforms'
-        ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Grant permission</span></button>`
-        : activeTab === 'teams'
-          ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Add team rule</span></button>`
-          : activeTab === 'users'
-            ? `<button type="button" class="btn dark" data-action="add-permission">${icon('plus')}<span>Add user override</span></button>`
-            : `<a class="btn outline" href="#/users">${icon('users')}<span>People & teams</span></a>`;
-
-  // Modern Underline Tab Navigation
-  const tabs = [
-    ['upcoming', 'clock', 'Upcoming Releases', upcomingCount],
-    ['platforms', 'grid', 'Release Platforms', platformGrantCount],
-    ['teams', 'users', 'Team Rules', teamGrantCount],
-    ['users', 'user', 'Individual Overrides', userGrantCount],
-    ['defaults', 'settings', 'Role Defaults & Matrix', null],
-  ];
-  const tabNav = `
-    <nav class="permission-tabs" role="tablist" aria-label="Permission categories">
-      ${tabs
-        .map(
-          ([key, glyph, label, count]) => `
-          <button type="button" class="permission-tab-btn ${activeTab === key ? 'active' : ''}" data-permission-tab="${key}" role="tab" aria-selected="${activeTab === key}">
-            ${icon(glyph)}
-            <span>${label}</span>
-            ${count !== null ? `<span class="badge-count">${count}</span>` : ''}
-          </button>
-        `,
-        )
-        .join('')}
-    </nav>
-  `;
-
-  // Panel Header (toolbar with title + subtitle on left, search filter on right)
-  const panelHeader = (heading, description, showSearch = true) => `
-    <div class="permission-panel-toolbar">
-      <div class="permission-panel-meta">
-        <h2>${heading}</h2>
-        <p>${description}</p>
-      </div>
-      ${
-        showSearch
-          ? `
-        <div class="permission-search-wrapper">
-          <label class="search compact">
-            ${icon('search')}
-            <input class="permission-search-input" type="search" placeholder="Filter ${activeTab}…" value="${e(state.permissionSearch || '')}" data-permission-search aria-label="Filter rules">
-          </label>
-        </div>
-      `
-          : ''
-      }
-    </div>
-  `;
-
-  let tabContent = '';
-
-  // Tab 1: Upcoming Releases
-  if (activeTab === 'upcoming') {
-    const combinedUpcoming = [
-      ...state.userPermissions
-        .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
-        .map((p) => ({ ...p, isUser: true })),
-      ...state.teamPermissions
-        .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
-        .map((p) => ({ ...p, isUser: false })),
-    ];
-    const filtered = combinedUpcoming.filter((p) => {
-      if (!query) return true;
-      const targetStr = p.isUser ? getMemberName(p.email, p.user_id) : getTeamName(p.team_id);
-      return (
-        targetStr.toLowerCase().includes(query) ||
-        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
-      );
-    });
-
-    const rows = filtered
-      .map((p) => {
-        const isUser = p.isUser;
-        const targetBadge = isUser
-          ? `<span class="permission-pill person">${icon('user')} Person</span>`
-          : `<span class="permission-pill team">${icon('users')} Team</span>`;
-        const targetName = isUser
-          ? `<strong>${e(getMemberName(p.email, p.user_id))}</strong>`
-          : `<strong>${e(getTeamName(p.team_id))}</strong><small class="permission-badge-sub"> (${state.teamMembers.filter((m) => m.team_id === p.team_id).length} members)</small>`;
-        const capLabel = ['manage', 'publish', 'edit'].includes(p.capability)
-          ? `<span class="badge" style="background:var(--contrast);color:var(--on-contrast);font-weight:600">Manage Releases</span>`
-          : `<span class="badge">Preview & View Notes</span>`;
-        const expired = p.expires_at && new Date(p.expires_at) <= now;
-        const expiryLabel = p.expires_at
-          ? `${e(date(p.expires_at))}${expired ? ' <small class="danger-text">(expired)</small>' : ''}`
-          : 'Ongoing (No expiry)';
-        const searchVal = `${isUser ? p.email : getTeamName(p.team_id)} ${p.capability}`;
-        return `
-          <tr data-search="${e(searchVal)}">
-            <td><div style="display:flex;align-items:center;gap:8px">${targetBadge}<div>${targetName}</div></div></td>
-            <td>${capLabel}</td>
-            <td>${p.granted_by ? e(getMemberName('', p.granted_by)) : 'Administrator'}</td>
-            <td>${expiryLabel}</td>
-            <td style="text-align:right">
-              <button type="button" class="btn text danger" data-action="${isUser ? 'remove-user-permission' : 'remove-team-permission'}" data-id="${p.id}">Revoke</button>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    const emptyNotice = query
-      ? `<div class="permission-empty-notice">No upcoming release access rules matching "${e(query)}".</div>`
-      : `<div class="permission-empty-notice">No upcoming release access granted yet. By default, upcoming release planning is restricted to administrators. Use the "Add upcoming access" button above to grant preview access to team members or entire teams.</div>`;
-
-    tabContent = `
-      <section class="permission-panel">
-        ${panelHeader(
-          'Upcoming Releases Access',
-          `Active grants: ${activeUpcomingUserGrants.length} individual, ${activeUpcomingTeamGrants.length} team. Manage who can preview Jira upcoming release notes and release planning.`,
-        )}
-        <div class="tablewrap">
-          <table class="permission-table">
-            <thead>
-              <tr>
-                <th>Recipient / Audience</th>
-                <th>Access level</th>
-                <th>Granted by</th>
-                <th>Duration</th>
-                <th style="text-align:right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    `;
-  } else if (activeTab === 'platforms') {
-    // Tab 2: Release Platforms
-    const platformCards = state.projects
-      .map((proj) => {
-        const teamGrants = state.teamPermissions.filter((p) => p.scope_type === 'project' && p.project_id === proj.id);
-        const userGrants = state.userPermissions.filter((p) => p.scope_type === 'project' && p.project_id === proj.id);
-        const allGrants = [...teamGrants.map((g) => ({ ...g, isUser: false })), ...userGrants.map((g) => ({ ...g, isUser: true }))];
-        const searchStr = `${proj.name} ${allGrants.map((g) => (g.isUser ? g.email : getTeamName(g.team_id))).join(' ')}`;
-        return `
-          <div class="permission-platform-card" data-search="${e(searchStr)}">
-            <div class="permission-platform-card-header">
-              <div class="permission-platform-title">
-                ${icon(proj.icon || 'grid')}
-                <span>${e(displayPlatformName(proj.name))}</span>
-              </div>
-              <span class="badge">${allGrants.length} custom ${allGrants.length === 1 ? 'rule' : 'rules'}</span>
-            </div>
-            <div class="permission-platform-grants">
-              ${
-                allGrants.length
-                  ? allGrants
-                      .map(
-                        (g) => `
-                    <div class="permission-grant-item">
-                      <div class="permission-grant-info">
-                        <span class="permission-pill ${g.isUser ? 'person' : 'team'}">${g.isUser ? 'User' : 'Team'}</span>
-                        <strong>${e(g.isUser ? g.email : getTeamName(g.team_id))}</strong>
-                        <span>· ${e(capabilityLabels[g.capability] || g.capability)}</span>
-                      </div>
-                      <button type="button" class="btn text danger" data-action="${g.isUser ? 'remove-user-permission' : 'remove-team-permission'}" data-id="${g.id}" aria-label="Remove rule">${icon('close')}</button>
-                    </div>
-                  `,
-                      )
-                      .join('')
-                  : '<div class="permission-empty-notice" style="padding:10px 12px;margin:0;font-size:12.5px">Standard policy: Product managers & admins can publish releases; signed-in users can view.</div>'
-              }
-            </div>
-            <button type="button" class="btn outline small" data-action="add-platform-rule" data-project-id="${proj.id}">
-              ${icon('plus')}Add platform rule
-            </button>
-          </div>
-        `;
-      })
-      .join('');
-
-    tabContent = `
-      <section class="permission-panel">
-        ${panelHeader(
-          'Release Platforms Access',
-          'Configure permissions for individual release platforms (Customer App, Partner App, Admin Panel, Web, etc.).',
-        )}
-        <div class="permission-platform-grid">
-          ${platformCards}
-        </div>
-      </section>
-    `;
-  } else if (activeTab === 'teams') {
-    // Tab 3: Team Rules
-    const teamCards = state.teams
-      .map((team) => {
-        const memberCount = state.teamMembers.filter((m) => m.team_id === team.id).length;
-        const grants = state.teamPermissions.filter((p) => p.team_id === team.id);
-        const hasManagers = state.teamMembers.some((m) => m.team_id === team.id && m.role === 'manager');
-        const searchStr = `${team.name} ${grants.map((g) => g.capability + ' ' + (g.collection_key || '')).join(' ')}`;
-        return `
-          <article class="permission-team-card" data-search="${e(searchStr)}">
-            <div>
-              <h3>${e(team.name)}</h3>
-              <p>${memberCount} members · ${hasManagers ? 'manager assigned' : 'no manager assigned'}</p>
-            </div>
-            <span>${grants.length} custom ${grants.length === 1 ? 'rule' : 'rules'}</span>
-          </article>
-        `;
-      })
-      .join('');
-
-    const filteredTeamRules = state.teamPermissions.filter((p) => {
-      if (!query) return true;
-      const tName = getTeamName(p.team_id);
-      const res = getResourceLabel(p);
-      return (
-        tName.toLowerCase().includes(query) ||
-        res.toLowerCase().includes(query) ||
-        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
-      );
-    });
-
-    const teamRuleRows = filteredTeamRules
-      .map(
-        (p) => `
-        <tr data-search="${e(getTeamName(p.team_id) + ' ' + getResourceLabel(p) + ' ' + p.capability)}">
-          <td><strong>${e(getTeamName(p.team_id))}</strong></td>
-          <td><span class="badge">${e(capabilityLabels[p.capability] || p.capability)}</span></td>
-          <td>${e(getResourceLabel(p))}</td>
-          <td>${p.expires_at ? e(date(p.expires_at)) : 'Ongoing (No expiry)'}</td>
-          <td style="text-align:right">
-            <button type="button" class="btn text danger" data-action="remove-team-permission" data-id="${p.id}">Remove</button>
-          </td>
-        </tr>
-      `,
-      )
-      .join('');
-
-    const emptyNotice = query
-      ? `<div class="permission-empty-notice">No team rules matching "${e(query)}".</div>`
-      : `<div class="permission-empty-notice">No custom team capability rules yet. Click "Add team rule" above to create one.</div>`;
-
-    tabContent = `
-      <section class="permission-panel">
-        ${panelHeader(
-          'Team Overview & Rules',
-          'Manage permissions inherited by teams. Everyone in a team inherits the capabilities granted to their team.',
-        )}
-        <div class="permission-team-grid" style="margin-bottom:20px">
-          ${teamCards || '<p class="muted">No teams created yet.</p>'}
-        </div>
-        <div class="tablewrap">
-          <table class="permission-table">
-            <thead>
-              <tr>
-                <th>Team</th>
-                <th>Can do</th>
-                <th>Scope</th>
-                <th>Expiry</th>
-                <th style="text-align:right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${teamRuleRows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    `;
-  } else if (activeTab === 'users') {
-    // Tab 4: Individual Overrides
-    const filteredUserRules = state.userPermissions.filter((p) => {
-      if (!query) return true;
-      const mName = getMemberName(p.email, p.user_id);
-      const res = getResourceLabel(p);
-      return (
-        mName.toLowerCase().includes(query) ||
-        res.toLowerCase().includes(query) ||
-        (capabilityLabels[p.capability] || p.capability).toLowerCase().includes(query)
-      );
-    });
-
-    const userRuleRows = filteredUserRules
-      .map(
-        (p) => `
-        <tr data-search="${e(getMemberName(p.email, p.user_id) + ' ' + getResourceLabel(p) + ' ' + p.capability)}">
-          <td>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span class="permission-pill person">${icon('user')} Person</span>
-              <div>
-                <strong>${e(getMemberName(p.email, p.user_id))}</strong>
-                ${p.user_id ? '<small class="permission-badge-sub"> (registered member)</small>' : '<small class="permission-badge-sub"> (direct email grant)</small>'}
-              </div>
-            </div>
-          </td>
-          <td><span class="badge">${e(capabilityLabels[p.capability] || p.capability)}</span></td>
-          <td>${e(getResourceLabel(p))}</td>
-          <td>${p.expires_at ? e(date(p.expires_at)) : 'Ongoing (No expiry)'}</td>
-          <td style="text-align:right">
-            <button type="button" class="btn text danger" data-action="remove-user-permission" data-id="${p.id}">Remove</button>
-          </td>
-        </tr>
-      `,
-      )
-      .join('');
-
-    const emptyNotice = query
-      ? `<div class="permission-empty-notice">No individual overrides matching "${e(query)}".</div>`
-      : `<div class="permission-empty-notice">No direct user overrides yet. Use the "Add user override" button above to grant permissions directly to individuals or email batches.</div>`;
-
-    tabContent = `
-      <section class="permission-panel">
-        ${panelHeader(
-          'Individual User Overrides',
-          'Pinpoint permissions granted directly to specific email addresses or user accounts, independent of team membership.',
-        )}
-        <div class="tablewrap">
-          <table class="permission-table">
-            <thead>
-              <tr>
-                <th>Person / Email</th>
-                <th>Can do</th>
-                <th>Scope</th>
-                <th>Expiry</th>
-                <th style="text-align:right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${userRuleRows || `<tr><td colspan="5">${emptyNotice}</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    `;
-  } else {
-    // Tab 5: Role Defaults & Matrix
-    const defaults = [
-      ['Everyone signed in', 'View', 'Published releases across all platforms', 'Always (Built-in)'],
-      ['All team publishers', 'Create, edit & publish', 'Assigned SOPs and Documentation', 'Always (Built-in)'],
-      ['Product Team managers', 'Create, edit, publish & notify', 'All release platforms and sections', 'Always (Built-in)'],
-      ['Documentation authors', 'Edit & trash own documents', 'Their own created documents', 'Always (Built-in)'],
-      ['No one by default', 'View / Preview', 'Upcoming releases (Planning & Jira tickets)', 'Grant explicitly per team or email'],
-    ]
-      .map(
-        ([audience, action, scope, expiry]) =>
-          `<tr><td><strong>${audience}</strong></td><td><span class="badge">${action}</span></td><td>${scope}</td><td>${expiry}</td></tr>`,
-      )
-      .join('');
-
-    const roleExplainer = [
-      ['Administrator', 'Full system control', 'Manage all content, users, teams, permissions, settings, and Jira connections.'],
-      ['Manager', 'Team & release management', 'Manages team members; managers of Product Teams can manage and publish releases across platforms.'],
-      ['Publisher', 'Publishing power', 'Creates, edits, and publishes assigned documentation and SOPs without requiring admin approval.'],
-      ['Contributor', 'Content authoring', 'Drafts and edits team documentation and SOPs; submits drafts for publisher/admin approval.'],
-      ['Viewer', 'Read-only access', 'Reads content shared with their team. No access to upcoming releases unless explicitly granted.'],
-    ]
-      .map(
-        ([r, title, desc]) => `
-        <div class="permission-stat-card">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="permission-pill role-${r.toLowerCase()}">${r}</span>
-            <strong>${title}</strong>
-          </div>
-          <span style="font-size:12px;color:var(--muted);line-height:1.4">${desc}</span>
-        </div>
-      `,
-      )
-      .join('');
-
-    tabContent = `
-      <section class="permission-panel">
-        ${panelHeader(
-          'Default Access Policies & Role Matrix',
-          'These baseline security policies are always enforced in Postgres row-level security. Custom rules layer on top of them.',
-          false,
-        )}
-        <div class="tablewrap" style="margin-bottom:24px">
-          <table class="permission-matrix-table">
-            <thead>
-              <tr>
-                <th>Audience</th>
-                <th>Can do</th>
-                <th>Where</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${defaults}
-            </tbody>
-          </table>
-        </div>
-        <h3 style="font-size:16px;margin:0 0 12px;font-weight:600">Organizational Roles</h3>
-        <div class="permission-stat-bar" style="grid-template-columns:repeat(auto-fit, minmax(260px, 1fr))">
-          ${roleExplainer}
-        </div>
-      </section>
-    `;
-  }
-
-  return `
-    <div class="layout">
-      ${settingsSidebar('permissions')}
-      <main id="main" class="settings-content permission-center">
-        <div class="view-heading">
-          <div>
-            <h1>Permissions Command Center</h1>
-            <p>Granular access control for upcoming releases, release platforms, internal documentation, and teams.</p>
-          </div>
-          <div class="toolbar-actions">
-            ${primaryActionBtn}
-          </div>
-        </div>
-        ${tabNav}
-        <div style="margin-top:4px">
-          ${tabContent}
-        </div>
-      </main>
-    </div>
-  `;
-}
-/** People board: drag between columns, or use the role and "Add person" menus. */
-function bindPeopleBoard() {
-  const board = document.querySelector('.people-board');
-  if (!board) return;
-  const save = async (work, message) => {
-    try {
-      await work();
-      await load();
-      await render();
-      toast(message);
-    } catch (error) {
-      toast(error.message, true);
-    }
-  };
-  const roleOf = (team, email) =>
-    state.teamMembers.find(
-      (tm) => tm.team_id === team && tm.email.toLowerCase() === email.toLowerCase(),
-    )?.role || 'viewer';
-  const add = (team, email, role = 'viewer') =>
-    db('docs_team_members', '', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates' },
-      body: [{ team_id: team, email: email.toLowerCase(), role, added_by: state.member.id }],
-    });
-  const remove = (team, email) =>
-    db(
-      'docs_team_members',
-      `?team_id=eq.${team}&email=eq.${encodeURIComponent(email.toLowerCase())}`,
-      {
-        method: 'DELETE',
-      },
-    );
-  board.addEventListener('dragstart', (event) => {
-    const card = event.target.closest('.person-card');
-    if (!card) return;
-    event.dataTransfer.setData(
-      'text/plain',
-      JSON.stringify({ email: card.dataset.email, from: card.dataset.team }),
-    );
-    event.dataTransfer.effectAllowed = 'copyMove';
-    card.classList.add('dragging');
-  });
-  board.addEventListener('dragend', (event) =>
-    event.target.closest('.person-card')?.classList.remove('dragging'),
-  );
-  board.addEventListener('dragover', (event) => {
-    const column = event.target.closest('.board-column');
-    if (!column) return;
-    event.preventDefault();
-    board
-      .querySelectorAll('.drop-target')
-      .forEach((item) => item !== column && item.classList.remove('drop-target'));
-    column.classList.add('drop-target');
-  });
-  board.addEventListener('dragleave', (event) => {
-    const column = event.target.closest('.board-column');
-    if (column && !column.contains(event.relatedTarget)) column.classList.remove('drop-target');
-  });
-  board.addEventListener('drop', (event) => {
-    const column = event.target.closest('.board-column');
-    if (!column) return;
-    event.preventDefault();
-    column.classList.remove('drop-target');
-    let data;
-    try {
-      data = JSON.parse(event.dataTransfer.getData('text/plain'));
-    } catch {
-      return;
-    }
-    const to = column.dataset.dropTeam;
-    if (data.from === to) return;
-    // Dragging moves a person; hold Ctrl (⌘ on Mac) to also keep them in their current team.
-    const keep = event.ctrlKey || event.metaKey;
-    save(
-      async () => {
-        if (to) await add(to, data.email, data.from ? roleOf(data.from, data.email) : 'viewer');
-        if (data.from && (!to || !keep)) await remove(data.from, data.email);
-      },
-      to ? 'Team updated.' : 'Moved to Unassigned.',
-    );
-  });
-  board.addEventListener('change', (event) => {
-    const role = event.target.closest('[data-team-role]');
-    if (role)
-      save(
-        () =>
-          db(
-            'docs_team_members',
-            `?team_id=eq.${role.dataset.teamRole}&email=eq.${encodeURIComponent(role.dataset.email.toLowerCase())}`,
-            {
-              method: 'PATCH',
-              body: { role: role.value },
-            },
-          ),
-        'Role updated.',
-      );
-  });
-  board.addEventListener('input', (event) => {
-    if (!event.target.matches('[data-people-search]')) return;
-    const query = event.target.value.trim().toLowerCase();
-    board.querySelectorAll('.person-card').forEach((card) => {
-      card.hidden = query && !card.textContent.toLowerCase().includes(query);
-    });
-  });
-  board.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-board-remove]');
-    if (button)
-      save(() => remove(button.dataset.boardRemove, button.dataset.email), 'Removed from team.');
-  });
-  board.querySelector('[data-board-assign]')?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const form = new FormData(event.target);
-    const email = String(form.get('email') || '')
-      .trim()
-      .toLowerCase();
-    if (!state.members.some((m) => m.email.toLowerCase() === email)) {
-      toast('Choose someone from the list.', true);
-      return;
-    }
-    save(() => add(form.get('team'), email), 'Added to team.');
-  });
-
-  // Whiteboard: drag empty space to move around, zoom with the toolbar or Ctrl + wheel.
-  const canvas = board.querySelector('[data-canvas]'),
-    world = canvas?.querySelector('.canvas-world'),
-    level = board.querySelector('[data-canvas-level]');
-  if (!canvas || !world) return;
-  const saved = Number(sessionStorage.getItem('hoora-board-zoom'));
-  let zoom = saved >= 0.4 && saved <= 1.5 ? saved : 1;
-  const setZoom = (value) => {
-    zoom = Math.min(1.5, Math.max(0.4, Math.round(value * 10) / 10));
-    world.style.zoom = String(zoom);
-    level.textContent = Math.round(zoom * 100) + '%';
-    sessionStorage.setItem('hoora-board-zoom', String(zoom));
-  };
-  setZoom(zoom);
-  board
-    .querySelectorAll('[data-canvas-zoom]')
-    .forEach((button) =>
-      button.addEventListener('click', () => setZoom(zoom + Number(button.dataset.canvasZoom))),
-    );
-  board.querySelector('[data-canvas-fit]').addEventListener('click', () => {
-    world.style.zoom = '1';
-    setZoom(
-      Math.min(canvas.clientWidth / world.scrollWidth, canvas.clientHeight / world.scrollHeight, 1),
-    );
-    canvas.scrollTo(0, 0);
-  });
-  const full = board.querySelector('[data-canvas-full]');
-  full.addEventListener('click', () => {
-    const on = !board.classList.contains('is-full');
-    board.classList.toggle('is-full', on);
-    document.body.classList.toggle('board-full', on);
-    full.setAttribute('aria-pressed', String(on));
-    full.textContent = on ? 'Exit full screen' : 'Full screen';
-  });
-  canvas.addEventListener(
-    'wheel',
-    (event) => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault();
-      setZoom(zoom + (event.deltaY < 0 ? 0.1 : -0.1));
-    },
-    { passive: false },
-  );
-  let pan = null;
-  canvas.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || event.target.closest('.team-table')) return;
-    pan = { x: event.clientX, y: event.clientY, left: canvas.scrollLeft, top: canvas.scrollTop };
-    canvas.setPointerCapture(event.pointerId);
-    canvas.classList.add('is-panning');
-  });
-  canvas.addEventListener('pointermove', (event) => {
-    if (!pan) return;
-    canvas.scrollLeft = pan.left - (event.clientX - pan.x);
-    canvas.scrollTop = pan.top - (event.clientY - pan.y);
-  });
-  const stop = () => {
-    pan = null;
-    canvas.classList.remove('is-panning');
-  };
-  canvas.addEventListener('pointerup', stop);
-  canvas.addEventListener('pointercancel', stop);
-}
 function folders() {
   return structureView();
 }
@@ -1884,68 +1072,11 @@ function markSamplePages() {
       ?.insertAdjacentHTML('beforeend', '<span class="sample-label">Sample content</span>');
   }
 }
-/** Google-style sharing: general access, then extra teams and people. */
+/** Share: general access plus people and teams, each with a level (see access.js). */
 async function shareCurrentPage() {
   const page = currentPublishedPage();
   if (!page) throw new Error('Open a published page before sharing it.');
-  const link = location.origin + routeUrl(publishedRoute(page, state.projects));
-  const linkRow = `<div class="share-link"><span>${e(link)}</span><button type="button" class="btn outline" data-action="copy-link">${icon('link')}Copy link</button></div>`;
-  const draft = state.pages.find((item) => item.id === page.id);
-  const owner = state.teams.find((team) => team.id === page.team_id);
-  const canManage =
-    page.kind !== 'release' &&
-    (state.member?.role === 'admin' ||
-      draft?.created_by === state.member?.id ||
-      (owner && teams.manages(owner)));
-  if (!canManage) {
-    dialog(
-      `<h2>Share</h2><p class="small">${e(page.title)}</p>${linkRow}<p class="share-summary">${icon('lock')}<span>Visible to <strong>${e(accessText(page))}</strong>. Everyone signs in with their Hoora account.</span></p><form><div class="dialog-actions"><button type="button" class="btn outline" data-close>Done</button></div></form>`,
-    );
-    return;
-  }
-  const [people, teamGrants] = await Promise.all([
-    db('docs_page_access', `?page_id=eq.${page.id}&select=email&order=email`),
-    db('docs_page_team_access', `?page_id=eq.${page.id}&select=team_id`),
-  ]);
-  const access = pageAccess(page);
-  const sharedTeams = new Set(teamGrants.map((grant) => grant.team_id));
-  const option = (value, title, detail) =>
-    `<label class="share-option"><input type="radio" name="access_mode" value="${value}" ${access === value ? 'checked' : ''}><span><strong>${title}</strong><small>${detail}</small></span></label>`;
-  dialog(
-    `<h2>Share</h2><p class="small">${e(page.title)}</p>${linkRow}<form class="share-form"><fieldset class="share-general"><legend>General access</legend>${option('private', 'Everyone at Hoora', 'Anyone who signs in can open it.')}${owner ? option('team', `${e(owner.name)}`, 'The owning team, plus the teams and people below.') : ''}${option('restricted', 'Only the teams and people below', 'Nobody else, apart from the author and administrators.')}</fieldset><div class="share-targets" ${access === 'private' ? 'hidden' : ''}><fieldset class="share-teams"><legend>Teams</legend>${state.teams
-      .filter((team) => team.id !== page.team_id)
-      .map(
-        (team) =>
-          `<label><input type="checkbox" name="team" value="${team.id}" ${sharedTeams.has(team.id) ? 'checked' : ''}><span>${e(team.name)}</span></label>`,
-      )
-      .join(
-        '',
-      )}</fieldset><div class="field"><label for="share-emails">People</label><textarea id="share-emails" name="emails" rows="3" placeholder="name@hoora.me, another@hoora.me">${e(people.map((row) => row.email).join(', '))}</textarea></div></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button type="submit" class="btn primary">Save</button></div></form>`,
-    async (form) => {
-      const allowed_emails = String(form.get('emails') || '')
-        .split(/[\s,;]+/)
-        .map((email) => email.trim())
-        .filter(Boolean);
-      await db('rpc/docs_set_access', '', {
-        method: 'POST',
-        body: {
-          document_id: page.id,
-          access_mode: form.get('access_mode'),
-          allowed_emails,
-          team_ids: form.getAll('team'),
-        },
-      });
-      await load();
-      await render();
-      toast('Sharing updated.');
-    },
-  );
-  modal.querySelectorAll('[name=access_mode]').forEach((radio) =>
-    radio.addEventListener('change', () => {
-      modal.querySelector('.share-targets').hidden =
-        modal.querySelector('[name=access_mode]:checked').value === 'private';
-    }),
-  );
+  await access.share(page);
 }
 
 async function render() {
@@ -1955,6 +1086,19 @@ async function render() {
   const [pathname, search = ''] = routeHash().replace(/^#/, '').split('?');
   const routeParts = pathname.split('/').filter(Boolean);
   let [route, id] = routeParts;
+  const moved = state.member
+    ? {
+        users: '#/access?tab=people',
+        permissions: '#/access?tab=content',
+        requests: '#/access',
+        archive: '#/workspace',
+        teams: id ? '#/access?tab=teams&team=' + encodeURIComponent(id) : '#/access',
+      }[route]
+    : '';
+  if (moved) {
+    history.replaceState(null, '', routeUrl(moved));
+    return render();
+  }
   if (route === 'release-notes') {
     const version = decodeURIComponent(id || ''),
       projectSlug = decodeURIComponent(routeParts[2] || '');
@@ -2023,15 +1167,12 @@ async function render() {
     'contribute',
     'new',
     'edit',
-    'users',
+    'access',
     'folders',
     'account',
-    'requests',
     'preview',
-    'teams',
     'notifications',
     'contributions',
-    'archive',
     'activity',
     'announce',
     'app-welcome',
@@ -2093,9 +1234,6 @@ async function render() {
           settings: routeParts[2] === 'settings',
         });
         break;
-      case 'requests':
-        view = requestsView();
-        break;
       case 'search':
         view = await searchResultsPage({
           state,
@@ -2112,10 +1250,6 @@ async function render() {
       case 'contributions':
         view = features.contributions();
         break;
-      case 'archive':
-        view =
-          state.member.role === 'admin' ? features.archive() : adminAccessGate('The recycle bin');
-        break;
       case 'feedback':
         view =
           state.member.role === 'admin'
@@ -2128,8 +1262,8 @@ async function render() {
             ? await features.activity()
             : adminAccessGate('Workspace activity');
         break;
-      case 'teams':
-        view = await teams.view(id);
+      case 'access':
+        view = await access.view(params);
         break;
       case 'workspace':
         view = workspace();
@@ -2147,14 +1281,6 @@ async function render() {
             ? contributionEditor.view(null, null, { create: true, projectId: state.project })
             : editor(route === 'edit' ? id : null);
         break;
-      case 'users':
-        view =
-          state.member.role === 'admin' ? await users() : adminAccessGate('User management');
-        break;
-      case 'permissions':
-        view =
-          state.member.role === 'admin' ? permissionsPage() : adminAccessGate('Permission management');
-        break;
       case 'preview':
         view = draftPreview(id);
         break;
@@ -2165,11 +1291,10 @@ async function render() {
             : adminAccessGate('Announcements');
         break;
       case 'folders':
-        view =
-          state.member.role === 'admin' ? folders() : adminAccessGate('Structure management');
+        view = state.member.role === 'admin' ? folders() : adminAccessGate('Structure management');
         break;
       case 'account':
-        view = account();
+        view = await account();
         break;
       case 'browse':
         view = publicView(false);
@@ -2186,7 +1311,7 @@ async function render() {
         'preview',
         'artifact',
         'contribute',
-        'users',
+        'access',
         'announce',
         'install',
         'login',
@@ -2261,625 +1386,7 @@ async function confirmAction(title, description, action) {
     action,
   );
 }
-/**
- * Request dialog: lets a viewer request publisher access, or lets a contributor
- * request publication approval for a specific document.
- */
-function requestDialog(kind, pageId) {
-  const isPublish = kind === 'publish';
-  const page = isPublish ? state.pages.find((p) => p.id === pageId) : null;
-  dialog(
-    `<h2>${isPublish ? 'Request publication approval' : 'Request publisher access'}</h2>
-     <p class="small">${isPublish ? `Ask an administrator or publisher to review and publish <strong>${e(page?.title || 'this document')}</strong>.` : 'Ask an administrator to upgrade your account to publisher so you can create and edit documents.'}</p>
-     <form>
-       <div class="field">
-         <label for="request-reason">Your message <span class="req" aria-hidden="true">*</span></label>
-         <textarea id="request-reason" name="reason" rows="3" maxlength="2000" required placeholder="Explain why you need this access…"></textarea>
-       </div>
-       <p class="error" role="alert"></p>
-       <div class="dialog-actions">
-         <button type="button" class="btn outline" data-close>Cancel</button>
-         <button class="btn dark">Send request</button>
-       </div>
-     </form>`,
-    async (form) => {
-      const reason = form.get('reason').trim();
-      if (!reason) throw new Error('Add a short reason for your request.');
-      await db('docs_requests', '', {
-        method: 'POST',
-        body: {
-          kind,
-          reason,
-          ...(isPublish && pageId ? { page_id: pageId } : {}),
-          requester_name: state.member?.name || state.member?.email || '',
-        },
-      });
-      toast(
-        isPublish
-          ? 'Publication request sent. An administrator or publisher will review it.'
-          : 'Access request sent. An administrator will review it.',
-      );
-    },
-  );
-}
-function memberDialog(id) {
-  const m = state.members.find((x) => x.id === id);
-  dialog(
-    `<h2>${m ? 'Manage member' : 'Welcome someone new.'}</h2><p class="small">${m ? e(m.email) : 'Create a login and choose what they can do.'}</p><form id="member-form"><div class="field"><label for="member-name">Name</label><input id="member-name" name="name" required maxlength="100" value="${e(m?.name || '')}"></div>${!m ? '<div class="field"><label for="member-email">Email</label><input id="member-email" name="email" type="email" required></div><div class="field"><label for="member-password">Temporary password</label><input id="member-password" name="password" type="password" autocomplete="new-password" minlength="12" required><small>At least 12 characters. Share securely with this person.</small></div>' : ''}<div class="field"><label for="member-role">Role</label><select id="member-role" name="role">${['viewer', 'publisher', 'manager', 'admin'].map((r) => `<option value="${r}" ${m?.role === r ? 'selected' : ''}>${roleName(r)}</option>`).join('')}</select></div>${m ? `<div class="field"><label for="member-active">Account access</label><select id="member-active" name="active"><option value="true" ${m.active ? 'selected' : ''}>Active</option><option value="false" ${!m.active ? 'selected' : ''}>Disabled</option></select></div>` : ''}<p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">${m ? 'Save changes' : 'Create account'}</button></div></form>${m && m.id !== state.member.id ? `<div class="toolbar"><button class="btn outline" id="reset-member-password">Reset password</button><button class="btn danger" id="delete-member">Remove member</button></div>` : ''}`,
-    async (f) => {
-      await admin({
-        ...Object.fromEntries(f),
-        action: m ? 'update' : 'create',
-        id: m?.id,
-        active: f.get('active') !== 'false',
-      });
-      toast(m ? 'Member updated.' : 'Account created.');
-      await render();
-    },
-  );
-  modal.querySelector('#delete-member')?.addEventListener('click', () => {
-    modal.close();
-    confirmAction(
-      'Remove this member?',
-      'Their login and team access will be removed. Documents they authored will be kept.',
-      async () => {
-        await admin({ action: 'delete', id: m.id });
-        await render();
-        toast('Member removed.');
-      },
-    );
-  });
-  modal.querySelector('#reset-member-password')?.addEventListener('click', () => {
-    modal.close();
-    dialog(
-      `<h2>Reset password</h2><p class="small">Set a new temporary password for ${e(m.email)}.</p><form><div class="field"><label for="reset-password">New password</label><input id="reset-password" name="password" type="password" minlength="12" autocomplete="new-password" required></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" data-close class="btn outline">Cancel</button><button class="btn primary">Reset password</button></div></form>`,
-      async (f) => {
-        await admin({
-          action: 'password',
-          id: m.id,
-          password: f.get('password'),
-        });
-        toast('Password updated. Share it securely.');
-      },
-    );
-  });
-}
-function upcomingAccessDialog() {
-  if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
 
-  const grantedEmails = new Set(
-    state.userPermissions
-      .filter((p) => p.scope_type === 'collection' && p.collection_key === 'upcoming')
-      .map((p) => p.email.toLowerCase()),
-  );
-  const ungrantedMembers = state.members
-    .filter((m) => m.active && !grantedEmails.has(m.email?.toLowerCase()))
-    .slice(0, 12);
-
-  dialog(
-    `<h2>Grant upcoming releases access</h2>
-    <p class="small">Add people or teams who can preview upcoming releases or manage Jira release planning. You can enter one email, paste a bunch of emails, or select teams.</p>
-    
-    <div class="permission-target-toggle" role="tablist">
-      <button type="button" class="permission-target-tab active" data-upcoming-target="people">People / Emails</button>
-      <button type="button" class="permission-target-tab" data-upcoming-target="teams">Teams</button>
-    </div>
-    
-    <div id="upcoming-target-people" class="permission-dynamic-group">
-      <div class="field">
-        <label for="upcoming-emails">Email addresses (one or a bunch)</label>
-        <textarea id="upcoming-emails" name="emails" rows="3" class="input" placeholder="alice@hoora.in, bob@hoora.in (or paste a bunch of emails separated by commas, spaces, or lines)"></textarea>
-        <small class="help">Tip: You can paste a comma-separated list of multiple emails at once.</small>
-      </div>
-      ${
-        ungrantedMembers.length
-          ? `
-        <div class="field">
-          <label>Quick add registered members:</label>
-          <div class="permission-quick-pills">
-            ${ungrantedMembers.map((m) => `<button type="button" class="quick-pill" data-add-email="${e(m.email)}">+ ${e(m.name || m.email)}</button>`).join('')}
-          </div>
-        </div>
-      `
-          : ''
-      }
-    </div>
-
-    <div id="upcoming-target-teams" class="permission-dynamic-group" style="display:none">
-      <fieldset class="permission-picker">
-        <legend>Audience</legend>
-        <label class="check-row">
-          <input type="checkbox" id="upcoming-all-teams">
-          <span><strong>All teams</strong><small>Give upcoming access to all current and future members of every team.</small></span>
-        </label>
-        <div class="check-grid">
-          ${state.teams.map((t) => `<label class="check-row"><input type="checkbox" name="team_id" value="${t.id}"> <span>${e(t.name)}</span></label>`).join('')}
-        </div>
-      </fieldset>
-    </div>
-
-    <div class="field">
-      <label for="upcoming-capability">Access level</label>
-      <select id="upcoming-capability" name="capability">
-        <option value="read" selected>Preview & View upcoming releases (Read-only tickets & notes)</option>
-        <option value="manage">Manage upcoming releases (Edit Jira filters, sync & settings)</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="upcoming-expiry-preset">Access duration</label>
-      <select id="upcoming-expiry-preset" name="expiry_preset">
-        <option value="never" selected>Ongoing (Never expires)</option>
-        <option value="7d">7 days</option>
-        <option value="30d">30 days</option>
-        <option value="90d">90 days</option>
-        <option value="custom">Custom date…</option>
-      </select>
-    </div>
-
-    <div class="field" id="upcoming-custom-date-row" style="display:none">
-      <label for="upcoming-custom-date">Expiration date</label>
-      <input type="date" id="upcoming-custom-date" name="custom_expiry">
-    </div>
-
-    <p class="permission-preview" id="upcoming-preview" role="status">Choose recipients to grant access.</p>
-    <p class="error" role="alert"></p>
-
-    <div class="dialog-actions">
-      <button type="button" class="btn outline" data-close>Cancel</button>
-      <button class="btn dark" type="submit">Grant upcoming access</button>
-    </div>`,
-    async (form) => {
-      const isTeams = modal.querySelector('[data-upcoming-target="teams"]')?.classList.contains('active');
-      const capability = form.get('capability') || 'read';
-      const expiryPreset = form.get('expiry_preset');
-      let expiresAt = null;
-      if (expiryPreset === '7d') expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
-      else if (expiryPreset === '30d') expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-      else if (expiryPreset === '90d') expiresAt = new Date(Date.now() + 90 * 86400000).toISOString();
-      else if (expiryPreset === 'custom' && form.get('custom_expiry')) {
-        expiresAt = new Date(form.get('custom_expiry') + 'T23:59:59Z').toISOString();
-      }
-
-      if (isTeams) {
-        const allChecked = modal.querySelector('#upcoming-all-teams')?.checked;
-        const teamIds = allChecked ? state.teams.map((t) => t.id) : form.getAll('team_id');
-        if (!teamIds.length) throw new Error('Select at least one team, or check All teams.');
-        const body = teamIds.map((team_id) => ({
-          team_id,
-          scope_type: 'collection',
-          collection_key: 'upcoming',
-          capability,
-          granted_by: state.member.id,
-          expires_at: expiresAt,
-        }));
-        await db('docs_team_permissions', '', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=ignore-duplicates' },
-          body,
-        });
-        await load();
-        await render();
-        toast(`Granted upcoming access to ${teamIds.length} ${teamIds.length === 1 ? 'team' : 'teams'}.`);
-      } else {
-        const rawEmails = String(form.get('emails') || '').trim();
-        if (!rawEmails) throw new Error('Enter at least one email address.');
-        const emails = Array.from(
-          new Set(
-            rawEmails
-              .split(/[,\s;\n]+/)
-              .map((x) => x.trim().toLowerCase())
-              .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)),
-          ),
-        );
-        if (!emails.length) throw new Error('Please enter valid email addresses.');
-
-        const body = emails.map((email) => {
-          const match = state.members.find((m) => m.email?.toLowerCase() === email);
-          return {
-            email,
-            user_id: match?.id || null,
-            scope_type: 'collection',
-            collection_key: 'upcoming',
-            capability,
-            granted_by: state.member.id,
-            expires_at: expiresAt,
-          };
-        });
-
-        await db('docs_user_permissions', '', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=ignore-duplicates' },
-          body,
-        });
-        await load();
-        await render();
-        toast(`Granted upcoming access to ${emails.length} ${emails.length === 1 ? 'person' : 'people'}.`);
-      }
-    },
-  );
-
-  const peopleTab = modal.querySelector('[data-upcoming-target="people"]');
-  const teamsTab = modal.querySelector('[data-upcoming-target="teams"]');
-  const peopleGroup = modal.querySelector('#upcoming-target-people');
-  const teamsGroup = modal.querySelector('#upcoming-target-teams');
-  const allTeamsCheckbox = modal.querySelector('#upcoming-all-teams');
-  const expiryPreset = modal.querySelector('#upcoming-expiry-preset');
-  const customDateRow = modal.querySelector('#upcoming-custom-date-row');
-  const preview = modal.querySelector('#upcoming-preview');
-
-  peopleTab?.addEventListener('click', () => {
-    peopleTab.classList.add('active');
-    teamsTab.classList.remove('active');
-    peopleGroup.style.display = '';
-    teamsGroup.style.display = 'none';
-    updateUpcomingPreview();
-  });
-
-  teamsTab?.addEventListener('click', () => {
-    teamsTab.classList.add('active');
-    peopleTab.classList.remove('active');
-    teamsGroup.style.display = '';
-    peopleGroup.style.display = 'none';
-    updateUpcomingPreview();
-  });
-
-  allTeamsCheckbox?.addEventListener('change', () => {
-    modal.querySelectorAll('input[name="team_id"]').forEach((i) => {
-      i.checked = allTeamsCheckbox.checked;
-      i.disabled = allTeamsCheckbox.checked;
-    });
-    updateUpcomingPreview();
-  });
-
-  expiryPreset?.addEventListener('change', () => {
-    if (customDateRow) customDateRow.style.display = expiryPreset.value === 'custom' ? '' : 'none';
-    updateUpcomingPreview();
-  });
-
-  modal.querySelectorAll('[data-add-email]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const input = modal.querySelector('#upcoming-emails');
-      if (!input) return;
-      const current = input.value.trim();
-      const email = btn.dataset.addEmail;
-      if (!current) {
-        input.value = email;
-      } else if (!current.toLowerCase().includes(email.toLowerCase())) {
-        input.value = current + ', ' + email;
-      }
-      btn.remove();
-      updateUpcomingPreview();
-    });
-  });
-
-  function updateUpcomingPreview() {
-    if (!preview) return;
-    const isTeams = teamsTab?.classList.contains('active');
-    const cap =
-      modal.querySelector('#upcoming-capability')?.value === 'manage'
-        ? 'manage upcoming releases'
-        : 'preview upcoming notes';
-    if (isTeams) {
-      const all = allTeamsCheckbox?.checked;
-      const count = modal.querySelectorAll('input[name="team_id"]:checked').length;
-      const aud = all ? 'all teams' : `${count} selected ${count === 1 ? 'team' : 'teams'}`;
-      preview.textContent = `Grants permission to ${cap} to ${aud}.`;
-    } else {
-      const raw = modal.querySelector('#upcoming-emails')?.value.trim() || '';
-      const count = raw
-        .split(/[,\s;\n]+/)
-        .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).length;
-      preview.textContent = count
-        ? `Grants permission to ${cap} to ${count} ${count === 1 ? 'person' : 'people'}.`
-        : 'Enter email addresses above to preview.';
-    }
-  }
-
-  modal.querySelectorAll('input, select, textarea').forEach((el) => {
-    el.addEventListener('input', updateUpcomingPreview);
-    el.addEventListener('change', updateUpcomingPreview);
-  });
-}
-
-function grantPermissionDialog(initial = {}) {
-  if (state.member?.role !== 'admin') throw new Error('Administrator access required.');
-
-  const defaultScope =
-    initial.scopeType ||
-    (initial.projectId ? 'project' : initial.folderId ? 'folder' : 'upcoming');
-  const defaultProjectId = initial.projectId || '';
-  const defaultFolderId = initial.folderId || '';
-
-  dialog(
-    `<h2>Grant scoped permission</h2>
-    <p class="small">Assign pinpoint access rules for teams or specific people across platforms, folders, or collections.</p>
-    
-    <div class="permission-target-toggle" role="tablist">
-      <button type="button" class="permission-target-tab ${initial.target === 'person' ? '' : 'active'}" data-perm-target="team">Team(s)</button>
-      <button type="button" class="permission-target-tab ${initial.target === 'person' ? 'active' : ''}" data-perm-target="person">Specific Person / Emails</button>
-    </div>
-
-    <div id="perm-target-team" class="permission-dynamic-group" ${initial.target === 'person' ? 'style="display:none"' : ''}>
-      <fieldset class="permission-picker">
-        <legend>Audience</legend>
-        <label class="check-row">
-          <input type="checkbox" id="perm-all-teams">
-          <span><strong>All teams</strong><small>Apply this capability to every current and future team.</small></span>
-        </label>
-        <div class="check-grid">
-          ${state.teams.map((t) => `<label class="check-row"><input type="checkbox" name="team_id" value="${t.id}"> <span>${e(t.name)}</span></label>`).join('')}
-        </div>
-      </fieldset>
-    </div>
-
-    <div id="perm-target-person" class="permission-dynamic-group" ${initial.target === 'person' ? '' : 'style="display:none"'}>
-      <div class="field">
-        <label for="perm-emails">Email addresses (one or multiple)</label>
-        <textarea id="perm-emails" name="emails" rows="2" class="input" placeholder="alice@hoora.in, bob@hoora.in"></textarea>
-      </div>
-      <div class="field">
-        <label>Quick select member:</label>
-        <div class="permission-quick-pills">
-          ${state.members.slice(0, 10).map((m) => `<button type="button" class="quick-pill" data-add-perm-email="${e(m.email)}">+ ${e(m.name || m.email)}</button>`).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label for="perm-scope">Where does this apply?</label>
-      <select id="perm-scope" name="scope_selection">
-        <option value="upcoming" ${defaultScope === 'upcoming' ? 'selected' : ''}>Upcoming releases (Planning & Jira)</option>
-        <option value="project" ${defaultScope === 'project' ? 'selected' : ''}>Release platform (Customer App, Partner App, etc.)</option>
-        <option value="folder" ${defaultScope === 'folder' ? 'selected' : ''}>Documentation folder</option>
-        <option value="collection-release" ${defaultScope === 'collection' && initial.collectionKey === 'release' ? 'selected' : ''}>Published releases (All platforms)</option>
-        <option value="collection-documentation" ${defaultScope === 'collection' && initial.collectionKey === 'documentation' ? 'selected' : ''}>Documentation (General)</option>
-        <option value="collection-sop" ${defaultScope === 'collection' && initial.collectionKey === 'sop' ? 'selected' : ''}>Standard Operating Procedures (SOPs)</option>
-      </select>
-    </div>
-
-    <div class="field" id="perm-project-row" ${defaultScope === 'project' ? '' : 'style="display:none"'}>
-      <label for="perm-project">Platform</label>
-      <select id="perm-project" name="project_id">
-        <option value="">Select platform…</option>
-        ${state.projects.map((p) => `<option value="${p.id}" ${p.id === defaultProjectId ? 'selected' : ''}>${e(displayPlatformName(p.name))}</option>`).join('')}
-      </select>
-    </div>
-
-    <div class="field" id="perm-folder-row" ${defaultScope === 'folder' ? '' : 'style="display:none"'}>
-      <label for="perm-folder">Documentation folder</label>
-      <select id="perm-folder" name="folder_id">
-        <option value="">Select folder…</option>
-        ${state.folders.map((f) => `<option value="${f.id}" ${f.id === defaultFolderId ? 'selected' : ''}>${e(f.name)}</option>`).join('')}
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="perm-capability">What can they do?</label>
-      <select id="perm-capability" name="capability">
-        <option value="read" selected>View / Preview</option>
-        <option value="contribute">Create drafts</option>
-        <option value="edit">Edit content</option>
-        <option value="publish">Publish</option>
-        <option value="manage">Manage access & releases</option>
-        <option value="delete">Delete</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="perm-expiry-preset">Expires</label>
-      <select id="perm-expiry-preset" name="expiry_preset">
-        <option value="never" selected>Ongoing (Never expires)</option>
-        <option value="7d">7 days</option>
-        <option value="30d">30 days</option>
-        <option value="90d">90 days</option>
-        <option value="custom">Custom date…</option>
-      </select>
-    </div>
-
-    <div class="field" id="perm-custom-date-row" style="display:none">
-      <label for="perm-custom-date">Expiration date</label>
-      <input type="date" id="perm-custom-date" name="custom_expiry">
-    </div>
-
-    <p class="permission-preview" id="perm-preview" role="status">Configure audience and scope.</p>
-    <p class="error" role="alert"></p>
-
-    <div class="dialog-actions">
-      <button type="button" class="btn outline" data-close>Cancel</button>
-      <button class="btn dark" type="submit">Save permission</button>
-    </div>`,
-    async (form) => {
-      const isPerson = modal.querySelector('[data-perm-target="person"]')?.classList.contains('active');
-      const scopeSelection = form.get('scope_selection');
-      const capability = form.get('capability');
-      const expiryPreset = form.get('expiry_preset');
-      let expiresAt = null;
-      if (expiryPreset === '7d') expiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
-      else if (expiryPreset === '30d') expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-      else if (expiryPreset === '90d') expiresAt = new Date(Date.now() + 90 * 86400000).toISOString();
-      else if (expiryPreset === 'custom' && form.get('custom_expiry')) {
-        expiresAt = new Date(form.get('custom_expiry') + 'T23:59:59Z').toISOString();
-      }
-
-      let scopeType = 'collection';
-      let collectionKey = null;
-      let projectId = null;
-      let folderId = null;
-
-      if (scopeSelection === 'upcoming') {
-        collectionKey = 'upcoming';
-      } else if (scopeSelection === 'collection-release') {
-        collectionKey = 'release';
-      } else if (scopeSelection === 'collection-documentation') {
-        collectionKey = 'documentation';
-      } else if (scopeSelection === 'collection-sop') {
-        collectionKey = 'sop';
-      } else if (scopeSelection === 'project') {
-        scopeType = 'project';
-        projectId = form.get('project_id');
-        if (!projectId) throw new Error('Please choose a platform.');
-      } else if (scopeSelection === 'folder') {
-        scopeType = 'folder';
-        folderId = form.get('folder_id');
-        if (!folderId) throw new Error('Please choose a folder.');
-      }
-
-      if (isPerson) {
-        const rawEmails = String(form.get('emails') || '').trim();
-        if (!rawEmails) throw new Error('Enter at least one email address.');
-        const emails = Array.from(
-          new Set(
-            rawEmails
-              .split(/[,\s;\n]+/)
-              .map((x) => x.trim().toLowerCase())
-              .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)),
-          ),
-        );
-        if (!emails.length) throw new Error('Please enter valid email addresses.');
-
-        const body = emails.map((email) => {
-          const match = state.members.find((m) => m.email?.toLowerCase() === email);
-          return {
-            email,
-            user_id: match?.id || null,
-            scope_type: scopeType,
-            collection_key: collectionKey,
-            project_id: projectId,
-            folder_id: folderId,
-            capability,
-            granted_by: state.member.id,
-            expires_at: expiresAt,
-          };
-        });
-
-        await db('docs_user_permissions', '', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=ignore-duplicates' },
-          body,
-        });
-        await load();
-        await render();
-        toast(`Granted permission to ${emails.length} ${emails.length === 1 ? 'person' : 'people'}.`);
-      } else {
-        const allTeams = modal.querySelector('#perm-all-teams')?.checked === true;
-        const teamIds = allTeams ? state.teams.map((t) => t.id) : form.getAll('team_id');
-        if (!teamIds.length) throw new Error('Choose at least one team, or select All teams.');
-
-        const body = teamIds.map((team_id) => ({
-          team_id,
-          scope_type: scopeType,
-          collection_key: collectionKey,
-          project_id: projectId,
-          folder_id: folderId,
-          capability,
-          granted_by: state.member.id,
-          expires_at: expiresAt,
-        }));
-
-        await db('docs_team_permissions', '', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=ignore-duplicates' },
-          body,
-        });
-        await load();
-        await render();
-        toast(`Granted permission to ${teamIds.length} ${teamIds.length === 1 ? 'team' : 'teams'}.`);
-      }
-    },
-  );
-
-  const teamTab = modal.querySelector('[data-perm-target="team"]');
-  const personTab = modal.querySelector('[data-perm-target="person"]');
-  const teamGroup = modal.querySelector('#perm-target-team');
-  const personGroup = modal.querySelector('#perm-target-person');
-  const scopeSelect = modal.querySelector('#perm-scope');
-  const projectRow = modal.querySelector('#perm-project-row');
-  const folderRow = modal.querySelector('#perm-folder-row');
-  const allTeamsCheckbox = modal.querySelector('#perm-all-teams');
-  const expiryPreset = modal.querySelector('#perm-expiry-preset');
-  const customDateRow = modal.querySelector('#perm-custom-date-row');
-  const preview = modal.querySelector('#perm-preview');
-
-  teamTab?.addEventListener('click', () => {
-    teamTab.classList.add('active');
-    personTab.classList.remove('active');
-    teamGroup.style.display = '';
-    personGroup.style.display = 'none';
-    updatePermPreview();
-  });
-
-  personTab?.addEventListener('click', () => {
-    personTab.classList.add('active');
-    teamTab.classList.remove('active');
-    personGroup.style.display = '';
-    teamGroup.style.display = 'none';
-    updatePermPreview();
-  });
-
-  scopeSelect?.addEventListener('change', () => {
-    const val = scopeSelect.value;
-    if (projectRow) projectRow.style.display = val === 'project' ? '' : 'none';
-    if (folderRow) folderRow.style.display = val === 'folder' ? '' : 'none';
-    updatePermPreview();
-  });
-
-  allTeamsCheckbox?.addEventListener('change', () => {
-    modal.querySelectorAll('input[name="team_id"]').forEach((i) => {
-      i.checked = allTeamsCheckbox.checked;
-      i.disabled = allTeamsCheckbox.checked;
-    });
-    updatePermPreview();
-  });
-
-  expiryPreset?.addEventListener('change', () => {
-    if (customDateRow) customDateRow.style.display = expiryPreset.value === 'custom' ? '' : 'none';
-    updatePermPreview();
-  });
-
-  modal.querySelectorAll('[data-add-perm-email]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const input = modal.querySelector('#perm-emails');
-      if (!input) return;
-      const current = input.value.trim();
-      const email = btn.dataset.addPermEmail;
-      if (!current) {
-        input.value = email;
-      } else if (!current.toLowerCase().includes(email.toLowerCase())) {
-        input.value = current + ', ' + email;
-      }
-      btn.remove();
-      updatePermPreview();
-    });
-  });
-
-  function updatePermPreview() {
-    if (!preview) return;
-    const isPerson = personTab?.classList.contains('active');
-    const cap = modal.querySelector('#perm-capability')?.selectedOptions[0]?.textContent || 'capability';
-    const scope = modal.querySelector('#perm-scope')?.selectedOptions[0]?.textContent || 'scope';
-    let aud = '';
-    if (isPerson) {
-      const raw = modal.querySelector('#perm-emails')?.value.trim() || '';
-      const count = raw
-        .split(/[,\s;\n]+/)
-        .filter((x) => x && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).length;
-      aud = count ? `${count} ${count === 1 ? 'person' : 'people'}` : 'selected people';
-    } else {
-      const all = allTeamsCheckbox?.checked;
-      const count = modal.querySelectorAll('input[name="team_id"]:checked').length;
-      aud = all ? 'all teams' : `${count} selected ${count === 1 ? 'team' : 'teams'}`;
-    }
-    preview.textContent = `Grants “${cap}” to ${aud} for ${scope.toLowerCase()}.`;
-  }
-
-  modal.querySelectorAll('input, select, textarea').forEach((el) => {
-    el.addEventListener('input', updatePermPreview);
-    el.addEventListener('change', updatePermPreview);
-  });
-}
-
-const teamPermissionDialog = grantPermissionDialog;
 const draftSaves = new WeakMap();
 async function saveDraft() {
   const form = document.querySelector('#editor-form');
@@ -2958,8 +1465,9 @@ async function persistDraft(f) {
         publishedLink: published ? publishedRoute(published, state.projects) : '',
         isNew: false,
         id: f.dataset.id,
-        role: state.member.role,
-        canPublish: canPublish(state.member.role),
+        canDelete: levels.page(f.dataset.id) >= 4,
+        canPublish:
+          state.pages.find((page) => page.id === f.dataset.id)?._canPublish ?? canPublish(),
       });
     if (focusSave) actions?.querySelector('button[type="submit"]')?.focus();
   }
@@ -3408,13 +1916,13 @@ document.addEventListener('click', (ev) => {
   }
   if (action === 'import-document') {
     dialog(
-      `<h2>Bring your knowledge with you</h2><p class="small">Import a Markdown document or upload an HTML artifact. It starts as a private draft.</p>${teams.field({ team_id: state.team })}<div class="import-file-area"><label for="document-import">Choose a file</label><input id="document-import" type="file" accept=".md,.markdown,.txt,.html,.htm"><small>Markdown up to 500 KB. Standalone HTML up to 10 MB.</small></div><div class="dialog-actions"><button data-close class="btn outline">Cancel</button></div>`,
+      `<h2>Bring your knowledge with you</h2><p class="small">Import a Markdown document or upload an HTML artifact. It starts as a private draft.</p>${access.teamField({ team_id: state.team })}<div class="import-file-area"><label for="document-import">Choose a file</label><input id="document-import" type="file" accept=".md,.markdown,.txt,.html,.htm"><small>Markdown up to 500 KB. Standalone HTML up to 10 MB.</small></div><div class="dialog-actions"><button data-close class="btn outline">Cancel</button></div>`,
     );
     modal.querySelector('#document-import').addEventListener('change', async (ev) => {
       if (!ev.target.files[0]) return;
       const file = ev.target.files[0];
       const teamId = modal.querySelector('#document-team').value || null;
-      if (!teamId && !['admin', 'publisher'].includes(state.member.role)) {
+      if (!teamId && modal.querySelector('#document-team').required) {
         toast('Choose a team before importing.', true);
         return;
       }
@@ -3425,7 +1933,6 @@ document.addEventListener('click', (ev) => {
 });
 function bind() {
   bindReleaseDetails();
-  bindPeopleBoard();
   bindSearchPage({ state, service: searchService, e, names });
   if (!document.querySelector('.assistant-panel')) assistantOpen = false;
   syncAssistantViewport();
@@ -3500,9 +2007,6 @@ function bind() {
         (state.vertical ? '&vertical=' + state.vertical : '');
     }),
   );
-  document
-    .querySelectorAll('[data-member]')
-    .forEach((b) => b.addEventListener('click', () => memberDialog(b.dataset.member)));
   document
     .querySelectorAll('[data-folder]')
     .forEach((b) =>
@@ -3599,16 +2103,21 @@ function onboarding() {
 function passwordForm(first = false) {
   return `<form id="setup-password-form"><div class="field"><label for="setup-password">${first ? 'Create password' : 'New Hoora Docs password'}</label><input id="setup-password" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small>Use 12–128 characters.</small></div><div class="field"><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirmPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><p id="form-error" class="error" role="alert"></p><button class="btn primary">${first ? 'Set password & continue' : 'Update password'}</button></form>`;
 }
-function account() {
-  return `<div class="layout">${settingsSidebar('account')}<main id="main" class="content account-content"><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Workspace access</h2><span class="badge">${e(roleName(state.member.role))}</span></div><p>${state.member.role === 'viewer' ? 'You can read team documents. Request publisher access to write documents and contribute to releases.' : 'Your workspace role controls what you can edit and publish.'}</p>${state.member.role === 'viewer' ? '<button class="btn outline" data-action="request-access">Request publisher access</button>' : ''}</section><section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
+async function account() {
+  const me = state.member.email.toLowerCase();
+  const memberships = state.teamMembers
+    .filter((m) => m.email === me)
+    .map((m) => {
+      const team = state.teams.find((t) => t.id === m.team_id);
+      return team ? `${e(team.name)} · ${e(roleName(m.role))}` : '';
+    })
+    .filter(Boolean);
+  return `<div class="layout">${settingsSidebar('account')}<main id="main" class="content account-content"><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Access</h2><a class="btn text small" href="#/access">Teams</a></div><p>${e(roleName(state.member.role))}${memberships.length ? '<br>' + memberships.join('<br>') : ' · Not in a team yet'}</p></section>${await access.devicesSection()}<section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
 }
 function releaseHub() {
   return releaseTimeline();
 }
 
-function requestsView() {
-  return `<div class="layout">${settingsSidebar('requests')}<main class="content" id="main"><h1>Requests & approvals</h1><p class="subtitle">Review publication requests and manage access to your workspace.</p>${state.requests.map((r) => `<article class="request-card"><div class="section-top"><h2>${r.kind === 'access' ? 'Editor access' : 'Publication approval'}</h2><span class="badge ${r.status === 'approved' ? 'published' : 'draft'}">${e(r.status)}</span></div><p class="small">Requested by ${e(r.requester_name)} · ${date(r.created_at)}</p>${r.page_id ? `<a class="request-document" href="#/edit/${r.page_id}">${e(state.pages.find((p) => p.id === r.page_id)?.title || 'Document')}</a>` : ''}<p>${e(r.reason)}</p>${r.resolution ? `<p class="small">Reviewer response: ${e(r.resolution)}</p>` : ''}${r.status === 'pending' && (state.member.role === 'admin' || (r.kind === 'publish' && state.member.role === 'publisher')) ? `<div class="toolbar-actions"><button class="btn primary" data-action="resolve-request" data-id="${r.id}" data-approve="true">${r.kind === 'publish' ? 'Approve & publish' : 'Approve publisher access'}</button><button class="btn outline" data-action="resolve-request" data-id="${r.id}" data-approve="false">Decline</button></div>` : ''}</article>`).join('') || empty('No requests yet', 'Your access and publication requests will appear here.')}</main></div>`;
-}
 function bindWorkspace() {
   document.querySelector('#setup-password-form')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -3735,26 +2244,6 @@ document.addEventListener('click', async (ev) => {
     );
     return;
   }
-  if (a === 'request-access' || a === 'request-publish') {
-    requestDialog(a === 'request-access' ? 'access' : 'publish', id);
-    return;
-  }
-  if (a === 'resolve-request') {
-    const approve = b.dataset.approve === 'true';
-    dialog(
-      `<h2>${approve ? 'Approve request' : 'Decline request'}</h2><form><div class="field"><label for="review-note">Response (optional)</label><textarea id="review-note" name="note" maxlength="2000"></textarea></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn primary">${approve ? 'Confirm approval' : 'Decline request'}</button></div></form>`,
-      async (f) => {
-        await api('/rest/v1/rpc/docs_resolve_request', {
-          method: 'POST',
-          body: { request_id: id, approve, note: f.get('note') },
-        });
-        await load();
-        await render();
-        toast('Request ' + (approve ? 'approved.' : 'declined.'));
-      },
-    );
-    return;
-  }
   if (a === 'publish-release' || a === 'unpublish-release') {
     await busy(b, async () => {
       await api('/rest/v1/rpc/' + (a === 'publish-release' ? 'docs_publish' : 'docs_unpublish'), {
@@ -3818,7 +2307,7 @@ function pageAccess(p) {
 function accessText(p) {
   const access = pageAccess(p);
   if (access === 'private') return 'Organization';
-  const shared = state.pageTeamAccess.filter((grant) => grant.page_id === p.id).length;
+  const shared = state.grants.filter((grant) => grant.page_id === p.id).length;
   const extra = shared ? ` + ${shared} ${shared === 1 ? 'team' : 'teams'}` : '';
   if (access === 'team')
     return (state.teams.find((team) => team.id === p.team_id)?.name || 'Team') + extra;
@@ -4479,54 +2968,6 @@ document.addEventListener('click', async (ev) => {
     await busy(b, shareCurrentPage);
     return;
   }
-  if (action === 'add-member') {
-    memberDialog();
-    return;
-  }
-  if (action === 'add-team-permission' || action === 'add-permission') {
-    grantPermissionDialog();
-    return;
-  }
-  if (action === 'add-upcoming-access') {
-    upcomingAccessDialog();
-    return;
-  }
-  if (action === 'add-platform-rule') {
-    grantPermissionDialog({ scopeType: 'project', projectId: b.dataset.projectId });
-    return;
-  }
-  if (action === 'remove-team-permission') {
-    if (state.member?.role !== 'admin') return;
-    confirmAction(
-      'Remove this capability?',
-      'The team will immediately lose this scoped permission.',
-      async () => {
-        await db('docs_team_permissions', '?id=eq.' + encodeURIComponent(b.dataset.id), {
-          method: 'DELETE',
-        });
-        await load();
-        await render();
-        toast('Team capability removed.');
-      },
-    );
-    return;
-  }
-  if (action === 'remove-user-permission') {
-    if (state.member?.role !== 'admin') return;
-    confirmAction(
-      'Remove this permission?',
-      'The user will immediately lose this scoped permission.',
-      async () => {
-        await db('docs_user_permissions', '?id=eq.' + encodeURIComponent(b.dataset.id), {
-          method: 'DELETE',
-        });
-        await load();
-        await render();
-        toast('User permission removed.');
-      },
-    );
-    return;
-  }
   if (action === 'add-folder' || action === 'add-vertical') {
     manageLegacyOrganization(action.slice(4));
     return;
@@ -4573,7 +3014,7 @@ document.addEventListener('click', async (ev) => {
   if (action === 'delete-document') {
     confirmAction(
       'Delete this document?',
-      'The draft, organization copy, and contributions will be removed. This cannot be undone.',
+      'The draft, published copy and attached files are removed for good. This cannot be undone.',
       async () => {
         await appApi('/api/content', {
           action: 'delete',
@@ -4675,8 +3116,27 @@ window.addEventListener('storage', (ev) => {
 });
 
 document.addEventListener('click', (ev) => {
-  const button = ev.target.closest('[data-team-action]');
-  if (button) busy(button, () => teams.action(button));
+  const button = ev.target.closest('[data-access-action]');
+  if (button) busy(button, () => access.action(button));
+});
+document.addEventListener('change', (ev) => {
+  const field = ev.target.closest('[data-grant-level],[data-team-role],[data-general-access]');
+  if (field && !field.closest('dialog')) busy(null, () => access.change(field));
+});
+document.addEventListener('submit', (ev) => {
+  const form = ev.target.closest('[data-person-form]');
+  if (!form) return;
+  ev.preventDefault();
+  busy(ev.submitter, () => access.submit(form));
+});
+document.addEventListener('input', (ev) => {
+  const filter = ev.target.closest('[data-access-filter]');
+  if (!filter) return;
+  const query = filter.value.toLowerCase().trim();
+  filter
+    .closest('.access-list')
+    .querySelectorAll('.access-item')
+    .forEach((item) => (item.hidden = !!query && !item.textContent.toLowerCase().includes(query)));
 });
 
 document.addEventListener('click', async (event) => {
@@ -4810,32 +3270,6 @@ document.addEventListener('submit', async (event) => {
   restartSleepTimer();
   document.querySelector('.assistant-messages')?.scrollTo({ top: 99999, behavior: 'smooth' });
   document.querySelector('#assistant-question')?.focus();
-});
-
-document.addEventListener('click', (ev) => {
-  const tabBtn = ev.target.closest('[data-permission-tab]');
-  if (tabBtn) {
-    state.permissionTab = tabBtn.dataset.permissionTab;
-    render();
-    return;
-  }
-});
-
-document.addEventListener('input', (ev) => {
-  const searchInput = ev.target.closest('[data-permission-search]');
-  if (searchInput) {
-    state.permissionSearch = searchInput.value;
-    const filterVal = searchInput.value.toLowerCase().trim();
-    const rows = document.querySelectorAll(
-      '.permission-table tbody tr, .permission-platform-card, .permission-team-card',
-    );
-    rows.forEach((row) => {
-      const searchTarget = row.dataset.search;
-      if (searchTarget !== undefined) {
-        row.hidden = filterVal && !searchTarget.toLowerCase().includes(filterVal);
-      }
-    });
-  }
 });
 
 try {

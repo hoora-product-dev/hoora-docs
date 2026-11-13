@@ -1,38 +1,7 @@
 /** Home: one search, the latest releases and recently updated documents. */
 export function homePage({ state, e, icon, platformName, versionKey, date, link }) {
-  // Filter published documents to those the signed-in user can actually access.
-  // A document is accessible when:
-  //   - visibility is 'private' (everyone at Hoora), OR
-  //   - visibility is 'team' and the user belongs to that team, OR
-  //   - visibility is 'restricted' and the user has explicit page-team-access
-  const accessiblePublished = state.member
-    ? state.published.filter((p) => {
-        const v = p.visibility || 'private';
-        if (v === 'private') return true;
-        if (v === 'team') {
-          return (
-            state.teamMembers.some(
-              (m) =>
-                m.team_id === p.team_id &&
-                m.email?.toLowerCase() === state.member?.email?.toLowerCase(),
-            ) || state.member.role === 'admin'
-          );
-        }
-        // 'restricted' — user must have an explicit page-team-access entry
-        return (
-          state.member.role === 'admin' ||
-          state.pageTeamAccess.some(
-            (grant) =>
-              grant.page_id === p.id &&
-              state.teamMembers.some(
-                (m) =>
-                  m.team_id === grant.team_id &&
-                  m.email?.toLowerCase() === state.member?.email?.toLowerCase(),
-              ),
-          )
-        );
-      })
-    : [];
+  // The database only returns documents this member can open.
+  const accessiblePublished = state.member ? state.published : [];
   const releases = accessiblePublished.filter((page) => page.kind === 'release').slice(0, 5),
     documents = accessiblePublished
       .filter((page) => page.kind !== 'release')
@@ -56,9 +25,7 @@ export function homePage({ state, e, icon, platformName, versionKey, date, link 
       `<a href="${link(page)}"><span>${e(platformName(page.release_snapshot?.project || page.title))} <em>v${e(versionKey(page.version))}</em></span><small>${date(page.published_at)}</small></a>`,
   )}${list(
     'Recently updated',
-    state.member && ['admin', 'publisher', 'manager'].includes(state.member.role)
-      ? '#/workspace'
-      : '#/browse',
+    state.pages.some((page) => !page._readOnly) ? '#/workspace' : '#/browse',
     documents,
     (page) =>
       `<a href="${link(page)}"><span>${e(page.title)}</span><small>${e(state.types.find((type) => type.key === page.kind)?.name || 'Document')}</small></a>`,

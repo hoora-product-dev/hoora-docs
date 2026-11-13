@@ -9,21 +9,13 @@ export function workspaceFeatures({
   load,
   render,
   row,
-  teams,
+  access,
   appApi,
   pwa,
   icon,
 }) {
-  const manages = (p) =>
-    state.member?.role === 'admin' ||
-    (p?.kind === 'release' &&
-      (state.member?.role === 'manager' ||
-        state.teamMembers.some(
-          (member) =>
-            member.email?.toLowerCase() === state.member?.email?.toLowerCase() &&
-            member.role === 'manager',
-        ))) ||
-    (p.team_id && teams.manages(state.teams.find((t) => t.id === p.team_id) || {}));
+  const canNotify = (p) => access.levels.page(p?.id) >= 3;
+  const canDelete = (p) => access.levels.page(p?.id) >= 4;
   const noticeTitle = (p) =>
     p?.kind === 'release' && p.release_snapshot?.project
       ? `${p.release_snapshot.project}${p.version ? ' v' + String(p.version).replace(/^v/i, '') : ''} released`
@@ -31,7 +23,7 @@ export function workspaceFeatures({
   let showAllNotices = false;
   function pageTools(p) {
     if (!state.member) return '';
-    return `<section class="related-knowledge" data-related-page="${p.id}"></section><div class="knowledge-page-tools">${manages(p) ? `<button class="btn text" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${manages(p) ? `<button class="btn text" data-hub-action="archive" data-id="${p.id}" title="Move to recycle bin">Archive</button>` : ''}</div>`;
+    return `<section class="related-knowledge" data-related-page="${p.id}"></section><div class="knowledge-page-tools">${canNotify(p) ? `<button class="btn text" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${canDelete(p) ? `<button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete</button>` : ''}</div>`;
   }
   async function hydrate() {
     for (const root of document.querySelectorAll('[data-related-page]')) {
@@ -105,11 +97,6 @@ export function workspaceFeatures({
       '<div class="empty"><h2>Your contributions start here</h2><p>Create a guide or add your notes to an application release.</p></div>'
     }</div></main>`;
   }
-  function archive() {
-    if (state.member.role !== 'admin') throw Error('Administrator access required.');
-    const archived = state.pages.filter((p) => p.deleted_at);
-    return `<main id="main" class="settings-content"><div class="view-heading"><div><h1>Recycle bin</h1><p>Deleted knowledge is hidden immediately and permanently removed after 30 days.</p></div><button class="btn outline" data-hub-action="cleanup">Run cleanup</button></div>${archived.map((p) => `<div class="structure-row"><div><strong>${e(p.title)}</strong><small>Deleted ${new Date(p.deleted_at || p.deleted_at).toLocaleDateString('en-IN')} · permanently removed ${p.purge_after ? new Date(p.purge_after).toLocaleDateString('en-IN') : 'after 30 days'}</small></div><button class="btn outline" data-hub-action="restore" data-id="${p.id}">Restore</button><button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete permanently</button></div>`).join('') || '<div class="empty"><h2>Recycle bin is empty</h2><p>Deleted documents will remain here for 30 days before cleanup.</p></div>'}</main>`;
-  }
   async function activity() {
     if (state.member.role !== 'admin') throw Error('Administrator access required.');
     const [records, people, devices] = await Promise.all([
@@ -129,15 +116,6 @@ export function workspaceFeatures({
     const type = button.dataset.hubAction,
       id = button.dataset.id,
       p = state.published.find((p) => p.id === id) || state.pages.find((p) => p.id === id);
-    if (type === 'cleanup') {
-      const result = await appApi('/api/content', { action: 'cleanup' });
-      toast(
-        result.cleanupPending
-          ? 'Some deleted uploads still need cleanup. Try again shortly.'
-          : 'Pending file deletions completed.',
-      );
-      return;
-    }
     if (type === 'show-unread' || type === 'show-all') {
       showAllNotices = type === 'show-all';
       await render();
@@ -187,25 +165,17 @@ export function workspaceFeatures({
       );
       return;
     }
-    if (['archive', 'restore', 'delete'].includes(type)) {
+    if (type === 'delete') {
       dialog(
-        `<h2>${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Move to recycle bin'} this document?</h2><p>${e(p.title)}</p><p class="small">${type === 'restore' ? 'The document will be visible again according to its team permissions.' : type === 'delete' ? 'This permanently removes the document, published copy, and uploaded files now.' : 'The document will be hidden now and permanently removed after 30 days.'}</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn ${type === 'restore' ? 'dark' : 'danger'}">${type === 'restore' ? 'Restore' : type === 'delete' ? 'Delete permanently' : 'Archive'}</button></div></form>`,
-        async () => {
-          if (type === 'archive') await appApi('/api/content', { action: 'delete', id });
-          else if (type === 'delete') await appApi('/api/content', { action: 'purge', id });
-          else
-            await db('rpc/docs_archive', '', {
-              method: 'POST',
-              body: { document_id: id, restore: type === 'restore' },
-            });
+        `<h2>Delete this document?</h2><p>${e(p.title)}</p><p class="small">The draft, published copy and attached files are removed for good. Type the title to confirm.</p><form><div class="field"><label for="confirm-title">Document title</label><input id="confirm-title" name="title" autocomplete="off" required></div><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn danger">Delete permanently</button></div></form>`,
+        async (form) => {
+          if (String(form.get('title')).trim() !== p.title.trim())
+            throw new Error('The title does not match.');
+          await appApi('/api/content', { action: 'delete', id });
           await load();
-          location.hash = type === 'archive' ? '#/workspace' : '#/archive';
+          location.hash = p.kind === 'release' ? '#/releases' : '#/workspace';
           await render();
-          toast(
-            'Document ' +
-              (type === 'restore' ? 'restored' : type === 'delete' ? 'deleted' : 'archived') +
-              '.',
-          );
+          toast('Document deleted.');
         },
       );
       return;
@@ -260,5 +230,5 @@ export function workspaceFeatures({
     });
     state.unreadNoticeCount = Math.max(0, state.unreadNoticeCount - 1);
   }
-  return { pageTools, hydrate, inbox, contributions, archive, activity, action, markRead };
+  return { pageTools, hydrate, inbox, contributions, activity, action, markRead };
 }

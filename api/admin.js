@@ -108,6 +108,12 @@ export default async function handler(req, res) {
           name: String(b.name || '').slice(0, 100),
         }),
       });
+      // A disabled account is signed out of every device right away.
+      if (!b.active)
+        await call('/rest/v1/rpc/docs_sign_out_member', {
+          method: 'POST',
+          body: JSON.stringify({ member: b.id }),
+        });
     } else if (b.action === 'password') {
       if ((b.password || '').length < 12)
         return res.status(400).json({ error: 'Use at least 12 characters.' });

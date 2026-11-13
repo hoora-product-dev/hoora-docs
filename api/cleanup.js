@@ -1,8 +1,8 @@
 import { serverClient } from '../server/supabase.js';
+import { cleanupDeletedFiles } from './content.js';
 
-// Vercel invokes this endpoint once per day. The database remains the source
-// of truth: only rows whose 30-day purge_after timestamp has elapsed can be
-// removed, and the existing Storage cleanup trigger handles attachments.
+// Vercel invokes this endpoint once per day: it signs out devices unused for 30
+// days, keeps 7 days of activity, and removes files of deleted documents.
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'GET' && req.method !== 'POST')
@@ -17,14 +17,17 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Scheduled cleanup only.' });
   try {
     const call = serverClient();
-    const purged = await call('/rest/v1/rpc/docs_purge_expired_trash', {
+    const maintenance = await call('/rest/v1/rpc/docs_daily_maintenance', {
       method: 'POST',
       body: '{}',
     });
-    const pruned = await call('/rest/v1/rpc/docs_prune_activity', { method: 'POST', body: '{}' });
-    return res
-      .status(200)
-      .json({ ok: true, purged: Number(purged || 0), pruned: Number(pruned || 0) });
+    let files = 0;
+    try {
+      files = await cleanupDeletedFiles(call);
+    } catch {
+      /* Remaining files are retried on the next run. */
+    }
+    return res.status(200).json({ ok: true, ...maintenance, files });
   } catch (error) {
     return res.status(error.status || 500).json({ error: error.message || 'Cleanup failed.' });
   }

@@ -1,0 +1,293 @@
+/* Access: teams, people and content on one page. Quiet list on the left, detail on the right. */
+.access-page {
+  max-width: 1120px;
+}
+.access-tabs {
+  display: flex;
+  gap: 20px;
+  margin: 4px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+.access-tabs a {
+  margin-bottom: -1px;
+  padding: 8px 0 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.access-tabs a:hover {
+  color: var(--ink);
+}
+.access-tabs a.active {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+}
+.access-split {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.access-list {
+  position: sticky;
+  top: calc(var(--header, 56px) + 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: calc(100vh - var(--header, 56px) - 40px);
+  overflow: auto;
+  padding-right: 4px;
+}
+.access-filter {
+  margin-bottom: 8px;
+}
+.access-list .rail-label {
+  margin: 14px 0 4px 10px;
+}
+.access-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px 6px calc(10px + var(--depth, 0) * 14px);
+  border-radius: var(--control-radius, 8px);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+.access-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.access-item > small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.access-item:hover {
+  background: var(--hover-surface);
+}
+.access-item.active {
+  background: var(--active-surface);
+  font-weight: 600;
+}
+.access-item[hidden] {
+  display: none;
+}
+.access-detail {
+  min-width: 0;
+}
+.access-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.access-title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+}
+.access-detail-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.access-section {
+  margin-top: 24px;
+}
+.access-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.access-section-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.access-tablewrap {
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius, 12px);
+  overflow: hidden;
+}
+.access-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.access-table td {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+  font-size: 14px;
+}
+.access-table tr:first-child td {
+  border-top: 0;
+}
+.access-table td strong {
+  display: block;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.access-table td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.access-cell-level {
+  width: 130px;
+  color: var(--muted);
+}
+.access-cell-action {
+  width: 44px;
+  text-align: right;
+}
+.access-level {
+  width: 100%;
+  min-width: 108px;
+  height: 32px;
+  font-size: 13px;
+}
+.access-remove {
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+}
+.access-remove:hover {
+  color: var(--danger);
+}
+.access-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--panel-radius, 12px);
+  color: var(--muted);
+  font-size: 13px;
+}
+.access-general {
+  max-width: 320px;
+  margin-top: 16px;
+}
+.access-person-form {
+  margin-top: 16px;
+}
+.access-person-form .toolbar-actions {
+  margin-top: 4px;
+}
+.access-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.access-dialog-target {
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+/* Share dialog: people and teams with a level each. */
+.share-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  gap: 8px;
+}
+.share-people {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  margin-bottom: 12px;
+  overflow: auto;
+}
+.share-person {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.share-person > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.share-person small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+/* Account: devices */
+.device-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.device-row:first-of-type {
+  border-top: 0;
+}
+.device-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.device-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--subtle);
+  color: var(--muted);
+}
+.devices-card > .small {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+@media (max-width: 900px) {
+  .access-split {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .access-list {
+    position: static;
+    max-height: 260px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius, 12px);
+  }
+  .access-tabs {
+    gap: 16px;
+    overflow-x: auto;
+  }
+}
+@media (max-width: 560px) {
+  .access-detail-head {
+    flex-direction: column;
+  }
+  .access-table td {
+    padding: 10px;
+  }
+  .access-cell-level {
+    width: 112px;
+  }
+  .share-add {
+    grid-template-columns: minmax(0, 1fr) 104px;
+  }
+  .share-add .btn {
+    grid-column: 1 / -1;
+  }
+  .share-person {
+    grid-template-columns: minmax(0, 1fr) 104px 30px;
+  }
+}

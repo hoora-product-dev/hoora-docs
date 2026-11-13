@@ -31,8 +31,6 @@ export function markdownWithOutline(input) {
   });
   return { html: container.innerHTML, outline };
 }
-export const canEdit = (role) => ['admin', 'publisher'].includes(role);
-export const canPublish = (role) => ['admin', 'publisher'].includes(role);
 export const versionKey = (value) =>
   String(value || '')
     .trim()

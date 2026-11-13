@@ -52,39 +52,29 @@ export default async function handler(req, res) {
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
-    if (!['delete', 'purge', 'delete-project', 'cleanup'].includes(body.action))
+    if (!['delete', 'delete-project'].includes(body.action))
       return res.status(400).json({ error: 'Invalid content action.' });
-    if (['purge', 'delete-project', 'cleanup'].includes(body.action) && member.role !== 'admin')
+    if (body.action === 'delete-project' && member.role !== 'admin')
       return res.status(403).json({ error: 'Administrator access required.' });
-    if (body.action !== 'cleanup') {
-      if (!/^[a-f0-9-]{36}$/i.test(body.id || ''))
-        return res.status(400).json({ error: 'Invalid document.' });
-      if (body.action === 'delete-project')
-        await call('/rest/v1/rpc/docs_trash_project', {
-          method: 'POST',
-          headers: { Authorization: req.headers.authorization },
-          body: JSON.stringify({ project: body.id }),
-        });
-      else if (body.action === 'purge')
-        await call('/rest/v1/docs_pages?id=eq.' + body.id, {
-          method: 'DELETE',
-          headers: { Authorization: req.headers.authorization },
-        });
-      else
-        await call('/rest/v1/rpc/docs_trash', {
-          method: 'POST',
-          headers: { Authorization: req.headers.authorization },
-          body: JSON.stringify({ document_id: body.id }),
-        });
-    }
-    // Purging is deliberately separate from trashing. The database function
-    // only removes items whose 30-day retention window has elapsed and queues
-    // their document folder for Storage cleanup through the existing trigger.
-    if (body.action === 'cleanup') {
-      await call('/rest/v1/rpc/docs_purge_expired_trash', {
+    if (!/^[a-f0-9-]{36}$/i.test(body.id || ''))
+      return res.status(400).json({ error: 'Invalid document.' });
+    // Deletes are permanent. Row-level security allows them only with Manage access,
+    // and the database queues the document's files for removal below.
+    if (body.action === 'delete-project')
+      await call('/rest/v1/rpc/docs_delete_project', {
         method: 'POST',
-        body: '{}',
+        headers: { Authorization: req.headers.authorization },
+        body: JSON.stringify({ project: body.id }),
       });
+    else {
+      const removed = await call('/rest/v1/docs_pages?id=eq.' + body.id + '&select=id', {
+        method: 'DELETE',
+        headers: { Authorization: req.headers.authorization, Prefer: 'return=representation' },
+      });
+      if (!removed?.length)
+        return res
+          .status(403)
+          .json({ error: 'Manage access is required to delete this document.' });
     }
     let cleaned = 0;
     try {
