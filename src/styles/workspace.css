@@ -376,29 +376,13 @@ select:focus-visible {
   line-height: 1.4;
 }
 
-/* Revamped Permissions Command Center - Clean, Modern & 100% Mobile Responsive */
-
-/* Stat Metrics Bar */
-
-/* Underline Tab Navigation - Crisp & Never Wraps */
-
-/* Panel Header & Search Toolbar */
-
-/* Table Enhancements */
-
-/* Pills & Badges */
-
-/* Responsive Grids */
-
-/* Segmented Control Pill Toggle (Modal Dialogs) - Guaranteed Contrast */
-
-/* Mobile Responsiveness */
+/* Phones: header actions take the full row, except in the Library header, which keeps title and actions on one line. */
 @media (max-width: 768px) {
-  .view-heading .toolbar-actions {
+  .view-heading:not(.library-heading) .toolbar-actions {
     width: 100%;
     margin-top: 6px;
   }
-  .view-heading .toolbar-actions .btn {
+  .view-heading:not(.library-heading) .toolbar-actions .btn {
     width: 100%;
     justify-content: center;
   }

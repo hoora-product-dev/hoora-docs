@@ -434,14 +434,34 @@ export function accessFeature({
         const rows = [];
         for (const [key, entry] of Object.entries(report.collections || {}))
           if (entry.level) rows.push([COLLECTIONS[key], entry]);
+        // Only list what adds access beyond its parent, so one team grant is one row.
+        const levelOf = (entry) => Number(entry?.level) || 0;
+        const releases = levelOf(report.collections?.release);
         for (const [id, entry] of Object.entries(report.projects || {}))
-          if (entry.level >= 2)
+          if (levelOf(entry) > releases)
             rows.push([`Release notes · ${platformName(projectOf(id)?.name || '')}`, entry]);
-        for (const [id, entry] of Object.entries(report.folders || {}))
-          if (entry.level) rows.push([`Folder · ${folderOf(id)?.name || ''}`, entry]);
-        for (const [id, entry] of Object.entries(report.pages || {}))
-          if (entry.level >= 2 || (entry.via && !/Everyone|Administrator/.test(entry.via)))
-            rows.push([pageTitle(pageOf(id)), entry]);
+        const folderLevel = (folderId) =>
+          folderChain(folderId).reduce(
+            (max, f) => Math.max(max, levelOf(report.folders?.[f.id])),
+            0,
+          );
+        for (const [id, entry] of Object.entries(report.folders || {})) {
+          const parent = folderOf(id)?.parent_id;
+          if (levelOf(entry) > (parent ? folderLevel(parent) : 0))
+            rows.push([`Folder · ${folderOf(id)?.name || ''}`, entry]);
+        }
+        for (const [id, entry] of Object.entries(report.pages || {})) {
+          const page = pageOf(id);
+          if (!page) continue;
+          const release = releaseOf(id);
+          const inherited = Math.max(
+            levelOf(report.collections?.[page.kind]),
+            release ? levelOf(report.projects?.[release.project_id]) : 0,
+            folderLevel(page.folder_id),
+            page.kind === 'release' || page.visibility === 'private' ? 1 : 0,
+          );
+          if (levelOf(entry) > inherited) rows.push([pageTitle(page), entry]);
+        }
         effective = section(
           'Effective access',
           table(
@@ -613,7 +633,7 @@ export function accessFeature({
         ? entries
             .map(
               (entry, index) =>
-                `<div class="share-person"><span>${e(label(entry))}<small>${entry.team_id ? 'Team' : e(entry.email)}</small></span>${levelSelect(`data-share-level="${index}"`, entry.level, mine, `Access for ${label(entry)}`)}${removeButton(`data-share-remove="${index}"`, `Remove ${label(entry)}`)}</div>`,
+                `<div class="share-person"><span>${e(label(entry))}${entry.team_id ? '<small>Team</small>' : label(entry) !== entry.email ? `<small>${e(entry.email)}</small>` : ''}</span>${levelSelect(`data-share-level="${index}"`, entry.level, mine, `Access for ${label(entry)}`)}${removeButton(`data-share-remove="${index}"`, `Remove ${label(entry)}`)}</div>`,
             )
             .join('')
         : '<p class="access-empty">No one added yet.</p>';

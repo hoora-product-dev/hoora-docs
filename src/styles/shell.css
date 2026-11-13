@@ -305,8 +305,6 @@
   background: transparent;
 }
 
-/* Grouped team permissions */
-
 /* Library rows: title (with exception badges), summary, updated date. */
 .document-table .document-row,
 #document-list .document-row {
@@ -543,11 +541,6 @@
     font-size: 16px !important;
   }
 }
-/* Keep hidden form labels inside the board's own scroll area. */
-
-/* Team canvas: Unassigned on the left, every team visible as a card grid. */
-
-/* Team board: a whiteboard canvas with Unassigned docked on the left. */
 
 /* Activity: installed apps and notification devices in use */
 .device-stats {
@@ -621,7 +614,7 @@
   }
 }
 
-/* Disclosure chevron for the role guide, and quiet scrollbars on wide tables. */
+/* Quiet scrollbars on wide tables. */
 .tablewrap {
   scrollbar-width: thin;
 }
