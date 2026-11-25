@@ -82,30 +82,21 @@ test('Announcement template escapes contributor content and includes the public 
   assert.ok(!mail.html.includes('HC-1'), 'Ticket keys stay out of the email');
   assert.ok(!/test preview|restricted to/i.test(mail.html));
   assert.ok(!mail.body.includes('<html'), 'The copyable body is a fragment');
+  assert.ok(!/<div[^>]*(width|height):/.test(mail.body), 'Sized shapes are table cells');
+  assert.ok(!/<a [^>]*padding/.test(mail.body), 'Buttons are padded cells, not padded links');
+  assert.ok(!mail.body.includes('<!--'), 'No Outlook-only markup that a paste would drop');
 });
-test('Open in Outlook only creates a draft with no recipients and never sends', async () => {
+test('Announcements are preview only: no Outlook draft and no Microsoft Graph call', async () => {
   process.env.SUPABASE_URL = 'https://test.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'server';
-  process.env.MICROSOFT_TENANT_ID = 'tenant';
   const original = fetch;
-  let draft;
-  const graphCalls = [];
-  globalThis.fetch = async (url, options = {}) => {
+  const external = [];
+  globalThis.fetch = async (url) => {
     let data = {};
-    if (url.startsWith('https://graph.microsoft.com')) graphCalls.push(url);
+    if (!url.startsWith('https://test.supabase.co')) external.push(url);
     if (url.endsWith('/auth/v1/user')) data = { id: 'member' };
     else if (url.includes('/docs_members'))
-      data = [
-        {
-          id: 'member',
-          active: true,
-          role: 'admin',
-          password_setup_complete: true,
-          auth_source: 'microsoft',
-          microsoft_subject: 'subject',
-          name: 'Rahul',
-        },
-      ];
+      data = [{ id: 'member', active: true, role: 'admin', password_setup_complete: true }];
     else if (url.includes('/docs_published'))
       data = [
         {
@@ -114,16 +105,10 @@ test('Open in Outlook only creates a draft with no recipients and never sends', 
           slug: 'release',
           kind: 'release',
           version: '5.11.0',
-          summary: 'Changes',
           published_at: '2026-11-05',
           release_snapshot: { project: 'Customer App', entries: [] },
         },
       ];
-    else if (url.includes('/oidc/userinfo')) data = { sub: 'subject' };
-    else if (url.endsWith('/me/messages')) {
-      draft = JSON.parse(options.body);
-      data = { id: 'draft-id', webLink: 'https://outlook.office365.com/owa/?ItemID=draft-id' };
-    }
     return new Response(JSON.stringify(data));
   };
   const res = {
@@ -137,36 +122,21 @@ test('Open in Outlook only creates a draft with no recipients and never sends', 
     },
   };
   try {
-    const token = (scp) =>
-      'x.' + Buffer.from(JSON.stringify({ tid: 'tenant', scp })).toString('base64url') + '.x';
-    const body = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', action: 'draft' };
     await handler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer s' },
-        body: { ...body, providerToken: token('User.Read Mail.Send') },
+        body: {
+          id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          action: 'draft',
+          providerToken: 'x.y.z',
+        },
       },
       res,
     );
     assert.equal(res.code, 400);
-    assert.match(res.data.error, /permission/);
-    await handler(
-      {
-        method: 'POST',
-        headers: { authorization: 'Bearer s' },
-        body: { ...body, providerToken: token('User.Read Mail.ReadWrite') },
-      },
-      res,
-    );
-    assert.equal(res.code, 200, JSON.stringify(res.data));
-    assert.match(res.data.webLink, /ItemID=draft-id/);
-    assert.equal(draft.subject, 'Customer App v5.11.0 is now live');
-    assert.equal(draft.toRecipients, undefined);
-    assert.equal(draft.bccRecipients, undefined);
-    assert.ok(
-      !graphCalls.some((url) => url.includes('sendMail') || url.endsWith('/send')),
-      'Nothing is ever sent',
-    );
+    assert.match(res.data.error, /Invalid action/);
+    assert.deepEqual(external, [], 'Nothing reaches Microsoft Graph');
   } finally {
     globalThis.fetch = original;
   }

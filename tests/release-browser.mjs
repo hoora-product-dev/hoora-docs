@@ -141,7 +141,7 @@ try {
   await p.goto(base + '/announce');
   await p.getByRole('heading', { name: 'Announce a release' }).waitFor();
   assert.equal(await p.getByRole('button', { name: 'Copy email' }).count(), 1);
-  assert.equal(await p.getByRole('button', { name: 'Open in Outlook' }).count(), 1);
+  assert.equal(await p.getByRole('button', { name: 'Open in Outlook' }).count(), 0);
   await p.screenshot({ path: 'test-results/admin-announce.png' });
   console.log('PASS Administrator announce page previews the email without sending');
   assert.deepEqual(errors, []);

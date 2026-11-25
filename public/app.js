@@ -423,7 +423,6 @@ async function getToken() {
       const d = await r.json();
       if (!r.ok) {
         saveSession(null);
-        sessionStorage.removeItem('hoora-outlook-token');
         searchService.clear();
         state.member = null;
         throw new Error('Your session expired. Please sign in again.');
@@ -705,7 +704,6 @@ const announce = announceFeature({
   toast: (...args) => toast(...args),
   busy: (...args) => busy(...args),
   releases: () => releaseRecords(true),
-  connectOutlook: () => startMicrosoftSignIn(true),
 });
 const maker = makerFeature({
   state,
@@ -1576,19 +1574,7 @@ async function completeMicrosoftSignIn() {
         localStorage.setItem(`hoora-avatar:${session.user.id}`, verified.avatar);
       } catch {}
     }
-    const outlookReturn = sessionStorage.getItem('hoora-outlook-return');
-    if (outlookReturn) {
-      sessionStorage.setItem('hoora-outlook-token', provider_token);
-      sessionStorage.setItem('hoora-outlook-connected', '1');
-      sessionStorage.removeItem('hoora-outlook-return');
-    }
-    history.replaceState(
-      null,
-      '',
-      outlookReturn
-        ? '/#/announce?release=' + encodeURIComponent(outlookReturn)
-        : '/' + completeLoginRoute(),
-    );
+    history.replaceState(null, '', '/' + completeLoginRoute());
   } catch (err) {
     saveSession(null);
     state.authError = err.message;
@@ -1598,15 +1584,13 @@ async function completeMicrosoftSignIn() {
     sessionStorage.removeItem('hoora-oauth-user');
   }
 }
-async function startMicrosoftSignIn(mail = false) {
+async function startMicrosoftSignIn() {
   const { error } = await (
     await oauth()
   ).auth.signInWithOAuth({
     provider: 'azure',
     options: {
-      scopes:
-        'email profile https://graph.microsoft.com/User.Read' +
-        (mail ? ' https://graph.microsoft.com/Mail.ReadWrite' : ''),
+      scopes: 'email profile https://graph.microsoft.com/User.Read',
       redirectTo: location.origin + '/?auth_callback=1',
     },
   });
@@ -2112,7 +2096,7 @@ async function account() {
       return team ? `${e(team.name)} · ${e(roleName(m.role))}` : '';
     })
     .filter(Boolean);
-  return `<div class="layout">${settingsSidebar('account')}<main id="main" class="content account-content"><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Access</h2><a class="btn text small" href="#/access">Teams</a></div><p>${e(roleName(state.member.role))}${memberships.length ? '<br>' + memberships.join('<br>') : ' · Not in a team yet'}</p></section>${await access.devicesSection()}<section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in and Outlook use your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
+  return `<div class="layout">${settingsSidebar('account')}<main id="main" class="content account-content"><h1>Your account</h1><p class="subtitle">${e(state.member.name)} · ${e(state.member.email)}</p><section class="setting-card"><div class="section-top"><h2>Access</h2><a class="btn text small" href="#/access">Teams</a></div><p>${e(roleName(state.member.role))}${memberships.length ? '<br>' + memberships.join('<br>') : ' · Not in a team yet'}</p></section>${await access.devicesSection()}<section class="setting-card"><h2>Password</h2>${passwordForm()}</section>${state.member.auth_source === 'microsoft' ? '<section class="setting-card"><h2>Microsoft account</h2><p>Company sign-in uses your Microsoft work account.</p><a class="btn outline" href="https://myaccount.microsoft.com/" target="_blank" rel="noopener noreferrer">Manage Microsoft account</a></section>' : ''}</main></div>`;
 }
 function releaseHub() {
   return releaseTimeline();
@@ -2915,7 +2899,6 @@ document.addEventListener('click', async (ev) => {
         await api('/auth/v1/logout', { method: 'POST' });
       } finally {
         saveSession(null);
-        sessionStorage.removeItem('hoora-outlook-token');
         files.clear();
         markWorkspaceStale();
         state.member = null;
