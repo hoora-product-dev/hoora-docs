@@ -72,9 +72,15 @@ test('Announcement template escapes contributor content and includes the public 
   assert.match(mail.html, /Rahul Tripathi/);
   assert.match(mail.html, /View release notes/);
   assert.match(mail.html, /Install Hoora Docs/);
-  assert.match(mail.html, /Product &amp; Tech teams/);
+  assert.match(mail.html, /Product &amp; Tech teams<\/span>/, 'Two teams working together');
   assert.match(mail.html, /Shipped by the/);
-  assert.match(mail.html, /Hoora Docs<\/a> &middot; Rahul Tripathi/);
+  // The footer: "From the desk of Rahul Tripathi", the name linked to his profile.
+  assert.match(
+    mail.html,
+    /class="foot"[^>]*>From the desk of <a href="https:\/\/rahul-tripathi\.web\.app\/"[^>]*>Rahul Tripathi<\/a><\/td>/,
+  );
+  assert.ok(!/Sent with|Hoora Docs<\/a> by|Curated|On behalf of/.test(mail.html));
+  assert.match(mail.text, /\n\nFrom the desk of Rahul Tripathi$/);
   assert.ok(!mail.html.includes('Reply to this email'));
   assert.ok(!mail.body.includes('display:none'), 'The copy has no hidden preview text');
   assert.ok(mail.html.includes('https://release.hoora.in/install'));
@@ -140,4 +146,84 @@ test('Announcements are preview only: no Outlook draft and no Microsoft Graph ca
   } finally {
     globalThis.fetch = original;
   }
+});
+test('Release email has an "Issues or feedback? Let us know" strip that opens an email to Rahul', () => {
+  const release = (project) =>
+    announcement({
+      slug: 'release',
+      kind: 'release',
+      version: '5.13.0',
+      published_at: '2026-11-25',
+      release_snapshot: {
+        project,
+        entries: [{ vertical: 'Auto Care', body: '### 1. Change one\n### 2. Change two' }],
+      },
+    });
+  const mailto = (project) =>
+    `href="mailto:rahul@hoora.me?subject=${encodeURIComponent(`${project} v5.13.0 - Issue or feedback`)}"`;
+
+  for (const project of ['Customer App', 'Hoora on Web']) {
+    const mail = release(project);
+    assert.ok(mail.body.includes(mailto(project)), 'Opens an email with the release as subject');
+    assert.match(mail.body, /Issues or feedback\?<\/td>/);
+    assert.match(mail.body, /<a [^>]*>Let us know &rarr;<\/a>/);
+    // A soft strip: a table cell with its own background, which survives a paste into Outlook.
+    assert.match(
+      mail.body,
+      /<td class="note" bgcolor="#f7f7f8"[^>]*>(?:(?!<\/td>).)*Issues or feedback\?/,
+    );
+    const strip = mail.body.indexOf('Issues or feedback');
+    assert.ok(strip < mail.body.indexOf('Shipped by the'), 'Just before the credits');
+    assert.equal(mail.body.split('Issues or feedback').length, 2, 'Shown once');
+    assert.match(
+      mail.body,
+      /class="foot"[^>]*>From the desk of <a [^>]*>Rahul Tripathi<\/a><\/td>/,
+    );
+    assert.match(
+      mail.text,
+      /\n\nIssues or feedback\? Let us know: rahul@hoora\.me\n\nShipped by the Product & Tech teams\n\nFrom the desk of Rahul Tripathi$/,
+    );
+  }
+  const app = release('Customer App');
+  assert.ok(
+    app.body.indexOf('Issues or feedback') > app.body.indexOf('Download on the App Store'),
+    'Under the store badges',
+  );
+});
+test('Release email lists the highlights openly and the main button counts all the changes', () => {
+  const release = (count) =>
+    announcement({
+      slug: 'release',
+      kind: 'release',
+      version: '5.13.0',
+      published_at: '2026-11-25',
+      release_snapshot: {
+        project: 'Customer App',
+        entries: [
+          {
+            vertical: 'Auto Care',
+            body: Array.from({ length: count }, (_, i) => `### ${i + 1}. Change ${i + 1}`).join(
+              '\n',
+            ),
+          },
+        ],
+      },
+    });
+  const many = release(40);
+  // The main button carries the count when the list shows only some of the changes.
+  assert.equal(
+    many.body.match(/<a href="([^"]+)"[^>]*>View all 40 changes<\/a>/)?.[1],
+    many.url,
+    'The button opens the release notes',
+  );
+  assert.ok(!many.body.includes('View release notes'));
+  assert.ok(
+    !/class="list"|View all &rarr;|more change/.test(many.body),
+    'No boxed list or extra row',
+  );
+  assert.match(many.text, /- Change 4 \(Auto Care\)\n\nView all 40 changes: /);
+  // When every change is listed, the button keeps its usual label.
+  const few = release(4);
+  assert.match(few.body, />View release notes<\/a>/);
+  assert.ok(!few.body.includes('View all'));
 });
