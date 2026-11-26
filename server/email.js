@@ -10,8 +10,12 @@ const esc = (value) =>
 const FONT =
   "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const HIGHLIGHTS = 4;
-// Where readers send an issue or feedback about a release.
-const FEEDBACK_EMAIL = 'rahul@hoora.me';
+// Who readers reach about an issue or feedback: everyone by email, or Rahul in a Teams chat.
+const FEEDBACK = {
+  to: ['rahul@hoora.me', 'deep@hoora.me'],
+  cc: ['product@hoora.in', 'jyotindra@hoora.me'],
+  teams: 'rahul@hoora.me',
+};
 // The footer: "From the desk of Rahul Tripathi", the name linked to his profile.
 const SIGN_OFF = 'From the desk of';
 const AUTHOR = { name: 'Rahul Tripathi', url: 'https://rahul-tripathi.web.app/' };
@@ -128,10 +132,15 @@ export function announcement(page, origin = 'https://release.hoora.in', highligh
     )
     .join('');
 
-  // "Issues or feedback? Let us know": the link opens an email with this release as the subject.
-  const feedback = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(`${platform} ${version} - Issue or feedback`.replace(/\s+/g, ' ').trim())}`;
-  // A soft strip just before the credits: question on the left, link on the right.
-  const feedbackRow = `<tr><td class="pad" style="padding:0 36px 24px;${FONT}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="note" bgcolor="#f7f7f8" style="background-color:#f7f7f8;border-radius:12px;padding:12px 16px;${FONT}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="muted" valign="middle" style="font-size:13px;line-height:20px;color:#6b6b6b;${FONT}">Issues or feedback?</td><td align="right" valign="middle" style="font-size:13px;line-height:20px;white-space:nowrap;padding-left:12px;${FONT}"><a href="${esc(feedback)}" class="ink" style="color:#111111;font-weight:600;text-decoration:none;${FONT}">Let us know &rarr;</a></td></tr></table></td></tr></table></td></tr>`;
+  // "Issues or feedback? Let us know" with two links: Email opens a message to everyone with
+  // this release as the subject; Teams opens a chat with Rahul with the release typed in.
+  const release = `${platform} ${version}`.replace(/\s+/g, ' ').trim();
+  const feedbackEmail = `mailto:${FEEDBACK.to.join(',')}?cc=${FEEDBACK.cc.join(',')}&subject=${encodeURIComponent(`${release} - Issue or feedback`)}`;
+  const feedbackTeams = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(FEEDBACK.teams)}&message=${encodeURIComponent(`${release}: `)}`;
+  const feedbackLink = (href, label) =>
+    `<td valign="middle" style="font-size:13px;line-height:20px;white-space:nowrap;${FONT}"><a href="${esc(href)}" class="ink" style="color:#111111;font-weight:600;text-decoration:none;${FONT}">${label}</a></td>`;
+  // A soft strip just before the credits: the question on the left, the two links on the right.
+  const feedbackRow = `<tr><td class="pad" style="padding:0 36px 24px;${FONT}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="note" bgcolor="#f7f7f8" style="background-color:#f7f7f8;border-radius:12px;padding:12px 16px;${FONT}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="muted" valign="middle" style="font-size:13px;line-height:20px;color:#6b6b6b;${FONT}">Issues or feedback? Let us know</td><td align="right" valign="middle" style="padding-left:12px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${feedbackLink(feedbackEmail, 'Email')}<td class="muted" valign="middle" style="padding:0 10px;font-size:13px;line-height:20px;color:#c4c4c8;${FONT}">|</td>${feedbackLink(feedbackTeams, 'Teams')}</tr></table></td></tr></table></td></tr></table></td></tr>`;
 
   const badges = store
     ? `<tr><td class="pad line" style="padding:28px 36px 24px;border-top:1px solid #efefef;${FONT}"><p class="muted" style="margin:0 0 14px;font-size:12px;line-height:16px;font-weight:600;color:#737373;letter-spacing:0.2px;${FONT}">Update ${esc(store.name)}</p><table role="presentation" cellpadding="0" cellspacing="0"><tr>${store.android ? `<td style="padding:0 10px 0 0"><a href="${esc(store.android)}" style="text-decoration:none"><img src="${origin}/email/google-play.png" width="134" height="40" alt="Get it on Google Play" style="display:block;border:0;width:134px;height:40px"></a></td>` : ''}${store.ios ? `<td><a href="${esc(store.ios)}" style="text-decoration:none"><img src="${origin}/email/app-store.png" width="120" height="40" alt="Download on the App Store" style="display:block;border:0;width:120px;height:40px"></a></td>` : ''}</tr></table></td></tr>`
@@ -162,7 +171,7 @@ a{text-decoration:none}
 [data-ogsc] .ink{color:#f2f2f2!important}[data-ogsc] .muted{color:#9a9a9a!important}[data-ogsb] .card{background:#161616!important}
 </style></head><body style="margin:0;padding:0;background:#f3f3f4">${hidden}${body}</body></html>`;
 
-  const feedbackText = `Issues or feedback? Let us know: ${FEEDBACK_EMAIL}`;
+  const feedbackText = `Issues or feedback? Let us know by email to ${FEEDBACK.to.join(', ')} (cc ${FEEDBACK.cc.join(', ')}) or on Teams: ${feedbackTeams}`;
   const text = [
     `${platform} ${version} is now live`,
     released,

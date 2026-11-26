@@ -147,7 +147,7 @@ test('Announcements are preview only: no Outlook draft and no Microsoft Graph ca
     globalThis.fetch = original;
   }
 });
-test('Release email has an "Issues or feedback? Let us know" strip that opens an email to Rahul', () => {
+test('Release email asks for issues or feedback by email or in a Teams chat', () => {
   const release = (project) =>
     announcement({
       slug: 'release',
@@ -159,14 +159,19 @@ test('Release email has an "Issues or feedback? Let us know" strip that opens an
         entries: [{ vertical: 'Auto Care', body: '### 1. Change one\n### 2. Change two' }],
       },
     });
-  const mailto = (project) =>
-    `href="mailto:rahul@hoora.me?subject=${encodeURIComponent(`${project} v5.13.0 - Issue or feedback`)}"`;
-
+  const enc = encodeURIComponent;
   for (const project of ['Customer App', 'Hoora on Web']) {
     const mail = release(project);
-    assert.ok(mail.body.includes(mailto(project)), 'Opens an email with the release as subject');
-    assert.match(mail.body, /Issues or feedback\?<\/td>/);
-    assert.match(mail.body, /<a [^>]*>Let us know &rarr;<\/a>/);
+    const name = `${project} v5.13.0`;
+    // Email: to Rahul and Deep, Product and Jyotindra in CC, the release as the subject.
+    const mailto = `mailto:rahul@hoora.me,deep@hoora.me?cc=product@hoora.in,jyotindra@hoora.me&amp;subject=${enc(`${name} - Issue or feedback`)}`;
+    assert.ok(mail.body.includes(`href="${mailto}"`), 'Email button');
+    // Teams: a one-to-one chat with Rahul, the release name already typed in.
+    const teams = `https://teams.microsoft.com/l/chat/0/0?users=rahul%40hoora.me&amp;message=${enc(`${name}: `)}`;
+    assert.ok(mail.body.includes(`href="${teams}"`), 'Teams link');
+    assert.match(mail.body, /Issues or feedback\? Let us know<\/td>/);
+    assert.match(mail.body, /<a href="mailto:[^"]*"[^>]*>Email<\/a>/);
+    assert.match(mail.body, /<a href="https:\/\/teams\.microsoft\.com[^"]*"[^>]*>Teams<\/a>/);
     // A soft strip: a table cell with its own background, which survives a paste into Outlook.
     assert.match(
       mail.body,
@@ -175,13 +180,17 @@ test('Release email has an "Issues or feedback? Let us know" strip that opens an
     const strip = mail.body.indexOf('Issues or feedback');
     assert.ok(strip < mail.body.indexOf('Shipped by the'), 'Just before the credits');
     assert.equal(mail.body.split('Issues or feedback').length, 2, 'Shown once');
+    assert.ok(
+      !/class="btn-secondary"[^>]*>(?:(?!<\/td>).)*>(Email|Teams)</.test(mail.body),
+      'Plain links, not boxed buttons',
+    );
     assert.match(
       mail.body,
       /class="foot"[^>]*>From the desk of <a [^>]*>Rahul Tripathi<\/a><\/td>/,
     );
     assert.match(
       mail.text,
-      /\n\nIssues or feedback\? Let us know: rahul@hoora\.me\n\nShipped by the Product & Tech teams\n\nFrom the desk of Rahul Tripathi$/,
+      /\n\nIssues or feedback\? Let us know by email to rahul@hoora\.me, deep@hoora\.me \(cc product@hoora\.in, jyotindra@hoora\.me\) or on Teams: https:\/\/teams\.microsoft\.com\/l\/chat\/0\/0\?users=rahul%40hoora\.me&message=[^\n]+\n\nShipped by the Product & Tech teams\n\nFrom the desk of Rahul Tripathi$/,
     );
   }
   const app = release('Customer App');
