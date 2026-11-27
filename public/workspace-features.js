@@ -21,11 +21,52 @@ export function workspaceFeatures({
       ? `${p.release_snapshot.project}${p.version ? ' v' + String(p.version).replace(/^v/i, '') : ''} released`
       : p?.title || 'New Hoora Docs update';
   let showAllNotices = false;
+  // Teams, for administrators and Product Team managers (the server decides; the buttons stay
+  // hidden until it says yes). Test on Teams sends the card to yourself, 10 times a day.
+  // Send on Teams sends it to everyone, once per release in 24 hours, whoever presses it.
+  const canAskTeams = (p) =>
+    p?.kind === 'release' && (state.member?.role === 'admin' || canNotify(p));
+  const teamsTime = (value) =>
+    new Date(value).toLocaleString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      day: 'numeric',
+      month: 'short',
+    });
+  const teamsStatus = (id) =>
+    appApi('/api/notifications', { id, action: 'teams-status' }, { readOnly: true });
+  const teamsAudience = (status) =>
+    status.everyone?.people !== undefined
+      ? `everyone at Hoora who has Hoora Releases in Teams (${status.everyone.people} ${status.everyone.people === 1 ? 'person' : 'people'})`
+      : `${status.everyone?.only} (test flow)`;
+  function showTeamsStatus(group, status) {
+    group.teamsStatus = status;
+    group.hidden = !status.allowed;
+    if (!status.allowed) return;
+    const test = group.querySelector('[data-hub-action="teams-test"]');
+    const send = group.querySelector('[data-hub-action="teams"]');
+    const { used = 0, limit = 10 } = status.tests || {};
+    test.disabled = !status.ready || used >= limit;
+    test.title = !status.ready
+      ? 'Teams sending is not set up yet.'
+      : `Sends this release to you only, to check how it looks. ${used} of ${limit} tests used in the last 24 hours.`;
+    send.disabled = !status.ready || Boolean(status.last);
+    send.textContent = status.last ? 'Sent on Teams' : 'Send on Teams';
+    send.title = !status.ready
+      ? 'Teams sending is not set up yet.'
+      : status.last
+        ? `Sent${status.last.by ? ' by ' + status.last.by.replace(/\s+/g, ' ') : ''} at ${teamsTime(status.last.at)}. It can be sent again after ${teamsTime(status.last.next)}.`
+        : `Sends this release to ${teamsAudience(status)}.`;
+  }
   function pageTools(p) {
     if (!state.member) return '';
-    return `<section class="related-knowledge" data-related-page="${p.id}"></section><div class="knowledge-page-tools">${canNotify(p) ? `<button class="btn text" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${canDelete(p) ? `<button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete</button>` : ''}</div>`;
+    return `<section class="related-knowledge" data-related-page="${p.id}"></section><div class="knowledge-page-tools">${canNotify(p) ? `<button class="btn text" data-hub-action="notify" data-id="${p.id}">Notify readers</button>` : ''}${canAskTeams(p) ? `<span class="teams-actions" data-teams-status="${p.id}" hidden><button class="btn text" data-hub-action="teams-test" data-id="${p.id}">Test on Teams</button><button class="btn text" data-hub-action="teams" data-id="${p.id}">Send on Teams</button></span>` : ''}${state.pages.some((d) => d.id === p.id && !d._readOnly) ? `<button class="btn text" data-hub-action="related" data-id="${p.id}">Related pages</button>` : ''}${canDelete(p) ? `<button class="btn text danger" data-hub-action="delete" data-id="${p.id}">Delete</button>` : ''}</div>`;
   }
   async function hydrate() {
+    for (const group of document.querySelectorAll('[data-teams-status]'))
+      teamsStatus(group.dataset.teamsStatus)
+        .then((status) => group.isConnected && showTeamsStatus(group, status))
+        .catch(() => {});
     for (const root of document.querySelectorAll('[data-related-page]')) {
       try {
         const id = root.dataset.relatedPage,
@@ -149,6 +190,43 @@ export function workspaceFeatures({
     if (type === 'push-disable') {
       await pwa.disable();
       await render();
+      return;
+    }
+    if (type === 'teams-test' || type === 'teams') {
+      const group = button.closest('[data-teams-status]');
+      const status = group.teamsStatus || (await teamsStatus(id));
+      showTeamsStatus(group, status);
+      if (button.disabled) return toast(button.title, true);
+      const refresh = async () => showTeamsStatus(group, await teamsStatus(id).catch(() => status));
+      if (type === 'teams-test') {
+        // A test goes to yourself only: no question asked.
+        const { used, limit } = await appApi(
+          '/api/notifications',
+          { id, action: 'teams-test' },
+          { readOnly: true },
+        );
+        toast(`Test sent to you on Teams (${used} of ${limit} in the last 24 hours).`);
+        await refresh();
+        return;
+      }
+      dialog(
+        `<h2>Send to everyone on Teams?</h2><p>Send “${e(noticeTitle(p))}” as a one-to-one Teams chat from ${e(status.sender)} to ${e(teamsAudience(status))}.</p><p class="small">Use Test on Teams first to see it yourself. A release can be sent to everyone once a day: after it is sent, nobody can send it again for 24 hours.</p><form><p class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="btn outline" data-close>Cancel</button><button class="btn dark">Send to everyone</button></div></form>`,
+        async () => {
+          const { sent, failed = [] } = await appApi(
+            '/api/notifications',
+            { id, action: 'teams-send' },
+            { readOnly: true },
+          );
+          toast(
+            `Sent on Teams to ${sent.length === 1 ? sent[0] : sent.length + ' people'}.` +
+              (failed.length
+                ? ` Not delivered to ${failed.length === 1 ? failed[0] : failed.length + ' people'}.`
+                : ''),
+            failed.length > 0,
+          );
+          await refresh();
+        },
+      );
       return;
     }
     if (type === 'notify') {

@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import handler from '../api/notifications.js';
 import { announcement } from '../server/email.js';
+import { releaseSigners, teamsCard, teamsPreview, teamsPayload } from '../server/teams.js';
 test('Publishers and viewers cannot preview or draft announcements', async () => {
   process.env.SUPABASE_URL = 'https://test.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'server';
@@ -19,7 +21,7 @@ test('Publishers and viewers cannot preview or draft announcements', async () =>
           ),
         );
       };
-      for (const action of ['preview', 'draft']) {
+      for (const action of ['preview', 'draft', 'teams-send']) {
         const res = {
           setHeader() {},
           status(n) {
@@ -235,4 +237,292 @@ test('Release email lists the highlights openly and the main button counts all t
   const few = release(4);
   assert.match(few.body, />View release notes<\/a>/);
   assert.ok(!few.body.includes('View all'));
+});
+
+const teamsRelease = (project, extra = {}) => ({
+  id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  slug: 'release',
+  kind: 'release',
+  version: '5.13.0',
+  published_at: '2026-11-25',
+  release_snapshot: {
+    project,
+    entries: [
+      {
+        vertical: 'Auto Care',
+        body: Array.from({ length: 6 }, (_, i) => `### ${i + 1}. Change ${i + 1}`).join('\n'),
+      },
+    ],
+  },
+  ...extra,
+});
+
+test('Teams card says what the release email says, with links to the live site', () => {
+  const card = teamsCard(teamsRelease('Customer App'));
+  assert.equal(card.type, 'AdaptiveCard');
+  assert.equal(card.version, '1.4');
+  const all = JSON.stringify(card);
+  for (const words of [
+    'Now live',
+    'Customer App',
+    'v5.13.0',
+    'What’s new',
+    'Change 1',
+    'Auto Care',
+  ])
+    assert.ok(all.includes(words), words);
+  assert.ok(!all.includes('Change 5'), 'Four highlights, like the email');
+  const actions = card.body
+    .filter((item) => item.type === 'ActionSet')
+    .flatMap((set) => set.actions);
+  assert.deepEqual(
+    actions.map((action) => [action.title, action.url]),
+    [
+      ['View all 6 changes', 'https://release.hoora.in/release-notes/5.13.0/customer-app'],
+      ['Install Hoora Docs', 'https://release.hoora.in/install'],
+    ],
+  );
+  assert.equal(actions[0].style, 'positive', 'The release notes button stands out');
+  // The store badges from the email, each image opening its store listing.
+  assert.ok(all.includes('"Update the Hoora app"'));
+  const badges = card.body
+    .filter((item) => item.type === 'ColumnSet')
+    .flatMap((set) => set.columns.flatMap((col) => col.items))
+    .filter((item) => item.type === 'Image' && item.selectAction);
+  assert.deepEqual(
+    badges.map((badge) => [badge.url, badge.selectAction.url]),
+    [
+      [
+        'https://release.hoora.in/email/google-play.png',
+        'https://play.google.com/store/apps/details?id=com.hoora.hoora_customer',
+      ],
+      [
+        'https://release.hoora.in/email/app-store.png',
+        'https://apps.apple.com/in/app/id1622615009',
+      ],
+    ],
+  );
+  for (const image of ['google-play.png', 'app-store.png'])
+    assert.ok(existsSync(new URL('../public/email/' + image, import.meta.url)), image);
+  // A local preview shows the card's own images from the local copy.
+  assert.ok(
+    teamsPreview(card, 'http://localhost:3000').includes(
+      '<a href="https://play.google.com/store/apps/details?id=com.hoora.hoora_customer"><img src="http://localhost:3000/email/google-play.png"',
+    ),
+  );
+  // Feedback opens a Teams chat with Rahul, the release typed in.
+  assert.ok(
+    all.includes(
+      'https://teams.microsoft.com/l/chat/0/0?users=rahul%40hoora.me&message=Customer%20App%20v5.13.0%3A%20',
+    ),
+  );
+  assert.match(all, /Shipped by the \*\*Product & Tech teams\*\*/);
+  // The sign-off is the last line: one centred line, no photo, the same on every release.
+  const signOff = card.body.at(-1);
+  assert.equal(signOff.type, 'TextBlock');
+  // Rahul's name opens his profile; Deepkumar's opens a Teams chat with him.
+  assert.equal(
+    signOff.text,
+    'From the desk of [Rahul Tripathi](https://rahul-tripathi.web.app/), [Deepkumar Mahajan](https://teams.microsoft.com/l/chat/0/0?users=deep%40hoora.me)',
+  );
+  assert.equal(signOff.horizontalAlignment, 'Center');
+  assert.equal(signOff.separator, true);
+  // No photo: the only round image is the Hoora logo at the top.
+  assert.equal(all.match(/"style":"Person"/g).length, 1);
+  assert.ok(!all.includes('rahul-tripathi.jpg'));
+  assert.match(teamsPreview(card), /text-align:center;[^>]*>From the desk of <a /);
+  assert.ok(!all.includes('localhost'));
+  assert.deepEqual(teamsPayload(card).attachments[0], {
+    contentType: 'application/vnd.microsoft.card.adaptive',
+    contentUrl: null,
+    content: card,
+  });
+});
+
+test('Teams preview escapes release text and draws the card as a chat message', () => {
+  const html = teamsPreview(
+    teamsCard(
+      teamsRelease('x', {
+        release_snapshot: {
+          project: '<script>alert(1)</script>',
+          entries: [{ vertical: 'Garage', body: '### 1. <img src=x onerror=alert(1)>' }],
+        },
+      }),
+    ),
+  );
+  assert.ok(!html.includes('<script>alert'));
+  assert.ok(!html.includes('<img src=x'));
+  assert.match(html, /&lt;img src=x/);
+  assert.match(html, /<b>Hoora Releases<\/b>/);
+  assert.match(
+    html,
+    /<a class="action positive" href="https:\/\/release\.hoora\.in\/release-notes\//,
+  );
+  assert.match(html, /<strong>Product &amp; Tech teams<\/strong>/);
+  assert.match(html, /prefers-color-scheme:dark/);
+});
+
+function teamsServer({ role = 'admin', hook } = {}) {
+  process.env.SUPABASE_URL = 'https://test.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'server';
+  if (hook === undefined) delete process.env.TEAMS_WORKFLOW_URL;
+  else process.env.TEAMS_WORKFLOW_URL = hook;
+  const sent = [];
+  globalThis.fetch = async (url, options = {}) => {
+    let data = {};
+    if (!url.startsWith('https://test.supabase.co')) {
+      sent.push({ url, body: JSON.parse(options.body) });
+      return new Response('', { status: 202 });
+    }
+    if (url.endsWith('/auth/v1/user')) data = { id: 'member' };
+    else if (url.includes('/docs_members'))
+      data = [{ id: 'member', active: true, role, password_setup_complete: true }];
+    else if (url.includes('/docs_published')) data = [teamsRelease('Admin Panel')];
+    else if (url.includes('/rpc/docs_teams_claim')) data = { ok: true };
+    else if (url.includes('/rpc/docs_teams_test_claim')) data = { ok: true, id: 't1', used: 1 };
+    else if (url.includes('/docs_teams_tests')) data = [];
+    else if (url.includes('/docs_teams_sends')) data = [];
+    return new Response(JSON.stringify(data));
+  };
+  return sent;
+}
+
+async function announce(action) {
+  const res = {
+    setHeader() {},
+    status(n) {
+      this.code = n;
+      return this;
+    },
+    json(d) {
+      this.data = d;
+    },
+  };
+  await handler(
+    {
+      method: 'POST',
+      headers: { authorization: 'Bearer s' },
+      body: { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', action },
+    },
+    res,
+  );
+  return res;
+}
+
+test('On a local copy, Test and Send post the card through the test flow, to Rahul only', async () => {
+  const original = fetch;
+  const hook =
+    'https://flow.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/abc/triggers/manual/paths/invoke?sig=secret';
+  try {
+    const sent = teamsServer({ hook });
+    const preview = await announce('preview');
+    assert.equal(preview.code, 200);
+    assert.deepEqual(preview.data.teams.everyone, { only: 'rahul@hoora.me' });
+    assert.deepEqual(preview.data.teams.tests, { used: 0, limit: 10 });
+    assert.equal(preview.data.teams.sender, 'Workflows (test flow)');
+    assert.equal(preview.data.teams.ready, true);
+    assert.ok(
+      !JSON.stringify(preview.data).includes('sig=secret'),
+      'The flow address stays on the server',
+    );
+    assert.equal(sent.length, 0, 'A preview sends nothing');
+
+    const res = await announce('teams-send');
+    assert.equal(res.code, 200);
+    assert.deepEqual(res.data.sent, ['rahul@hoora.me']);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].url, hook);
+    assert.equal(sent[0].body.type, 'message');
+    assert.match(JSON.stringify(sent[0].body), /Admin Panel/);
+    assert.ok(!JSON.stringify(sent[0].body).includes('Test message'));
+
+    // A test says so at the top of the card.
+    const test = await announce('teams-test');
+    assert.equal(test.code, 200);
+    assert.deepEqual(test.data, { sent: ['rahul@hoora.me'], failed: [], used: 1, limit: 10 });
+    assert.equal(sent.length, 2);
+    assert.equal(
+      sent[1].body.attachments[0].content.body[0].text,
+      'Test message: only you received this.',
+    );
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.TEAMS_WORKFLOW_URL;
+  }
+});
+
+test('Teams sending stays off until a Teams flow address is set', async () => {
+  const original = fetch;
+  try {
+    for (const hook of [undefined, 'http://flow.logic.azure.com/x', 'https://example.com/x']) {
+      const sent = teamsServer({ hook });
+      const preview = await announce('preview');
+      assert.equal(preview.data.teams.ready, false);
+      const res = await announce('teams-send');
+      assert.equal(res.code, 400);
+      assert.match(res.data.error, /not set up/);
+      assert.equal(sent.length, 0);
+    }
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.TEAMS_WORKFLOW_URL;
+  }
+});
+
+const tom = { name: 'Tom Sharma', email: 'tom@hoora.me' };
+const priya = { name: 'Priya Rao', email: 'priya@hoora.me' };
+const rahul = { name: 'Rahul Tripathi', email: 'rahul@hoora.me' };
+const signOffOf = (card) => card.body.at(-1).text;
+const chatOf = (card) =>
+  decodeURIComponent(JSON.stringify(card).match(/"Chat on Teams","url":"[^"]*users=([^&"]+)/)[1]);
+
+test('Teams sign-off: Rahul and Deepkumar on Customer App and Hoora on Web, plus any writer', () => {
+  for (const project of ['Customer App', 'Hoora on Web']) {
+    const page = teamsRelease(project);
+    const alone = teamsCard(page, null, releaseSigners(page));
+    assert.equal(
+      signOffOf(alone),
+      'From the desk of [Rahul Tripathi](https://rahul-tripathi.web.app/), [Deepkumar Mahajan](https://teams.microsoft.com/l/chat/0/0?users=deep%40hoora.me)',
+      project,
+    );
+    const shared = teamsCard(page, null, releaseSigners(page, [tom, rahul]));
+    assert.match(
+      signOffOf(shared),
+      /^From the desk of \[Rahul Tripathi\]\([^)]+\), \[Deepkumar Mahajan\]\([^)]+\), \[Tom Sharma\]\(https:\/\/teams\.microsoft\.com\/l\/chat\/0\/0\?users=tom%40hoora\.me\)$/,
+    );
+    // Issues and feedback go to Rahul.
+    assert.equal(chatOf(shared), 'rahul@hoora.me');
+    // Every email keeps its own sign-off.
+    assert.match(announcement(page).text, /\n\nFrom the desk of Rahul Tripathi$/);
+  }
+});
+
+test('Teams sign-off on other platforms: publisher and writers, Rahul first when he is one', () => {
+  const page = teamsRelease('Admin Panel');
+  const team = teamsCard(page, null, releaseSigners(page, [tom, priya, tom]));
+  assert.equal(
+    signOffOf(team),
+    'From the desk of [Tom Sharma](https://teams.microsoft.com/l/chat/0/0?users=tom%40hoora.me), [Priya Rao](https://teams.microsoft.com/l/chat/0/0?users=priya%40hoora.me)',
+  );
+  // Issues and feedback go to the first person, with the release typed in.
+  assert.equal(chatOf(team), 'tom@hoora.me');
+  assert.ok(JSON.stringify(team).includes('message=Admin%20Panel%20v5.13.0%3A%20'));
+
+  const withRahul = teamsCard(page, null, releaseSigners(page, [tom, priya, rahul]));
+  assert.match(
+    signOffOf(withRahul),
+    /^From the desk of \[Rahul Tripathi\]\(https:\/\/rahul-tripathi\.web\.app\/\), \[Tom Sharma\]/,
+  );
+  assert.equal(chatOf(withRahul), 'rahul@hoora.me');
+  assert.ok(!signOffOf(withRahul).includes('Deepkumar'), 'Deepkumar signs only his platforms');
+
+  // A writer without a Hoora Docs account keeps their name, without a link.
+  const old = teamsCard(page, null, releaseSigners(page, [{ name: 'Old [Writer]' }, tom]));
+  assert.match(signOffOf(old), /^From the desk of Old Writer, \[Tom Sharma\]/);
+  assert.equal(chatOf(old), 'tom@hoora.me');
+
+  // Nobody on record: no sign-off line, and feedback still reaches Rahul.
+  const none = teamsCard(page, null, releaseSigners(page));
+  assert.ok(!JSON.stringify(none).includes('From the desk of'));
+  assert.equal(chatOf(none), 'rahul@hoora.me');
 });

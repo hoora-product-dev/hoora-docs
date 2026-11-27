@@ -703,6 +703,7 @@ const announce = announceFeature({
   appApi: (...args) => appApi(...args),
   toast: (...args) => toast(...args),
   busy: (...args) => busy(...args),
+  confirm: (...args) => confirmAction(...args),
   releases: () => releaseRecords(true),
 });
 const maker = makerFeature({

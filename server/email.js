@@ -87,15 +87,11 @@ const secondaryButton = (url, label) =>
   button(url, label, { fill: '#ffffff', edge: '#d4d4d4', ink: '#111111', name: 'btn-secondary' });
 
 /**
- * Release announcement email. Tables and inline styles only, so it renders the same in
- * Outlook, Gmail and Apple Mail, and survives being copied into a new Outlook message.
- * Outlook drops the width and height of a pasted <div>, so every sized shape (the live dot,
- * the ticks, the buttons) is a table cell.
- * The <head> styles only add extras: phone sizing, dark mode and a gentle entrance
- * animation where the mail app supports it (Apple Mail, iOS Mail).
+ * What every release announcement says, by email or in Teams: the release, its date, the
+ * highlights, the links and who to contact about an issue or feedback.
  * highlights: optional [{ area, text }] written for this release.
  */
-export function announcement(page, origin = 'https://release.hoora.in', highlights) {
+export function releaseFacts(page, origin = 'https://release.hoora.in', highlights) {
   const url = origin + publishedPath(page);
   const install = origin + '/install';
   const platform = page.release_snapshot?.project || 'Hoora';
@@ -116,6 +112,50 @@ export function announcement(page, origin = 'https://release.hoora.in', highligh
       })
     : '';
   const store = STORES.find((item) => item.match.test(platform));
+  // "Issues or feedback?": Email opens a message to everyone with this release as the
+  // subject; Teams opens a chat with Rahul with the release typed in.
+  const release = `${platform} ${version}`.replace(/\s+/g, ' ').trim();
+  const feedbackEmail = `mailto:${FEEDBACK.to.join(',')}?cc=${FEEDBACK.cc.join(',')}&subject=${encodeURIComponent(`${release} - Issue or feedback`)}`;
+  const feedbackTeams = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(FEEDBACK.teams)}&message=${encodeURIComponent(`${release}: `)}`;
+  return {
+    url,
+    install,
+    platform,
+    version,
+    released,
+    points,
+    notesLabel,
+    store,
+    feedbackEmail,
+    feedbackTeams,
+    feedback: FEEDBACK,
+    signOff: SIGN_OFF,
+    author: AUTHOR,
+  };
+}
+
+/**
+ * Release announcement email. Tables and inline styles only, so it renders the same in
+ * Outlook, Gmail and Apple Mail, and survives being copied into a new Outlook message.
+ * Outlook drops the width and height of a pasted <div>, so every sized shape (the live dot,
+ * the ticks, the buttons) is a table cell.
+ * The <head> styles only add extras: phone sizing, dark mode and a gentle entrance
+ * animation where the mail app supports it (Apple Mail, iOS Mail).
+ * highlights: optional [{ area, text }] written for this release.
+ */
+export function announcement(page, origin = 'https://release.hoora.in', highlights) {
+  const {
+    url,
+    install,
+    platform,
+    version,
+    released,
+    points,
+    notesLabel,
+    store,
+    feedbackEmail,
+    feedbackTeams,
+  } = releaseFacts(page, origin, highlights);
 
   const subject = `${platform} ${version} is now live`.trim();
   const preheader = points.length
@@ -132,11 +172,7 @@ export function announcement(page, origin = 'https://release.hoora.in', highligh
     )
     .join('');
 
-  // "Issues or feedback? Let us know" with two links: Email opens a message to everyone with
-  // this release as the subject; Teams opens a chat with Rahul with the release typed in.
-  const release = `${platform} ${version}`.replace(/\s+/g, ' ').trim();
-  const feedbackEmail = `mailto:${FEEDBACK.to.join(',')}?cc=${FEEDBACK.cc.join(',')}&subject=${encodeURIComponent(`${release} - Issue or feedback`)}`;
-  const feedbackTeams = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(FEEDBACK.teams)}&message=${encodeURIComponent(`${release}: `)}`;
+  // "Issues or feedback? Let us know" with two links, Email and Teams.
   const feedbackLink = (href, label) =>
     `<td valign="middle" style="font-size:13px;line-height:20px;white-space:nowrap;${FONT}"><a href="${esc(href)}" class="ink" style="color:#111111;font-weight:600;text-decoration:none;${FONT}">${label}</a></td>`;
   // A soft strip just before the credits: the question on the left, the two links on the right.

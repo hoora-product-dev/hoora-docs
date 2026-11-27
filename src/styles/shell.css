@@ -1030,6 +1030,13 @@ body .knowledge-page-tools .btn {
 body .knowledge-page-tools .btn:first-child {
   margin-left: -10px;
 }
+/* Test on Teams and Send on Teams: two buttons in the same row, shown once allowed. */
+.knowledge-page-tools .teams-actions:not([hidden]) {
+  display: contents;
+}
+body .knowledge-page-tools .teams-actions .btn:first-child {
+  margin-left: 0;
+}
 body .knowledge-page-tools .btn:hover {
   background: var(--surface);
   color: var(--ink);
@@ -1233,6 +1240,49 @@ body .announce-subject .btn {
 @media (max-width: 640px) {
   .announce-actions,
   .announce-actions .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* Announce: the release as a Teams message, below the email. */
+.announce-teams {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+.announce-section-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.announce-section-head p {
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.announce-teams-preview {
+  min-height: 360px;
+}
+.announce-send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.announce-send .announce-hint {
+  margin: 0;
+}
+.announce-send .btn {
+  min-height: 38px;
+  gap: 6px;
+}
+.announce-send .icon svg {
+  width: 15px;
+  height: 15px;
+}
+@media (max-width: 640px) {
+  .announce-send .btn {
     flex: 1 1 auto;
   }
 }

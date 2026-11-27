@@ -25,7 +25,7 @@ http
   .createServer(async (req, res) => {
     try {
       if (
-        /^\/api\/(admin|sso|artifact|onboarding|notifications|push|content|cleanup|upcoming|assistant|ai-index|preview)(\?|$)/.test(
+        /^\/api\/(admin|sso|artifact|onboarding|notifications|push|content|cleanup|upcoming|assistant|ai-index|preview|teams)(\?|$)/.test(
           req.url,
         )
       ) {
