@@ -92,6 +92,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/teams",
+      "destination": "/api/notifications?source=teams"
+    },
+    {
       "source": "/upcoming/:slug/tickets/:key",
       "destination": "/index.html"
     },

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createSign } from 'node:crypto';
-import teamsHandler from '../api/teams.js';
 import notifications from '../api/notifications.js';
 import { resetTeamsBot, serviceAddress } from '../server/teams-bot.js';
 
@@ -173,7 +172,11 @@ function response() {
 }
 async function fromTeams(activity, authorization = token()) {
   const res = response();
-  await teamsHandler({ method: 'POST', headers: { authorization }, body: activity }, res);
+  // Teams calls /api/teams, which vercel.json routes to the notifications function.
+  await notifications(
+    { method: 'POST', query: { source: 'teams' }, headers: { authorization }, body: activity },
+    res,
+  );
   return res;
 }
 
@@ -533,4 +536,20 @@ test('When Teams does not take the message, the claim is released so it can be s
     for (const name of ['TEAMS_BOT_ID', 'TEAMS_BOT_SECRET', 'MICROSOFT_TENANT_ID'])
       delete process.env[name];
   }
+});
+
+test('The bot address /api/teams fits the Hobby plan: routed to an existing function', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const config = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.deepEqual(
+    config.rewrites.find((rule) => rule.source === '/api/teams'),
+    { source: '/api/teams', destination: '/api/notifications?source=teams' },
+  );
+  const functions = readdirSync(new URL('../api/', import.meta.url)).filter((name) =>
+    name.endsWith('.js'),
+  );
+  assert.ok(
+    functions.length <= 12,
+    `Vercel Hobby allows 12 server functions, not ${functions.length}`,
+  );
 });

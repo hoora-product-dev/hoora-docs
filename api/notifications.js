@@ -9,7 +9,7 @@ import {
   SENDER,
   FLOW_RECIPIENT,
 } from '../server/teams.js';
-import { botReady, cardMessage, sendToChat } from '../server/teams-bot.js';
+import { botReady, cardMessage, sendToChat, teamsEndpoint } from '../server/teams-bot.js';
 
 export const maxDuration = 60;
 
@@ -189,6 +189,8 @@ const testCard = (card) => ({
 // sent from here: the page shows it to copy into Outlook. The Teams message is sent from here:
 // as a test to the sender (10 a day each), or to everyone (once a day per release).
 export default async function handler(req, res) {
+  // Teams calling the Hoora Releases bot (/api/teams, routed here by vercel.json).
+  if (req.query?.source === 'teams') return teamsEndpoint(req, res, serverClient);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {

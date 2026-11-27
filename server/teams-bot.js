@@ -213,3 +213,23 @@ export function resetTeamsBot() {
   tokens.clear();
   authorities = null;
 }
+
+/**
+ * The address Teams calls for the Hoora Releases bot, https://release.hoora.in/api/teams (set
+ * in Teams Developer Portal). vercel.json routes it to the notifications function, as the
+ * Hobby plan allows 12 server functions. Only requests signed by Microsoft for this bot, from
+ * the Hoora organization, are accepted.
+ */
+export async function teamsEndpoint(req, res, call) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!botReady()) return res.status(503).json({ error: 'The Teams bot is not set up.' });
+  try {
+    const activity = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+    await verifyTeamsRequest(req.headers?.authorization, activity);
+    return res.status(200).json({ result: await handleActivity(activity, call()) });
+  } catch (error) {
+    if (!error.status || error.status >= 500) console.error('Teams bot:', error.message);
+    return res.status(error.status || 500).json({ error: error.message });
+  }
+}

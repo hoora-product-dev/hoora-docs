@@ -30,7 +30,10 @@ http
         )
       ) {
         const endpoint = new URL(req.url, 'http://localhost').pathname.split('/').at(-1);
-        const { default: handler } = await import(`../api/${endpoint}.js`);
+        // /api/teams is the Teams bot, served by the notifications function (as vercel.json does).
+        const { default: handler } = await import(
+          `../api/${endpoint === 'teams' ? 'notifications' : endpoint}.js`
+        );
         res.status = (n) => {
           res.statusCode = n;
           return res;
@@ -47,6 +50,7 @@ http
         }
         req.body = body ? JSON.parse(body) : {};
         req.query = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
+        if (endpoint === 'teams') req.query.source = 'teams';
         return await handler(req, res);
       }
       // Shared links get their preview tags, as the Vercel rewrites do in production.
