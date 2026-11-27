@@ -8,9 +8,9 @@ const MAX = 4;
 
 const instructions = `You write the "What's new" highlights for an internal Hoora release email. Hoora is an Indian car care company (doorstep car wash, servicing, accessories, roadside help).
 Rules:
-- Choose the ${MAX} most important changes for customers or the business. Prefer one per area.
+- Choose the ${MAX} most important changes for customers or the business. Prefer one per area. Always give exactly ${MAX} highlights when at least ${MAX} changes are listed, even if they are all in one area; with fewer changes, give one per change.
 - When choosing, skip purely internal or technical changes: analytics, tracking events, data fields, naming, vendor or gateway setup.
-- Write every highlight in the same pattern: a short noun phrase of 3 to 6 words, in sentence case, naming the outcome customers get. Examples: "Live activity for ongoing bookings", "Glass replacement on the home screen", "Smoother order tracking", "Automatic free roadside assistance", "Clearer e-store order status".
+- Write every highlight in the same pattern: a short noun phrase of 3 to 6 words, in sentence case, naming the outcome customers or teams get. Examples: "Live activity for ongoing bookings", "Glass replacement on the home screen", "Smoother order tracking", "Automatic free roadside assistance", "Clearer e-store order status".
 - Describe the outcome, never the task, bug or system: "Clearer order status", not "Order visibility issue"; "Faster checkout", not "Payment gateway integration". No vendor names (Cashfree, Razorpay, WebEngage) or abbreviations such as RSA, OEM, PMS, API.
 - No verbs or filler such as now, added, enabled, improved, fixed, new, introduced.
 - Never repeat a word across highlights (other than a, the, for, on, of) and never repeat the area name.
@@ -18,7 +18,8 @@ Rules:
 - No ticket keys, no emojis, no ending full stop, no internal jargon such as API or PMS unless it is the whole point.
 - Reply with JSON only: [{"area": "<area name exactly as given>", "text": "<highlight>"}]`;
 
-function parse(content, areas) {
+// need: how many highlights a good answer has (four, or every change when there are fewer).
+function parse(content, areas, need) {
   try {
     const list = JSON.parse(
       String(content)
@@ -39,7 +40,7 @@ function parse(content, areas) {
       }))
       .filter((item) => item.text)
       .slice(0, MAX);
-    return clean.length >= 2 ? clean : null;
+    return clean.length >= need ? clean : null;
   } catch {
     return null;
   }
@@ -49,7 +50,8 @@ function parse(content, areas) {
 export async function releaseHighlights(cacheKey, sections) {
   const token = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
   if (!token || !sections.length) return null;
-  const key = 'release-highlights:v2:' + cacheKey;
+  // v3: four highlights whenever a release has four changes, and the newer release formats.
+  const key = 'release-highlights:v3:' + cacheKey;
   let cache = null;
   try {
     cache = getCache();
@@ -57,6 +59,10 @@ export async function releaseHighlights(cacheKey, sections) {
     if (saved) return saved;
   } catch {}
   const areas = sections.map((section) => section.name);
+  const need = Math.min(
+    MAX,
+    sections.reduce((sum, section) => sum + section.items.length, 0),
+  );
   const titles = sections
     .map(
       (section) =>
@@ -85,7 +91,7 @@ export async function releaseHighlights(cacheKey, sections) {
       });
       if (!response.ok) continue;
       const result = await response.json();
-      const highlights = parse(result.choices?.[0]?.message?.content, areas);
+      const highlights = parse(result.choices?.[0]?.message?.content, areas, need);
       if (!highlights) continue;
       try {
         await cache?.set(key, highlights, { ttl: 60 * 60 * 24 * 30 });

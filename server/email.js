@@ -35,30 +35,94 @@ const STORES = [
   },
 ];
 
-/** The change titles in one release section: "### 3. [KEY](link) · Title" → "Title". */
+// A change is written as a numbered heading, "### 3. [KEY](link) · Title", or as a
+// paragraph that starts with its ticket, "**HADM-735 (Done) -** What changed. Why.".
+const HEADING = /^###\s+\d+\.\s*/;
+const TICKET_PARAGRAPH = /^\*\*\s*\[?[A-Z][A-Z0-9]+-\d+\]?(?:\([^)]*\))?[^*]*\*\*\s*[-–—:·]?\s*/;
+const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+
+/** Markdown and HTML entities out: the words a reader sees. */
+function plain(text) {
+  return (
+    String(text)
+      .replace(/\\([[\]()*_`#-])/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      // Markdown emphasis only; underscores inside names (app_package) stay.
+      .replace(/\*\*|`/g, '')
+      .replace(/(^|\s)[*_]|[*_](?=\s|$)/g, '$1')
+      .replace(/&(amp|lt|gt|quot|#39);/g, (entity) => ENTITIES[entity])
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+/** The first sentence of a paragraph, cut at a word when it runs long. */
+function firstSentence(text, max = 110) {
+  const sentence = text.split(/(?<=[a-z0-9)])\.\s+(?=[A-Z])/)[0].replace(/\.$/, '');
+  return sentence.length <= max ? sentence : sentence.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
+/** The change titles in one release section, in order. */
 export function changeTitles(body) {
   return String(body || '')
     .split('\n')
-    .filter((line) => /^###\s+\d+\./.test(line))
-    .map((line) =>
-      line
-        .replace(/^###\s+\d+\.\s*/, '')
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-        .replace(/^[A-Z][A-Z0-9]+-\d+\s*·\s*/, '')
-        // Markdown emphasis only; underscores inside names (app_package) stay.
-        .replace(/\*\*|`/g, '')
-        .replace(/(^|\s)[*_]|[*_](?=\s|$)/g, '$1')
-        .trim(),
-    )
+    .map((line) => line.trim())
+    .map((line) => {
+      if (HEADING.test(line))
+        return plain(line.replace(HEADING, ''))
+          .replace(/^[A-Z][A-Z0-9]+-\d+\s*[·—–:-]\s*/, '')
+          .replace(/^\[?(Fix|Bug|Feature|Enhancement|Improvement|Task|Story)\]\s*/i, '');
+      if (TICKET_PARAGRAPH.test(line))
+        return firstSentence(plain(line.replace(TICKET_PARAGRAPH, '')));
+      return '';
+    })
     .filter(Boolean);
 }
 
-/** A release's sections with their change titles, in the published order. */
+/**
+ * The bullet points under the changes: "- **Society Pack Discovery** — Customers can …" →
+ * "Society Pack Discovery". Short list items and list openers ("Added these tabs:") are skipped.
+ */
+export function changeDetails(body) {
+  return String(body || '')
+    .split('\n')
+    .filter((line) => /^\s*[-*]\s+\S/.test(line))
+    .map((line) => {
+      const text = line.replace(/^\s*[-*]\s+/, '');
+      const label = text.match(/^\*\*([^*]+)\*\*\s*[—–:-]/);
+      if (label) return plain(label[1]);
+      if (/:\s*$/.test(text)) return '';
+      const point = firstSentence(plain(text));
+      return point.split(' ').length >= 3 ? point : '';
+    })
+    .filter(Boolean);
+}
+
+/** A release's sections with their change titles and detail bullets, in the published order. */
 export function releaseSections(page) {
   return (page.release_snapshot?.entries || [])
     .map((entry) => ({
       name: entry.vertical || entry.title || 'Updates',
       items: changeTitles(entry.body),
+      details: changeDetails(entry.body),
+    }))
+    .filter((section) => section.items.length || section.details.length);
+}
+
+/**
+ * What the highlights are chosen from. Every announcement shows four points: a release with
+ * fewer than four changes also offers the bullet points written under them.
+ */
+export function highlightSections(page) {
+  const sections = releaseSections(page);
+  const changes = sections.reduce((sum, section) => sum + section.items.length, 0);
+  return sections
+    .map((section) => ({
+      name: section.name,
+      items:
+        changes >= HIGHLIGHTS
+          ? section.items
+          : [...new Set([...section.items, ...section.details])],
     }))
     .filter((section) => section.items.length);
 }
@@ -97,7 +161,10 @@ export function releaseFacts(page, origin = 'https://release.hoora.in', highligh
   const platform = page.release_snapshot?.project || 'Hoora';
   const version = page.version ? 'v' + String(page.version).replace(/^v/i, '') : '';
   const sections = releaseSections(page);
-  const points = (highlights?.length ? highlights : titleHighlights(sections)).slice(0, HIGHLIGHTS);
+  const points = (highlights?.length ? highlights : titleHighlights(highlightSections(page))).slice(
+    0,
+    HIGHLIGHTS,
+  );
   // Each highlight is one change. When the list shows only some of them, the main
   // button counts them all: "View all 40 changes".
   const total = sections.reduce((sum, section) => sum + section.items.length, 0);

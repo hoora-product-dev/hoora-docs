@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import handler from '../api/notifications.js';
 import { announcement } from '../server/email.js';
 import { releaseSigners, teamsCard, teamsPreview, teamsPayload } from '../server/teams.js';
+import { releaseHighlights } from '../server/highlights.js';
 test('Publishers and viewers cannot preview or draft announcements', async () => {
   process.env.SUPABASE_URL = 'https://test.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'server';
@@ -525,4 +526,87 @@ test('Teams sign-off on other platforms: publisher and writers, Rahul first when
   const none = teamsCard(page, null, releaseSigners(page));
   assert.ok(!JSON.stringify(none).includes('From the desk of'));
   assert.equal(chatOf(none), 'rahul@hoora.me');
+});
+test('Every announcement shows four points, whichever way the release is written', () => {
+  const card = (body) =>
+    teamsCard({
+      slug: 'release',
+      kind: 'release',
+      version: '5.12.0',
+      published_at: '2026-11-19',
+      release_snapshot: { project: 'Admin Panel', entries: [{ vertical: 'Auto Care', body }] },
+    });
+  // The card's "What's new" rows: a ✓ column, then the point and its area.
+  const points = (built) =>
+    built.body
+      .filter((row) => row.type === 'ColumnSet' && row.columns[0].items[0].text === '✓')
+      .map((row) => row.columns[1].items[0].text);
+  // One paragraph per change, each starting with its ticket.
+  const paragraphs = card(
+    [
+      '# Release Notes – 5.12.0',
+      '## HADM – Admin Panel &amp; Operations',
+      ...[1, 2, 3, 4, 5].map(
+        (n) => `**HADM-${n} (Done) -** Change **number ${n}** shipped. More detail follows here.`,
+      ),
+    ].join('\n\n'),
+  );
+  const fromParagraphs = facts(paragraphs);
+  assert.equal(fromParagraphs.points.length, 4);
+  assert.equal(fromParagraphs.points[0], 'Change number 1 shipped');
+  assert.equal(fromParagraphs.notes, 'View all 5 changes');
+  // One change with its bullet points: the bullets fill the card up to four.
+  const bullets = facts(
+    card(
+      [
+        '### 1. [HOW-81](https://x.test/HOW-81) · Exclusive for Society Residents',
+        '- **Society Pack Discovery** — Customers can see society pricing.',
+        '- **Society Recommendation** — Recommend a society that is not listed.',
+        '- Added these tabs:',
+        '- Address',
+        '- Faster booking for residents of listed societies.',
+      ].join('\n'),
+    ),
+  );
+  assert.deepEqual(bullets.points, [
+    'Exclusive for Society Residents',
+    'Society Pack Discovery',
+    'Society Recommendation',
+    'Faster booking for residents of listed societies',
+  ]);
+  assert.equal(bullets.notes, 'View release notes');
+  // Ticket keys, escaped brackets and entities stay out of the points.
+  const titled = facts(card('### 1. HOW-144 — \[Fix\] Privacy Policy &amp; Terms'));
+  assert.equal(titled.points[0], 'Privacy Policy & Terms');
+  function facts(built) {
+    const text = JSON.stringify(built);
+    return { points: points(built), notes: text.match(/"title":"(View[^"]+)"/)?.[1] };
+  }
+});
+test('Written highlights must cover four changes when the release has four', async () => {
+  process.env.AI_GATEWAY_API_KEY = 'test';
+  const original = fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    // The first model answers with two highlights, the second with four.
+    const list = Array.from({ length: calls === 1 ? 2 : 4 }, (_, i) => ({
+      area: 'Auto Care',
+      text: `Highlight ${i + 1}`,
+    }));
+    return new Response(
+      JSON.stringify({ choices: [{ message: { content: JSON.stringify(list) } }] }),
+    );
+  };
+  try {
+    const sections = [
+      { name: 'Auto Care', items: ['A one', 'B two', 'C three', 'D four', 'E five'] },
+    ];
+    const highlights = await releaseHighlights('test:' + Date.now(), sections);
+    assert.equal(calls, 2, 'Two highlights for five changes is not enough');
+    assert.equal(highlights.length, 4);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.AI_GATEWAY_API_KEY;
+  }
 });

@@ -1,5 +1,5 @@
 import { serverClient, requireMember } from '../server/supabase.js';
-import { announcement, releaseSections } from '../server/email.js';
+import { announcement, highlightSections } from '../server/email.js';
 import { releaseHighlights } from '../server/highlights.js';
 import {
   releaseSigners,
@@ -220,7 +220,7 @@ export default async function handler(req, res) {
     // Short written highlights, cached per published version of the release.
     const highlights = await releaseHighlights(
       `${page.id}:${page.updated_at || page.published_at || ''}`,
-      releaseSections(page),
+      highlightSections(page),
     );
     const email = announcement(page, origin, highlights);
     const card = teamsCard(
